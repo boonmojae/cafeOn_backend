@@ -56,7 +56,7 @@ Organization에는 `frontend`와 `backend`가 분리되어 있으며, 본 레포
   - OAuth2(kakao, google)
 - Build/Deploy
   - Gradle
-  - Github Actions(CI)
+  - GitHub Actions(CI)
   - (AWS EC2/RDS/S3/ALB)
 - Test
   - Spring REST Docs(or OpenAPI/Swagger)
@@ -146,20 +146,20 @@ backend/
 ## 5) 데이터 모델 가이드(핵심 컬럼)
 > 실제 DDL은 /docs/schema.sql
 ### (1) User
-- `id (PK, UUID)`, `email (UNIQUE)`, `password`, `nickname`, `status (ACTIVE/DELETED)`, `role (USER/ADMIN)`
+- `id (PK, CHAR(36))`, `email (UNIQUE)`, `password`, `nickname`, `status (ACTIVE/DELETED)`, `role (USER/ADMIN)`
 - `provider (LOCAL/GOOGLE/KAKAO)`, `provider_id`
-- `preference_keywords (jsonb)`, `penalty_count (int, default 0)`
+- `preference_keywords (JSON)`, `penalty_count (int, default 0)`
 - `created_at`, `updated_at`, `deleted_at (nullable)`
 ### (2) Auth & Token
 - JWT Access/Refresh는 서버 저장 없이 stateless가 원칙
 - 선택) Refresh 블랙리스트/세션 추적은 Redis 사용: `refresh:{userId} -> token`
-### (3) Cafe / Tag / Wishlish
-- `cafe` : `id`, `name`, `address`, `latitude`, `longitude`, `open_hours`, `phone`, `menu(jsonb)`, `photos(jsonb)`, `view_count`, `created_at`
+### (3) Cafe / Tag / Wishlist
+- `cafe` : `id`, `name`, `address`, `latitude`, `longitude`, `open_hours`, `phone`, `menu(JSON)`, `photos(JSON)`, `view_count`, `created_at`
 - `tag` : `id`, `name`
 - `cafe_tag` : `(cafe_id, tag_id)` 복합 PK
 - `withlist` : `(user_id, cafe_id)` + `wishlist_type (BASIC/SPECIAL)`, `created_at`
 ### (4) Review
--  `id`, `user_id`, `cafe_id`, `rating(int 1~5)`, `content`, `images(jsonb)`, `created_at`, `updated_at`, `status(ACTIVE/DELETED)`
+-  `id`, `user_id`, `cafe_id`, `rating(int 1~5)`, `content`, `images(JSON)`, `created_at`, `updated_at`, `status(ACTIVE/DELETED)`
 ### (5) Chat
 - `chatroom` : `id`, `cafe_id`, `name`, `max_capacity`, `created_at`
 - `chat_membership` : `(chatroom_id, user_id)` 복합 PK
@@ -171,7 +171,7 @@ backend/
 
 ## 6) 인증/인가 설계
 ### (1) 로컬 로그인
-```pgsql
+```sql
 POST /api/auth/login
 -> { email, password }
 <- { accessToken, refreshToken, user }
@@ -180,7 +180,7 @@ POST /api/auth/login
 - 프론트에서 `/oauth2/authorization/{provider}`로 리다이렉트
 - 콜백: `/login/oauth2/code/{provider}`-> 서버에서 토큰 교환 -> User 매핑(존재하지 않으면 가입) -> JWT 발급
 ### (3) 토큰 갱신
-```pgsql
+```sql
 POST /api/auth/refresh
 -> { refreshToken }
 <- { accessToken, refreshToken }
@@ -326,15 +326,17 @@ curl "http://localhost:8080/api/cafes?query=성수&tags=디저트,루프탑&sort
 ```sql
 -- USER
 CREATE TABLE user (
-    id UUID primary key,
+    user_id CHAR(36) primary key,   -- CHAR(36) 문자열을 그대로 저장(32자리+하이픈4개=총36자)
     email VARCHAR(255) UNIQUE not null,
     password VARCHAR(255),
     nickname VARCHAR(50),
-    status VARCHAR(16) not null DEFAULT 'ACTIVE',
-    role VARCHAR(16) not null DEFAULT 'USER',
-    provider VARCHAR(16) not null DEFAULT 'LOCAL',
+    profile_image JSON,
+    status ENUM('ACTIVE', 'SUSPENDED', 'DELETED') not null DEFAULT 'ACTIVE',
+    role ENUM('USER', 'ADMIN') not null DEFAULT 'USER',
+    provider ENUM('LOCAL', 'KAKAO', 'GOOGLE', 'NAVER') not null DEFAULT 'LOCAL',
     provider_id VARCHAR(255),
-    preference_keywords jsonb,
+    preference_keywords JSON,
+    refresh_token VARCHAR(512),
     penalty_count INT not null DEFAULT 0,
     created_at TIMESTAMP not null DEFAULT now(),
     updated_at TIMESTAMP not null DEFAULT now(),
@@ -343,94 +345,109 @@ CREATE TABLE user (
 
 -- CAFE
 CREATE TABLE cafe (
-    id BIGSERIAL primary key,
+    id INT primary key AUTO_INCREMENT,
     name VARCHAR(200) not null,
     address VARCHAR(300),
-    latitude double precision,
-    longitude double precision,
-    open_hours jsonb,
+    latitude double,
+    longitude double,
+    open_hours JSON,
     phone VARCHAR(50),
-    menu jsonb,
-    photos jsonb,
-    view_count BIGINT not null default 0,
+    menu JSON,
+    photos JSON,
+    view_count INT not null default 0,
     created_at TIMESTAMP not null DEFAULT now()
 );
 
 -- TAG
 CREATE TABLE tag (
-    id BIGSERIAL primary key,
+    id INT primary key AUTO_INCREMENT,
     name VARCHAR(50) UNIQUE not null
 );
 
 CREATE TABLE cafe_tag (
-    cafe_id BIGINT not null REFERENCES cafe(id) ON DELETE CASCADE,
-    tag_id BIGINT not null REFERENCES tag(id) ON DELETE CASCADE,
-    primary key (cafe_id, tag_id)
+    cafe_id INT not null,
+    tag_id INT not null,
+    FOREIGN KEY (cafe_id) REFERENCES cafe(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE,
+    PRIMARY KEY (cafe_id, tag_id)
 );
 
 -- WISHLIST
 CREATE TABLE wishlist (
-    user_id UUID not null REFERENCES user(id) ON DELETE CASCADE,
-    cafe_id BIGINT not null REFERENCES cafe(id) ON DELETE CASCADE,
+    user_id CHAR(36) not null,
+    cafe_id INT not null,
     withlist_type VARCHAR(16) not null DEFAULT 'BASIC',
     created_at TIMESTAMP not null DEFAULT now(),
-    primary key (user_id, cafe_id)
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (cafe_id) REFERENCES cafe(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, cafe_id)
 );
 
 -- REVIEW
 CREATE TABLE review (
-    id BIGSERIAL primary key,
-    user_id UUID not null REFERENCES user(id) ON DELETE CASCADE,
-    cafe_id BIGINT not null REFERENCES cafe(id) ON DELETE CASCADE,
+    id INT primary key AUTO_INCREMENT,
+    user_id CHAR(36) not null,
+    cafe_id INT not null,
     rating INT not null check (rating BETWEETn 1 AND 5),
     content TEXT,
-    images jsonb,
+    images JSON,
     status VARCHAR(16) not null DEFAULT 'ACTIVE',
     created_at TIMESTAMP not null DEFAULT now(),
-    updated_at TIMESTAMP not null DEFAULT now()
+    updated_at TIMESTAMP not null DEFAULT now(),
+    FOREIGN KEY user_id REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY cafe_id REFERENCES cafe(id) ON DELETE CASCADE
 );
 
 -- CHAT
 CREATE TABLE chatroom (
-    id BIGSERIAL primary key,
-    cafe_id BIGINT REFERENCES cafe(id) ON DELETE SET NULL,
+    id INT primary key AUTO_INCREMENT,
+    cafe_id INT,
     name VARCHAR(100) not null,
     max_capacity INT not null default 100,
-    created_at TIMESTAMP not null DEFAULT now()
+    created_at TIMESTAMP not null DEFAULT now(),
+    FOREIGN KEY cafe_id REFERENCES cafe(id) ON DELETE SET NULL
 );
 
 CREATE TABLE chat_message (
-    id BIGSERIAL primary key,
-    chatroom_id BIGINT not null REFERENCES chatroom(id) ON DELETE CASCADE,
-    user_id UUID not null REFERENCES user(id) ON DELETE SET NULL,
+    id INT primary key AUTO_INCREMENT,
+    chatroom_id INT not null,
+    user_id CHAR(36) not null,
     type VARCHAR(16) not null,
     payload TEXT not null,
-    created_at TIMESTAMP not null DEFAULT now()
+    created_at TIMESTAMP not null DEFAULT now(),
+    FOREIGN KEY chatroom_id REFERENCES chatroom(id) ON DELETE CASCADE,
+    FOREIGN KEY user_id REFERENCES user(id) ON DELETE SET NULL
 );
 
 -- COMMUNITY
 CREATE TABLE post (
-    id BIGSERIAL primary key,
-    user_id UUID not null REFERENCES user(id) ON DELETE SET NULL,
+    id INT primary key AUTO_INCREMENT,
+    user_id CHAR(36) not null,
     title VARCHAR(200) not null,
     content TEXT not null,
     status VARCHAR(16) not null DEFAULT 'ACTIVE',
     created_at TIMESTAMP not null DEFAULT now(),
-    updated_at TIMESTAMP not null DEFAULT now()
+    updated_at TIMESTAMP not null DEFAULT now(),
+    FOREIGN KEY user_id REFERENCES user(id) ON DELETE SET NULL
 );
 
 CREATE TABLE comment (
-    id BIGSERIAL primary key,
-    post_id BIGINT not null REFERENCES post(id) ON DELETE CASCADE,
-    user_id UUID not null REFERENCES user(id) ON DELETE SET NULL,
-    parent_id BIGINT REFEREnCES comment(id) ON DELETE CASCADE,
+    id INT primary key AUTO_INCREMENT,
+    post_id INT not null,
+    user_id CHAR(36) not null,
+    parent_id INT,
     content TEXT not null,
-    created_at TIMESTAMP not null DEFAULT now()
+    created_at TIMESTAMP not null DEFAULT now(),
+    FOREIGN KEY post_id REFERENCES post(id) ON DELETE CASCADE,
+    FOREIGN KEY user_id REFERENCES user(id) ON DELETE SET NULL,
+    FOREIGN KEY parent_id REFERENCES comment(id) ON DELETE CASCADE
 );
 
 CREATE TABLE post_like (
-    post_id BIGINT not null REFERENCES post(id) ON DELETE CASCADE,
-    user_id UUID not null REFERENCES user(id) ON DELETE CASCADE,
-    primary key (post_id, user_id)
+    post_id INT not null,
+    user_id CHAR(36) not null,
+    primary key (post_id, user_id),
+    FOREIGN KEY post_id REFERENCES post(id) ON DELETE CASCADE,
+    FOREIGN KEY user_id REFERENCES user(id) ON DELETE CASCADE
 );
 ```
