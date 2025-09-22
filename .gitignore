@@ -1,0 +1,17 @@
+### IntelliJ IDEA ###
+.idea/
+*.iml
+out/
+*.ipr
+*.iws
+
+### Gradle ###
+.gradle/
+build/
+
+### Logs ###
+*.log
+
+### OS Files ###
+.DS_Store
+Thumbs.db
