@@ -1,0 +1,25 @@
+CREATE DATABASE IF NOT EXISTS cafeOn
+    DEFAULT CHARACTER SET utf8
+    DEFAULT COLLATE utf8_general_ci;
+
+USE cafeOn;
+
+CREATE TABLE IF NOT EXISTS user(
+    user_id CHAR(36) PRIMARY KEY,   -- UUID
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255),
+    nickname VARCHAR(50),
+    profile_image JSON,
+    status ENUM('ACTIVE', 'SUSPENDED', 'DELETED') NOT NULL DEFAULT 'ACTIVE',
+    role ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',
+    provider ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER') NOT NULL DEFAULT 'LOCAL',
+    provider_id VARCHAR(255),
+    preference_keywords JSON,
+    refresh_token VARCHAR(512),
+    penalty_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL
+);
+
+DESC user;

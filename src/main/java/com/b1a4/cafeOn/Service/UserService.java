@@ -14,6 +14,18 @@ public class UserService {
 
 //    1. 회원가입
     public UserEntity create(final UserEntity userEntity) {
+//        1-1. 유효성 검사: userEntity 혹은 email이 null인 경우 예외 던짐
+        if (userEntity == null || userEntity.getEmail() == null) {
+            throw new RuntimeException("UserEntity 혹은 email이 null임");
+        }
+        final String email = userEntity.getEmail();
 
+//        1-2. 유효성 검사: 이메일이 이미 존재하는 경우 예외를 던짐 (email필드는 unique해야 하므로)
+        if (userRepository.existsByEmail(email)) {
+            log.warn("Email already exists {}", email);
+            throw new RuntimeException("이메일이 이미 존재함");
+        }
+
+        return userRepository.save(userEntity); // UserEntity를 DB에 저장
     }
 }
