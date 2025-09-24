@@ -1,11 +1,15 @@
 package com.b1a4.cafeOn.Security;
 
+import com.b1a4.cafeOn.Config.jwt.JwtProperties;
 import com.b1a4.cafeOn.Entity.UserEntity;
+import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -16,8 +20,12 @@ import java.util.Map;
 @Service    // 서비스계층 컴포넌트로 등록해서 다른 곳에서 주입받아서 쓰기 위함
 @Slf4j
 public class TokenProvider {
-//    [before] JWT 서명에 사용되는 비밀키 (일단은 하드코딩, TODO 나중에 [after]로 바꿀예정)
-    private static final String SECRET_KEY = "cafe-on-kimdoi1004";
+//    [before] JWT 서명에 사용되는 비밀키 (일단은 하드코딩 했지만, [after]로 바꾸었음)
+//    private static final String SECRET_KEY = "cafe-on-kimdoi1004";
+
+//    [after] JwtProperties 클래스 이용해 설정 파일 값 불러오기
+    @Autowired
+    private JwtProperties jwtProperties;
 
 //    Access, Refresh Token 둘 다 발급 (로그인 시)
     public Map<String, String> issueTokens(UserEntity userEntity) {
@@ -34,7 +42,7 @@ public class TokenProvider {
 
 //        JWT 토큰 생성
         return Jwts.builder()   // jwt header(암호화 알고리즘, 타입) 에 들어갈 내용 및 서명하기 위한 SECRET KEY
-                .signWith(SignatureAlgorithm.HS512, SECRET_KEY) // HMAC(Hash-based Message Authentication Code)-SHA512 알고리즘
+                .signWith(SignatureAlgorithm.HS512, jwtProperties.getSecretKey()) // HMAC(Hash-based Message Authentication Code)-SHA512 알고리즘
                 .setSubject(String.valueOf(userEntity.getUserId())) // sub: 토큰제목(여기서는 userId)
                 .setIssuer("cafeOn")                                // iss: 토큰 발급자
                 .setIssuedAt(new Date())                            // iat: 토큰이 발급된 시간
@@ -45,11 +53,23 @@ public class TokenProvider {
     private String issueRefreshToken(UserEntity userEntity) {   // Refresh Token 발급 (토큰 갱신 시)
         Date expiryDate = Date.from(Instant.now().plus(14, ChronoUnit.DAYS));   // 14일 뒤 만료
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS512, SECRET_KEY)
+                .signWith(SignatureAlgorithm.HS512, jwtProperties.getSecretKey())
                 .setSubject(userEntity.getUserId())
                 .setIssuer("cafeOn")
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
                 .compact();
+    }
+    
+//    토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
+//    => 클라이언트가 보낸 토큰이 유효한지 검증하고, userId를 반환함
+    public String validateAndGetUserId(String token) {
+//        parseClaimsJwts메소드가 Base64로 디코딩 및 파싱
+//        - header, payload를 setSigningKey로 넘어온 SECRET KEY를 사용해 서명한 후, token의 서명과 비교
+//        - 서명이 위조되거나 만료된 토큰이라면 -> 예외 발생
+//        - 위조되지 않았다면 페이로드(Claims) 리턴
+        Claims claims = Jwts.parser()
+                .setSigningKey(jwtProperties.getSecretKey())    // 서명 검증에 사용할 비밀키 지정
+                .
     }
 }
