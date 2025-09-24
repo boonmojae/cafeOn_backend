@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.Controller;
 
 // ✅ Spring MVC
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;  // 스프링 것만 import
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class UserController {
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
 //    1. 회원가입
     @Operation(
@@ -126,11 +130,16 @@ public class UserController {
             UUID uuid = UUID.randomUUID();
             System.out.println("생성된 UUID: "+uuid.toString());   // UUID 확인용 출력
 
+//            1-1-2. 비밀번호 암호화
+            System.out.println("입력받은 비밀번호: "+userDTO.getPassword());
+            String encryptedPassword = passwordEncoder.encode(userDTO.getPassword()); // 암호화된 비밀번호 생성
+            System.out.println("암호화된 비밀번호: "+ encryptedPassword);
+
 //            1-2. 요청 본문과 생성한 UUID를 이용해 저장할 사용자 만들기
             UserEntity user = UserEntity.builder()
 //                    유저의 입력으로 DTO를 통해 전달받은 값들로 부여
                     .email(userDTO.getEmail())
-                    .password(userDTO.getPassword())    // todo: 패스워드 암호화 추가 필요
+                    .password(encryptedPassword)    // 1-1-2에서 암호화된 비밀번호
                     .nickname(userDTO.getNickname())
 //                    여기부턴 서버에서 자동으로 처리해야 할 값들로 부여
                     .userId(uuid.toString())    // 위에서 생성한 uuid값
@@ -247,7 +256,8 @@ public class UserController {
                             }
                     )
             )
-            @RequestBody UserDTO userDTO) {
+            @RequestBody UserDTO userDTO)
+    {
         UserEntity user = userService.getByCredentials( // 사용자 인증하는 메서드
                 userDTO.getEmail(), userDTO.getPassword()
 //                ,passwordEncoder  // todo: BCrypt 패스워드인코더 추가하고 주석 살리기
