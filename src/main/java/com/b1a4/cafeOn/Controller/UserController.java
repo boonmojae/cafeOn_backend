@@ -45,7 +45,7 @@ public class UserController {
                             schema = @Schema(implementation = com.b1a4.cafeOn.DTO.UserDTO.class),
                             examples = {
                                     @ExampleObject(
-                                            name = "요청 예시",
+                                            name = "회원가입 요청 예시",
                                             value = """
                         {
                           "email": "user@example.com",
@@ -106,7 +106,7 @@ public class UserController {
                             ),
                             examples = {
                                     @io.swagger.v3.oas.annotations.media.ExampleObject(
-                                            name = "요청 예시",
+                                            name = "회원가입 요청 예시",
                                             value = """
                     {
                       "email": "user@example.com",
@@ -119,7 +119,7 @@ public class UserController {
                     )
             )
             // 🔹 스프링 RequestBody는 import한 걸로
-            @RequestBody com.b1a4.cafeOn.DTO.UserDTO userDTO)
+            @RequestBody UserDTO userDTO)
     {
         try {
 //            1-1. userId가 될 UUID 생성
@@ -164,6 +164,126 @@ public class UserController {
                     .build();
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+//    2. 로그인
+    @Operation(
+            summary = "로그인",
+            description = "이메일/비밀번호로 로그인.",
+            // ⬇️ 스웨거 RequestBody는 여기(메서드 수준)에 넣기
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            schema = @Schema(implementation = com.b1a4.cafeOn.DTO.UserDTO.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "로그인 요청 예시",
+                                            value = """
+                            {
+                              "email": "user@example.com",
+                              "password": "P@ssw0rd!"
+                            }
+                            """
+                                    )
+                            }
+                    )
+            )
+    )
+    @ApiResponses({
+            // ⬇️ 스웨거 @ApiResponse는 FQN로만(팀 규칙)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그인 성공",
+                    content = @Content(
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 응답 예시",
+                                            value = """
+                            {
+                              "message": "로그인 성공",
+                              "data": {
+                                "token": "JWT-token",
+                                "refreshToken": "refresh-token"
+                              }
+                            }
+                            """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청",
+                    content = @Content(
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = "{ \"message\": \"로그인 실패: 이메일 또는 비밀번호가 일치하지 않습니다.\", \"data\": null }"
+                                    )
+                            }
+                    )
+            )
+    })
+    @PostMapping("/login")
+    public ResponseEntity<?> login(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @io.swagger.v3.oas.annotations.media.Content(
+                            mediaType = org.springframework.http.MediaType.APPLICATION_JSON_VALUE,
+                            schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                    implementation = com.b1a4.cafeOn.DTO.UserDTO.class
+                            ),
+                            examples = {
+                                    @io.swagger.v3.oas.annotations.media.ExampleObject(
+                                            name = "로그인 요청 예시",
+                                            value = """
+                                                    {
+                                                        "email": "user@example.com",
+                                                        "password": "P@ssw0rd!"
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+            @RequestBody UserDTO userDTO) {
+        UserEntity user = userService.getByCredentials( // 사용자 인증하는 메서드
+                userDTO.getEmail(), userDTO.getPassword()
+//                ,passwordEncoder  // todo: BCrypt 패스워드인코더 추가하고 주석 살리기
+        );
+
+        if (user != null) { // DB에서 해당 email, password가 일치하는 유저가 있으면,
+//            로그인 검사 통과!
+//            [before]
+            final UserDTO responseUserDTO = UserDTO.builder()
+                    .email(user.getEmail())
+                    .userId(user.getUserId())
+                    .build();
+//            todo: JWT-token, refreshToken 도 전달할 수 있는 ResponseDTO 만들어서 추가해야할듯(?)
+
+            ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
+                    .message("로그인 성공")
+                    .data(responseUserDTO)
+                    .build();
+
+//            [after] JWT 적용 후
+//            final String token = tokenProvider.create(user);
+//            final UserDTO responseUserDTO = UserDTO.builder()
+//                    .email(user.getEmail())
+//                    .userId(user.getUserId())
+//                    .token(token)   // 토큰 설정
+//                    .build();
+
+//            todo: [응답값] token: "JWT-token", refreshToken: "refresh-token", message: "로그인 성공"
+            return ResponseEntity.ok().body(response);
+        } else {
+//            로그인 검사 실패! (해당 유저가 존재하지 않았으므로)
+            ApiResponse<Void> response = ApiResponse.<Void>builder()
+                    .message("로그인 실패")
+                    .build();
+
+            return ResponseEntity.badRequest().body(response);
         }
     }
 }

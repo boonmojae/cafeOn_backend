@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 @Slf4j
 @Service
 public class UserService {
@@ -27,5 +29,13 @@ public class UserService {
         }
 
         return userRepository.save(userEntity); // UserEntity를 DB에 저장
+    }
+
+//    2. 로그인(인증)
+    public UserEntity getByCredentials(final String email,
+                                       final String password) {
+//                                       final PasswordEncoder encoder) {
+//        DB에서 해당 email, password가 일치하는 유저가 있는지를 조회
+        return userRepository.findByEmailAndPassword(email, password);  // 있으면 UserEntity, 없으면 null 반환
     }
 }
