@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
-import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import java.util.Arrays;
 
@@ -23,6 +23,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity  // Spring Security 활성화
 @Slf4j
 public class SecurityConfig {
+
     @Bean   // Bean으로 등록했기때문에, 스프링이 PasswordEncoder 객체를 관리해서,
     // 다른곳에서 @Autowired PasswordEncoder passwordEncoder 선언 시, 스프링이 컨테이너 안의 이 Bean(BcryptPasswordEncoder)을 자동으로 찾아 주입함
     public PasswordEncoder passwordEncoder() {
@@ -41,7 +42,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
 //        todo: filter 등록: 매 요청마다 CorsFilter를 실행한 후에 -> JwtAuthenticationFilter를 실행되게 순서 세팅
-//        http.addFilterAfter(jwtAuthenticationFilter, CorsFilter.class);
+        http.addFilterAfter(jwtAuthenticationFilter, CorsFilter.class);
 
         return http.build();
     }

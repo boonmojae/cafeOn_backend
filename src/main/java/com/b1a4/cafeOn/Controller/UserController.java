@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.Controller;
 
 // ✅ Spring MVC
+import com.b1a4.cafeOn.Security.TokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;  // 스프링 것만 import
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ import com.b1a4.cafeOn.Enum.UserStatus;
 import com.b1a4.cafeOn.Service.UserService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Map;
 import java.util.UUID;  // java에서 제공하는 UUID 클래스
 
 // ===== Swagger/OpenAPI =====
@@ -34,6 +36,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class UserController {
     @Autowired
     private UserService userService;
+    
+//    [after] JWT 적용
+    @Autowired
+    private TokenProvider tokenProvider;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -176,7 +182,7 @@ public class UserController {
         }
     }
 
-//    2. 로그인
+//    2. 로그인(JWT 적용)
     @Operation(
             summary = "로그인",
             description = "이메일/비밀번호로 로그인.",
@@ -264,27 +270,21 @@ public class UserController {
 
         if (user != null) { // DB에서 해당 email, password가 일치하는 유저가 있으면,
 //            로그인 검사 통과!
-//            [before]
+//            [after] JWT 적용 후
+            final Map<String, String> token = tokenProvider.issueTokens(user);    // JWT Access 토큰 발급
+
             final UserDTO responseUserDTO = UserDTO.builder()
-                    .email(user.getEmail())
-                    .userId(user.getUserId())
+                    .token(token.get("accessToken"))   // 발급한 JWT Access 토큰
+                    .refreshToken(token.get("refreshToken"))    // 발급한 JWT Refresh 토큰
                     .build();
-//            todo: JWT-token, refreshToken 도 전달할 수 있는 ResponseDTO 만들어서 추가해야할듯(?)
 
             ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
                     .message("로그인 성공")
                     .data(responseUserDTO)
                     .build();
 
-//            [after] JWT 적용 후
-//            final String token = tokenProvider.create(user);
-//            final UserDTO responseUserDTO = UserDTO.builder()
-//                    .email(user.getEmail())
-//                    .userId(user.getUserId())
-//                    .token(token)   // 토큰 설정
-//                    .build();
+//            System.out.println("[UserController.login()] response: "+response);   // 응답값 확인용 출력
 
-//            todo: [응답값] token: "JWT-token", refreshToken: "refresh-token", message: "로그인 성공"
             return ResponseEntity.ok().body(response);
         } else {
 //            로그인 검사 실패! (해당 유저가 존재하지 않았으므로)
