@@ -259,8 +259,7 @@ public class UserController {
             @RequestBody UserDTO userDTO)
     {
         UserEntity user = userService.getByCredentials( // 사용자 인증하는 메서드
-                userDTO.getEmail(), userDTO.getPassword()
-//                ,passwordEncoder  // todo: BCrypt 패스워드인코더 추가하고 주석 살리기
+                userDTO.getEmail(), userDTO.getPassword(),passwordEncoder
         );
 
         if (user != null) { // DB에서 해당 email, password가 일치하는 유저가 있으면,
