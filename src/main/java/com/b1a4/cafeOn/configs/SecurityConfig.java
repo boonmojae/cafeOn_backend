@@ -35,6 +35,7 @@ public class SecurityConfig {
     }
 
     @Bean
+//    Spring Security가 보안필터체인(Security Filter Chain)을 구성함
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.cors(withDefaults())   // cors 기본으로 설정
                 .csrf(CsrfConfigurer::disable)  // csrf(공격 종류 중 1. 크로스사이트 요청위조 공격)를 disable 설정
@@ -45,10 +46,11 @@ public class SecurityConfig {
                         .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
-//        filter 등록: 매 요청마다 CorsFilter를 실행한 후에 -> JwtAuthenticationFilter{}를 실행되게 순서 세팅
+//        filter 등록: 매 요청마다 (1)CorsFilter를 실행한 후에 -> (2)JwtAuthenticationFilter{}를 실행되게 순서 세팅
         http.addFilterAfter(jwtAuthenticationFilter, CorsFilter.class);
 
-        return http.build();
+        return http.build();    // 앱 시작 시 한 번 호출되어 "필터 체인 구성"만 함
+//        @Bean메서드에서 완성된 SecurityFilterChain 빈을 반환해야 하기 때문에, 이 반환값을 스프링이 받아서 보안 필터링의 기준으로 사용
     }
 
 //    cors 설정

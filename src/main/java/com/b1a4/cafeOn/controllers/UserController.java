@@ -182,6 +182,7 @@ public class UserController {
         }
     }
 
+
 //    2. 로그인(JWT 적용)
     @Operation(
             summary = "로그인",
@@ -272,10 +273,10 @@ public class UserController {
 //            로그인 검사 통과!
 //            [after] JWT 적용 후
             final Map<String, String> token = tokenProvider.issueTokens(user);    // JWT Access 토큰 발급
-
+            
             final UserDTO responseUserDTO = UserDTO.builder()
-                    .token(token.get("accessToken"))   // 발급한 JWT Access 토큰
-                    .refreshToken(token.get("refreshToken"))    // 발급한 JWT Refresh 토큰
+                    .token(token.get("accessToken"))   // 발급한 JWT Access 토큰 설정
+                    .refreshToken(token.get("refreshToken"))    // 발급한 JWT Refresh 토큰 설정
                     .build();
 
             ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
@@ -295,4 +296,6 @@ public class UserController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    
 }
