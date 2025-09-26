@@ -1,6 +1,6 @@
-package com.b1a4.cafeOn.Entity;
+package com.b1a4.cafeOn.entity;
 
-import com.b1a4.cafeOn.Enum.PostType;
+import com.b1a4.cafeOn.enums.PostType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

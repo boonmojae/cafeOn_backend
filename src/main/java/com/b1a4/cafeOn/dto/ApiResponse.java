@@ -1,4 +1,4 @@
-package com.b1a4.cafeOn.DTO;
+package com.b1a4.cafeOn.dto;
 
 import lombok.Builder;
 import lombok.Data;

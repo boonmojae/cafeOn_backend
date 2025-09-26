@@ -1,4 +1,4 @@
-package com.b1a4.cafeOn.Repository;
+package com.b1a4.cafeOn.repositories;
 
 import com.b1a4.cafeOn.Entity.PostEntity;
 import org.springframework.data.jpa.repository.JpaRepository;

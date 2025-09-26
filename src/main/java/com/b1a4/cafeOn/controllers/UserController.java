@@ -1,21 +1,24 @@
-package com.b1a4.cafeOn.Controller;
+package com.b1a4.cafeOn.controllers;
 
 // ✅ Spring MVC
+import com.b1a4.cafeOn.security.TokenProvider;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;  // 스프링 것만 import
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import com.b1a4.cafeOn.DTO.ApiResponse;
-import com.b1a4.cafeOn.DTO.UserDTO;
-import com.b1a4.cafeOn.Entity.UserEntity;
-import com.b1a4.cafeOn.Enum.UserProvider;
-import com.b1a4.cafeOn.Enum.UserRole;
-import com.b1a4.cafeOn.Enum.UserStatus;
-import com.b1a4.cafeOn.Service.UserService;
+import com.b1a4.cafeOn.dto.ApiResponse;
+import com.b1a4.cafeOn.dto.UserDTO;
+import com.b1a4.cafeOn.entity.UserEntity;
+import com.b1a4.cafeOn.enums.UserProvider;
+import com.b1a4.cafeOn.enums.UserRole;
+import com.b1a4.cafeOn.enums.UserStatus;
+import com.b1a4.cafeOn.services.UserService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Map;
 import java.util.UUID;  // java에서 제공하는 UUID 클래스
 
 // ===== Swagger/OpenAPI =====
@@ -33,6 +36,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class UserController {
     @Autowired
     private UserService userService;
+    
+//    [after] JWT 적용
+    @Autowired
+    private TokenProvider tokenProvider;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
 //    1. 회원가입
     @Operation(
@@ -42,7 +52,7 @@ public class UserController {
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
-                            schema = @Schema(implementation = com.b1a4.cafeOn.DTO.UserDTO.class),
+                            schema = @Schema(implementation = com.b1a4.cafeOn.dto.UserDTO.class),
                             examples = {
                                     @ExampleObject(
                                             name = "회원가입 요청 예시",
@@ -102,7 +112,7 @@ public class UserController {
                     content = @io.swagger.v3.oas.annotations.media.Content(
                             mediaType = org.springframework.http.MediaType.APPLICATION_JSON_VALUE,
                             schema = @io.swagger.v3.oas.annotations.media.Schema(
-                                    implementation = com.b1a4.cafeOn.DTO.UserDTO.class
+                                    implementation = com.b1a4.cafeOn.dto.UserDTO.class
                             ),
                             examples = {
                                     @io.swagger.v3.oas.annotations.media.ExampleObject(
@@ -126,11 +136,16 @@ public class UserController {
             UUID uuid = UUID.randomUUID();
             System.out.println("생성된 UUID: "+uuid.toString());   // UUID 확인용 출력
 
+//            1-1-2. 비밀번호 암호화
+            System.out.println("입력받은 비밀번호: "+userDTO.getPassword());
+            String encryptedPassword = passwordEncoder.encode(userDTO.getPassword()); // 암호화된 비밀번호 생성
+            System.out.println("암호화된 비밀번호: "+ encryptedPassword);
+
 //            1-2. 요청 본문과 생성한 UUID를 이용해 저장할 사용자 만들기
             UserEntity user = UserEntity.builder()
 //                    유저의 입력으로 DTO를 통해 전달받은 값들로 부여
                     .email(userDTO.getEmail())
-                    .password(userDTO.getPassword())    // todo: 패스워드 암호화 추가 필요
+                    .password(encryptedPassword)    // 1-1-2에서 암호화된 비밀번호
                     .nickname(userDTO.getNickname())
 //                    여기부턴 서버에서 자동으로 처리해야 할 값들로 부여
                     .userId(uuid.toString())    // 위에서 생성한 uuid값
@@ -167,7 +182,8 @@ public class UserController {
         }
     }
 
-//    2. 로그인
+
+//    2. 로그인(JWT 적용)
     @Operation(
             summary = "로그인",
             description = "이메일/비밀번호로 로그인.",
@@ -175,7 +191,7 @@ public class UserController {
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
-                            schema = @Schema(implementation = com.b1a4.cafeOn.DTO.UserDTO.class),
+                            schema = @Schema(implementation = com.b1a4.cafeOn.dto.UserDTO.class),
                             examples = {
                                     @ExampleObject(
                                             name = "로그인 요청 예시",
@@ -232,7 +248,7 @@ public class UserController {
                     content = @io.swagger.v3.oas.annotations.media.Content(
                             mediaType = org.springframework.http.MediaType.APPLICATION_JSON_VALUE,
                             schema = @io.swagger.v3.oas.annotations.media.Schema(
-                                    implementation = com.b1a4.cafeOn.DTO.UserDTO.class
+                                    implementation = com.b1a4.cafeOn.dto.UserDTO.class
                             ),
                             examples = {
                                     @io.swagger.v3.oas.annotations.media.ExampleObject(
@@ -247,35 +263,29 @@ public class UserController {
                             }
                     )
             )
-            @RequestBody UserDTO userDTO) {
+            @RequestBody UserDTO userDTO)
+    {
         UserEntity user = userService.getByCredentials( // 사용자 인증하는 메서드
-                userDTO.getEmail(), userDTO.getPassword()
-//                ,passwordEncoder  // todo: BCrypt 패스워드인코더 추가하고 주석 살리기
+                userDTO.getEmail(), userDTO.getPassword(),passwordEncoder
         );
 
         if (user != null) { // DB에서 해당 email, password가 일치하는 유저가 있으면,
 //            로그인 검사 통과!
-//            [before]
+//            [after] JWT 적용 후
+            final Map<String, String> token = tokenProvider.issueTokens(user);    // JWT Access 토큰 발급
+            
             final UserDTO responseUserDTO = UserDTO.builder()
-                    .email(user.getEmail())
-                    .userId(user.getUserId())
+                    .token(token.get("accessToken"))   // 발급한 JWT Access 토큰 설정
+                    .refreshToken(token.get("refreshToken"))    // 발급한 JWT Refresh 토큰 설정
                     .build();
-//            todo: JWT-token, refreshToken 도 전달할 수 있는 ResponseDTO 만들어서 추가해야할듯(?)
 
             ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
                     .message("로그인 성공")
                     .data(responseUserDTO)
                     .build();
 
-//            [after] JWT 적용 후
-//            final String token = tokenProvider.create(user);
-//            final UserDTO responseUserDTO = UserDTO.builder()
-//                    .email(user.getEmail())
-//                    .userId(user.getUserId())
-//                    .token(token)   // 토큰 설정
-//                    .build();
+//            System.out.println("[UserController.login()] response: "+response);   // 응답값 확인용 출력
 
-//            todo: [응답값] token: "JWT-token", refreshToken: "refresh-token", message: "로그인 성공"
             return ResponseEntity.ok().body(response);
         } else {
 //            로그인 검사 실패! (해당 유저가 존재하지 않았으므로)
@@ -286,4 +296,6 @@ public class UserController {
             return ResponseEntity.badRequest().body(response);
         }
     }
+
+    
 }

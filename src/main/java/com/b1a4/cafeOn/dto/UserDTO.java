@@ -1,11 +1,9 @@
-package com.b1a4.cafeOn.DTO;
+package com.b1a4.cafeOn.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 // DTO : 필요한 필드만 포함하거나, 가공된 데이터(token, fullName, likeCount 등)를 추가 가능
 // API 요청/응답 맞춤용
@@ -22,15 +20,15 @@ public class UserDTO {
     private String email;               // VARCHAR(255)
     private String password;            // VARCHAR(255)
     private String nickname;            // VARCHAR(50)
-    private String profileImage;        // JSON -> String (필요시 DTO/Map 으로 변환 가능)
-    private String status;              // ENUM('ACTIVE', 'SUSPENDED', 'DELETED')
-    private String role;                // ENUM('USER', 'ADMIN')
-    private String provider;            // ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER')
-    private String providerId;          // VARCHAR(255)
+//    private String profileImage;        // JSON -> String (필요시 DTO/Map 으로 변환 가능)
+//    private String status;              // ENUM('ACTIVE', 'SUSPENDED', 'DELETED')
+//    private String role;                // ENUM('USER', 'ADMIN')
+//    private String provider;            // ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER')
+//    private String providerId;          // VARCHAR(255)
     private String preferenceKeywords;  // JSON -> String (필요시 List<String>으로 변환)
     private String refreshToken;        // VARCHAR(512)
-    private int penaltyCount;           // INT
-    private LocalDateTime createdAt;    // TIMESTAMP
-    private LocalDateTime updatedAt;    // TIMESTAMP
-    private LocalDateTime deletedAt;    // TIMESTAMP
+//    private int penaltyCount;           // INT
+//    private LocalDateTime createdAt;    // TIMESTAMP
+//    private LocalDateTime updatedAt;    // TIMESTAMP
+//    private LocalDateTime deletedAt;    // TIMESTAMP
 }
