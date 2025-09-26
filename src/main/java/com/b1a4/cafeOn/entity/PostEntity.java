@@ -44,6 +44,7 @@ public class PostEntity {
     @PrePersist
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
         this.viewCount = 0L;
 
         if (type == null) {
@@ -55,5 +56,15 @@ public class PostEntity {
     @PreUpdate
     public void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "user_id")
+//    private UserEntity user;
+
+    public void update(String title, String content, PostType type) {
+        this.title = title;
+        this.content = content;
+        this.type = type;
     }
 }
