@@ -1,4 +1,4 @@
-package com.b1a4.cafeOn.Config.jwt;
+package com.b1a4.cafeOn.configs.jwt;
 
 import lombok.Getter;
 import lombok.Setter;

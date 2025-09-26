@@ -1,15 +1,11 @@
-package com.b1a4.cafeOn.Security;
+package com.b1a4.cafeOn.security;
 
-import com.b1a4.cafeOn.Config.jwt.JwtProperties;
-import com.b1a4.cafeOn.Entity.UserEntity;
-import io.jsonwebtoken.Claims;
+import com.b1a4.cafeOn.configs.jwt.JwtProperties;
+import com.b1a4.cafeOn.entity.UserEntity;
+import io.jsonwebtoken.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -27,7 +23,7 @@ public class TokenProvider {
     @Autowired
     private JwtProperties jwtProperties;
 
-//    Access, Refresh Token 둘 다 발급 (로그인 시)
+//    1. Access, Refresh Token 둘 다 발급 (로그인 시)
     public Map<String, String> issueTokens(UserEntity userEntity) {
         String accessToken = issueAccessToken(userEntity);
         String refreshToken = issueRefreshToken(userEntity);
@@ -61,15 +57,30 @@ public class TokenProvider {
                 .compact();
     }
     
-//    토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
+//    2. 토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
 //    => 클라이언트가 보낸 토큰이 유효한지 검증하고, userId를 반환함
     public String validateAndGetUserId(String token) {
-//        parseClaimsJwts메소드가 Base64로 디코딩 및 파싱
+        try {
+//        73번째줄 parseClaimsJws메소드가 Base64로 디코딩 및 파싱
 //        - header, payload를 setSigningKey로 넘어온 SECRET KEY를 사용해 서명한 후, token의 서명과 비교
 //        - 서명이 위조되거나 만료된 토큰이라면 -> 예외 발생
 //        - 위조되지 않았다면 페이로드(Claims) 리턴
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtProperties.getSecretKey())    // 서명 검증에 사용할 비밀키 지정
-                .
+            Claims claims = Jwts.parser()
+                    .setSigningKey(jwtProperties.getSecretKey())    // 서명 검증에 사용할 비밀키 지정
+                    .parseClaimsJws(token)                          // JWT Base64로 디코딩 및 파싱 -> header, payload, signature 검증
+//                만료되었거나 위조된 경우 -> ExpiredJwtException, SignatureException 같은 에외 발생시킴
+                    .getBody();
+
+            return claims.getSubject(); // 46번줄 jwt 생성시 넣었던 sub(userId) 값을 꺼냄
+        } catch (ExpiredJwtException e) {
+            log.warn("만료된 토큰입니다: {}", token, e);    // ,e 때문에 에러메시지+스택트레이스까지 같이 로그에 찍힘
+            return null;
+        } catch (SignatureException e) {
+            log.warn("서명이 위조된 토큰입니다: {}", token, e);
+            return null;
+        } catch (Exception e) {
+            log.warn("유효하지 않은 토큰입니다: {}", token, e);
+            return null;
+        }
     }
 }

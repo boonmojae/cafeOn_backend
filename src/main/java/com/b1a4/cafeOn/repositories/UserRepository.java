@@ -1,6 +1,6 @@
-package com.b1a4.cafeOn.Repository;
+package com.b1a4.cafeOn.repositories;
 
-import com.b1a4.cafeOn.Entity.UserEntity;
+import com.b1a4.cafeOn.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<UserEntity, String> {

@@ -1,8 +1,8 @@
-package com.b1a4.cafeOn.Entity;
+package com.b1a4.cafeOn.entity;
 
-import com.b1a4.cafeOn.Enum.UserProvider;
-import com.b1a4.cafeOn.Enum.UserRole;
-import com.b1a4.cafeOn.Enum.UserStatus;
+import com.b1a4.cafeOn.enums.UserProvider;
+import com.b1a4.cafeOn.enums.UserRole;
+import com.b1a4.cafeOn.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
