@@ -1,7 +1,7 @@
-package com.b1a4.cafeOn.Controller;
+package com.b1a4.cafeOn.controllers;
 
 // ✅ Spring MVC
-import com.b1a4.cafeOn.Security.TokenProvider;
+import com.b1a4.cafeOn.security.TokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;  // 스프링 것만 import
 import org.springframework.web.bind.annotation.*;
@@ -9,13 +9,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
-import com.b1a4.cafeOn.DTO.ApiResponse;
-import com.b1a4.cafeOn.DTO.UserDTO;
-import com.b1a4.cafeOn.Entity.UserEntity;
-import com.b1a4.cafeOn.Enum.UserProvider;
-import com.b1a4.cafeOn.Enum.UserRole;
-import com.b1a4.cafeOn.Enum.UserStatus;
-import com.b1a4.cafeOn.Service.UserService;
+import com.b1a4.cafeOn.dto.ApiResponse;
+import com.b1a4.cafeOn.dto.UserDTO;
+import com.b1a4.cafeOn.entity.UserEntity;
+import com.b1a4.cafeOn.enums.UserProvider;
+import com.b1a4.cafeOn.enums.UserRole;
+import com.b1a4.cafeOn.enums.UserStatus;
+import com.b1a4.cafeOn.services.UserService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
@@ -52,7 +52,7 @@ public class UserController {
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
-                            schema = @Schema(implementation = com.b1a4.cafeOn.DTO.UserDTO.class),
+                            schema = @Schema(implementation = com.b1a4.cafeOn.dto.UserDTO.class),
                             examples = {
                                     @ExampleObject(
                                             name = "회원가입 요청 예시",
@@ -112,7 +112,7 @@ public class UserController {
                     content = @io.swagger.v3.oas.annotations.media.Content(
                             mediaType = org.springframework.http.MediaType.APPLICATION_JSON_VALUE,
                             schema = @io.swagger.v3.oas.annotations.media.Schema(
-                                    implementation = com.b1a4.cafeOn.DTO.UserDTO.class
+                                    implementation = com.b1a4.cafeOn.dto.UserDTO.class
                             ),
                             examples = {
                                     @io.swagger.v3.oas.annotations.media.ExampleObject(
@@ -190,7 +190,7 @@ public class UserController {
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
                     content = @Content(
-                            schema = @Schema(implementation = com.b1a4.cafeOn.DTO.UserDTO.class),
+                            schema = @Schema(implementation = com.b1a4.cafeOn.dto.UserDTO.class),
                             examples = {
                                     @ExampleObject(
                                             name = "로그인 요청 예시",
@@ -247,7 +247,7 @@ public class UserController {
                     content = @io.swagger.v3.oas.annotations.media.Content(
                             mediaType = org.springframework.http.MediaType.APPLICATION_JSON_VALUE,
                             schema = @io.swagger.v3.oas.annotations.media.Schema(
-                                    implementation = com.b1a4.cafeOn.DTO.UserDTO.class
+                                    implementation = com.b1a4.cafeOn.dto.UserDTO.class
                             ),
                             examples = {
                                     @io.swagger.v3.oas.annotations.media.ExampleObject(

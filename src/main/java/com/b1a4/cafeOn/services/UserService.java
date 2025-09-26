@@ -1,7 +1,7 @@
-package com.b1a4.cafeOn.Service;
+package com.b1a4.cafeOn.services;
 
-import com.b1a4.cafeOn.Entity.UserEntity;
-import com.b1a4.cafeOn.Repository.UserRepository;
+import com.b1a4.cafeOn.entity.UserEntity;
+import com.b1a4.cafeOn.repositories.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

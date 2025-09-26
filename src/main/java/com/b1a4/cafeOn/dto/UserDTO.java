@@ -1,11 +1,9 @@
-package com.b1a4.cafeOn.DTO;
+package com.b1a4.cafeOn.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 // DTO : 필요한 필드만 포함하거나, 가공된 데이터(token, fullName, likeCount 등)를 추가 가능
 // API 요청/응답 맞춤용
