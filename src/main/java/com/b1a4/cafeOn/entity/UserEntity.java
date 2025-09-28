@@ -4,12 +4,11 @@ import com.b1a4.cafeOn.enums.UserProvider;
 import com.b1a4.cafeOn.enums.UserRole;
 import com.b1a4.cafeOn.enums.UserStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Entity // DB 구조와 같아야 함
@@ -85,4 +84,8 @@ public class UserEntity {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
+    @Singular
+    private List<PostEntity> posts;
 }

@@ -1,61 +1,112 @@
 package com.b1a4.cafeOn.services;
 
+import com.b1a4.cafeOn.dto.post.PostRequestDTO;
 import com.b1a4.cafeOn.entity.PostEntity;
+import com.b1a4.cafeOn.entity.UserEntity;
+import com.b1a4.cafeOn.enums.UserStatus;
 import com.b1a4.cafeOn.repositories.PostRepository;
+import com.b1a4.cafeOn.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class PostService {
 
     private final PostRepository postRepository;
+    private final UserRepository userRepository;
 
     // 전체 게시글 조회
-    public List<PostEntity> getAllPosts() {
-        return postRepository.findAll();
+    public Page<PostEntity> getAllPosts(Pageable pageable) {
+        return postRepository.findAll(pageable);
     }
 
     // 특정 게시글 조회
-    public PostEntity findByPostId(Long postId) {
-        return postRepository.findById(postId)
-                // fixme: global 에러 추가 후 수정하기
-                .orElseThrow(() -> new RuntimeException("존재하지 않는 게시글 입니다."));
+    public PostEntity getPost(Long postId) {
+        PostEntity post = findByPostId(postId);
+        return post;
     }
+
 
     // 내가 작성한 게시글 목록
-    public List<PostEntity> findByPostIdAndUserId(String userId) {
-        return postRepository.findAllByUserId(userId);
+    public Page<PostEntity> getPostsById(String userId, Pageable pageable) {
+        userStatus(userId);
+        Page<PostEntity> posts = postRepository.findAllByUser_UserId(userId, pageable);
+        return posts;
     }
+
 
     // 특정 게시글 단어 검색
+    public Page<PostEntity> searchPosts(String keyword, Pageable pageable) {
+        return postRepository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, pageable);
+    }
+
 
     // 게시글 생성
-    public PostEntity createPost(PostEntity postEntity) {
-        return postRepository.save(postEntity);
+    public PostEntity createPost(String userId, PostRequestDTO requestDto) {
+        UserEntity author = userStatus(userId);
+
+        PostEntity post = PostEntity.builder()
+                .title(requestDto.getTitle())
+                .content(requestDto.getContent())
+                .type(requestDto.getType())
+                .user(author).
+                build();
+
+        return postRepository.save(post);
     }
+
 
     // 게시글 수정
-    // fixme: 커스텀 예외 생성 -> 게시글 여부, 소유권 확인
-    public PostEntity updatePost(Long postId, String userId, PostEntity postEntity) {
+    public PostEntity updatePost(String userId, Long postId, PostRequestDTO postRequestDTO) {
+        userStatus(userId);
 
-        PostEntity postToUpdate = postRepository.findByPostIdAndUserId(postId, userId)
-                .orElseThrow(() -> new RuntimeException("수정 권한이 없거나 존재하지 않는 게시글 입니다."));
+        PostEntity post = postRepository.findByPostIdAndUser_UserId(postId, userId)
+                .orElseThrow(() -> new RuntimeException("수정 권한이 없거나 게시글이 존재하지 않습니다."));
 
-        postToUpdate.update(postEntity.getTitle(), postEntity.getContent(), postEntity.getType());
+        post.update(postRequestDTO.getTitle(), postRequestDTO.getContent(), postRequestDTO.getType());
 
-        return postToUpdate;
+        return postRepository.save(post);
+
     }
+
 
     // 게시글 삭제
-    public void deletePost(Long postId, String userId) {
+    public void deletePost(String userId, Long postId) {
+        userStatus(userId);
 
-        PostEntity existsPostIdAndUserId = postRepository.findByPostIdAndUserId(postId, userId)
-                .orElseThrow(() -> new RuntimeException("수정 권한이 없거나 존재하지 않는 게시글 입니다."));
+        PostEntity post = postRepository.findByPostIdAndUser_UserId(postId, userId)
+                .orElseThrow(() -> new RuntimeException("삭제 권한이 없거나 게시글이 존재하지 않습니다."));
 
-        postRepository.delete(existsPostIdAndUserId);
+        postRepository.delete(post);
+
     }
 
+
+    // 게시글 검증
+    public PostEntity findByPostId(Long postId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
+        return post;
+    }
+
+    // 사용자 검증
+    public UserEntity findByUserId(String userId) {
+        UserEntity author = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        return author;
+    }
+
+    // 탈퇴한 사용자 검증
+    public UserEntity userStatus(String userId) {
+        UserEntity author = findByUserId(userId);
+
+        if (author.getStatus() == null || author.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("탈퇴한 사용자는 게시글 접근 권한이 없습니다.");
+        }
+
+        return author;
+    }
 }

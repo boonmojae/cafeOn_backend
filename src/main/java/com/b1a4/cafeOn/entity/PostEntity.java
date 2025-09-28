@@ -20,7 +20,7 @@ public class PostEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "post_id", nullable = false)
-    private Long id;
+    private Long postId;
 
     @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -58,13 +58,15 @@ public class PostEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "user_id")
-//    private UserEntity user;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private UserEntity user;
 
     public void update(String title, String content, PostType type) {
         this.title = title;
         this.content = content;
         this.type = type;
     }
+
+
 }
