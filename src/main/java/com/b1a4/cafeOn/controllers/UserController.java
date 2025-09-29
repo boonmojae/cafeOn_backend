@@ -36,15 +36,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 public class UserController {
     @Autowired
     private UserService userService;
-    
-//    [after] JWT 적용
+
+    //    [after] JWT 적용
     @Autowired
     private TokenProvider tokenProvider;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-//    1. 회원가입
+    //    1. 회원가입
     @Operation(
             summary = "회원가입",
             description = "이메일/비밀번호/닉네임으로 회원 생성. 기본 상태 ACTIVE, 역할 USER, 제공자 LOCAL.",
@@ -183,7 +183,7 @@ public class UserController {
     }
 
 
-//    2. 로그인(JWT 적용)
+    //    2. 로그인(JWT 적용)
     @Operation(
             summary = "로그인",
             description = "이메일/비밀번호로 로그인.",
@@ -273,11 +273,15 @@ public class UserController {
 //            로그인 검사 통과!
 //            [after] JWT 적용 후
             final Map<String, String> token = tokenProvider.issueTokens(user);    // JWT Access 토큰 발급
-            
+
             final UserDTO responseUserDTO = UserDTO.builder()
                     .token(token.get("accessToken"))   // 발급한 JWT Access 토큰 설정
                     .refreshToken(token.get("refreshToken"))    // 발급한 JWT Refresh 토큰 설정
                     .build();
+
+//            DB에 refresh_token 저장(user update)
+            user.setRefreshToken(token.get("refreshToken"));
+            userService.update(user);   // update는 결국 save() 호출하니까 컬럼 하나만 수정
 
             ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
                     .message("로그인 성공")
@@ -297,5 +301,77 @@ public class UserController {
         }
     }
 
-    
+    //    3. 토큰 갱신(Refresh Access Token)
+//    프론트가 /refresh API 호출 시, 헤더에 Refresh Token 넣어서 보내야함
+    @Operation(
+            summary = "토큰들 갱신",
+            description = "만료된 Access Token 대신, Refresh Token으로 새 Access/Refresh Token을 발급합니다. ",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = Map.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "토큰 갱신 요청 예시",
+                                            value = """
+                                                    {
+                                                        "refreshToken": "eyJhbGciOiJIUzUxMiJ9..."
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+    )
+    @ApiResponses({
+            // ⬇️ 스웨거 @ApiResponse는 FQN로만(팀 규칙)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "토큰 재발급 성공",
+                    content = @Content(
+                            schema = @Schema(implementation = Map.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 응답 예시",
+                                            value = """
+                                {
+                                  "message": "토큰 재발급 성공",
+                                  "data": {
+                                    "accessToken": "new-access-token",
+                                    "refreshToken": "new-refresh-token"
+                                  }
+                                }
+                                """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "유효하지 않은 Refresh Token",
+                    content = @Content(
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = "{ \"message\": \"Invalid refresh token\", \"data\": null }"
+                                    )
+                            }
+                    )
+            )
+    })
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+
+//        3-1. 서비스 단의 토큰갱신 메서드로 새 토큰<Access, Refresh>들 발급
+        Map<String, String> newTokens = userService.refreshTokens(refreshToken);
+
+        ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
+                .message("토큰 재발급 성공")
+                .data(newTokens)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
 }
