@@ -1,7 +1,7 @@
 package com.b1a4.cafeOn.controllers;
 
 // ✅ Spring MVC
-import com.b1a4.cafeOn.security.TokenProvider;
+import com.b1a4.cafeOn.Security.TokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.RequestBody;  // 스프링 것만 import
 import org.springframework.web.bind.annotation.*;

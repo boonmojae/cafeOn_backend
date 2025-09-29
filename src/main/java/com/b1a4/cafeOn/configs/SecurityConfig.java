@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
@@ -47,7 +49,7 @@ public class SecurityConfig {
                         .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
                         .requestMatchers(HttpMethod.POST, "/api/posts").hasAuthority("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasAuthority("USER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasAnyAuthority("USER", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasAuthority("USER")
                         .requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/**").permitAll()
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
@@ -56,6 +58,13 @@ public class SecurityConfig {
 
         return http.build();    // 앱 시작 시 한 번 호출되어 "필터 체인 구성"만 함
 //        @Bean메서드에서 완성된 SecurityFilterChain 빈을 반환해야 하기 때문에, 이 반환값을 스프링이 받아서 보안 필터링의 기준으로 사용
+    }
+
+    @Bean
+    public RoleHierarchy roleHierarchy() {
+        RoleHierarchyImpl hierarchy = new RoleHierarchyImpl();
+        hierarchy.setHierarchy("ADMIN > USER");
+        return hierarchy;
     }
 
 //    cors 설정

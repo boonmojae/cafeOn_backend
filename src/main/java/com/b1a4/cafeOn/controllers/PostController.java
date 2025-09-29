@@ -6,7 +6,12 @@ import com.b1a4.cafeOn.dto.post.PostListResponseDTO;
 import com.b1a4.cafeOn.dto.post.PostRequestDTO;
 import com.b1a4.cafeOn.entity.PostEntity;
 import com.b1a4.cafeOn.services.PostService;
+import com.b1a4.cafeOn.services.ViewCountService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -20,9 +25,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/posts")
 @RequiredArgsConstructor
+@Slf4j
 public class PostController {
 
     private final PostService postService;
+    private final ViewCountService viewCountService;
 
     // 전체 게시글 조회
     @GetMapping
@@ -49,20 +56,26 @@ public class PostController {
 
 
     // 특정 게시글 조회
+    // 조회수 증가 로직(쿠키 기반) 함께 처리
     @GetMapping("/{id}")
-    public ResponseEntity<?> getPost(@PathVariable("id") Long postId) {
+    public ResponseEntity<?> getPost(@PathVariable("id") Long postId, HttpServletRequest request, HttpServletResponse response) {
 
         try {
-            PostEntity post = postService.getPost(postId);
 
+            // 조회수 중복 방지 처리
+            handleViewCount(postId, request, response);
+
+            // 게시글 데이터 조회
+            PostEntity post = postService.findPostById(postId);
+
+            // 최종 응답 생성
             PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(post);
-
-            ApiResponse<PostDetailResponseDTO> response = ApiResponse.<PostDetailResponseDTO>builder()
+            ApiResponse<PostDetailResponseDTO> responseF = ApiResponse.<PostDetailResponseDTO>builder()
                     .data(responseDTO)
                     .message("게시글을 성공적으로 조회했습니다")
                     .build();
 
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(responseF);
 
         } catch (Exception e) {
             ApiResponse<?> errorResponse = ApiResponse.builder()
@@ -72,6 +85,39 @@ public class PostController {
         }
 
     }
+
+    // 조회수 중복 방지를 위한 쿠키 로직을 처리함
+    private void handleViewCount(Long postId, HttpServletRequest request, HttpServletResponse response) {
+        Cookie oldCookie = null;
+        Cookie[] cookies = request.getCookies();
+
+        // 기존 쿠키들 확인
+        if (cookies != null) {
+            for (Cookie cookie: cookies) {
+                if (cookie.getName().equals("postView")) {
+                    oldCookie = cookie;
+                }
+            }
+        }
+
+        if (oldCookie != null) {
+            if (!oldCookie.getValue().contains("[" + postId.toString() + "]")) {
+                log.info("쿠키는 있지만 처음 보는 글 -> 조회수를 증가");
+                viewCountService.increaseViewCount(postId);
+                oldCookie.setValue(oldCookie.getValue() + "_[" + postId.toString() + "]");
+                oldCookie.setPath("/");
+                oldCookie.setMaxAge(60 * 60 * 24);
+                response.addCookie(oldCookie);
+            }
+        } else {
+            viewCountService.increaseViewCount(postId);
+            Cookie newCookie = new Cookie("postView", "[" + postId.toString() + "]");
+            newCookie.setPath("/");
+            newCookie.setMaxAge(60 * 60 * 24);
+            response.addCookie(newCookie);
+        }
+    }
+
 
     // 내가 작성한 게시글
     // fixme: mypage 브랜치로 이동

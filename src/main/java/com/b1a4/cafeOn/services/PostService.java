@@ -9,7 +9,13 @@ import com.b1a4.cafeOn.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,10 +30,18 @@ public class PostService {
     }
 
     // 특정 게시글 조회
-    public PostEntity getPost(Long postId) {
-        PostEntity post = findByPostId(postId);
-        return post;
+    @Transactional(readOnly = true)
+    public PostEntity findPostById(Long postId) {
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
     }
+
+//    @Transactional(readOnly = true)
+//    public PostEntity getPost(Long postId) {
+//        PostEntity post = findByPostId(postId);
+//
+//        return post;
+//    }
 
 
     // 내가 작성한 게시글 목록
@@ -77,25 +91,33 @@ public class PostService {
     public void deletePost(String userId, Long postId) {
         userStatus(userId);
 
-        PostEntity post = postRepository.findByPostIdAndUser_UserId(postId, userId)
-                .orElseThrow(() -> new RuntimeException("삭제 권한이 없거나 게시글이 존재하지 않습니다."));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> role.equals("ADMIN"));
 
-        postRepository.delete(post);
+        PostEntity post = findPostById(postId);
+
+        if (isAdmin || post.getUser().getUserId().equals(userId)) {
+            postRepository.delete(post);
+        } else {
+            throw new AccessDeniedException("이 게시글을 삭제할 권한이 없습니다.");
+        }
 
     }
 
 
     // 게시글 검증
-    public PostEntity findByPostId(Long postId) {
-        PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
-        return post;
-    }
+//    public PostEntity findByPostId(Long postId) {
+//        PostEntity post = postRepository.findById(postId)
+//                .orElseThrow(() -> new RuntimeException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
+//        return post;
+//    }
 
     // 사용자 검증
     public UserEntity findByUserId(String userId) {
         UserEntity author = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("해당 사용자를 찾을 수 없습니다. ID: " + userId));
         return author;
     }
 

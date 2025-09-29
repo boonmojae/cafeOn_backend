@@ -62,6 +62,10 @@ public class PostEntity {
     @JoinColumn(name = "user_id")
     private UserEntity user;
 
+    public void increaseViewCount() {
+        this.viewCount++;
+    }
+
     public void update(String title, String content, PostType type) {
         this.title = title;
         this.content = content;

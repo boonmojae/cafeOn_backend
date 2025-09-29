@@ -1,4 +1,4 @@
-package com.b1a4.cafeOn.security;
+package com.b1a4.cafeOn.Security;
 
 import com.b1a4.cafeOn.configs.jwt.JwtProperties;
 import com.b1a4.cafeOn.entity.UserEntity;
@@ -19,11 +19,11 @@ public class TokenProvider {
 //    [before] JWT 서명에 사용되는 비밀키 (일단은 하드코딩 했지만, [after]로 바꾸었음)
 //    private static final String SECRET_KEY = "cafe-on-kimdoi1004";
 
-//    [after] JwtProperties 클래스 이용해 설정 파일 값 불러오기
+    //    [after] JwtProperties 클래스 이용해 설정 파일 값 불러오기
     @Autowired
     private JwtProperties jwtProperties;
 
-//    1. Access, Refresh Token 둘 다 발급 (로그인 시)
+    //    1. Access, Refresh Token 둘 다 발급 (로그인 시)
     public Map<String, String> issueTokens(UserEntity userEntity) {
         String accessToken = issueAccessToken(userEntity);
         String refreshToken = issueRefreshToken(userEntity);
@@ -35,6 +35,7 @@ public class TokenProvider {
         // Access Token 발급
 //        JWT 토큰 만료시간을 현재시각으로부터 30분 뒤 만료되는 시각으로 계산
         Date expiryDate = Date.from(Instant.now().plus(30, ChronoUnit.MINUTES));
+        String userRole = userEntity.getRole().name();
 
 //        JWT 토큰 생성
         return Jwts.builder()   // jwt header(암호화 알고리즘, 타입) 에 들어갈 내용 및 서명하기 위한 SECRET KEY
@@ -42,7 +43,9 @@ public class TokenProvider {
                 .setSubject(String.valueOf(userEntity.getUserId())) // sub: 토큰제목(여기서는 userId)
                 .setIssuer("cafeOn")                                // iss: 토큰 발급자
                 .setIssuedAt(new Date())                            // iat: 토큰이 발급된 시간
-                .setExpiration(expiryDate)                          // exp: 토큰 만료 시간
+                .setExpiration(expiryDate)
+                // exp: 토큰 만료 시간
+                .claim("auth", userRole)
                 .compact(); // 토큰 생성해주세요! -> "header.payload.signature" 토큰 문자열 최종 생성(리턴타입 그래서 String)
     }
 
@@ -56,31 +59,51 @@ public class TokenProvider {
                 .setExpiration(expiryDate)
                 .compact();
     }
-    
+
 //    2. 토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
 //    => 클라이언트가 보낸 토큰이 유효한지 검증하고, userId를 반환함
-    public String validateAndGetUserId(String token) {
-        try {
-//        73번째줄 parseClaimsJws메소드가 Base64로 디코딩 및 파싱
-//        - header, payload를 setSigningKey로 넘어온 SECRET KEY를 사용해 서명한 후, token의 서명과 비교
-//        - 서명이 위조되거나 만료된 토큰이라면 -> 예외 발생
-//        - 위조되지 않았다면 페이로드(Claims) 리턴
-            Claims claims = Jwts.parser()
-                    .setSigningKey(jwtProperties.getSecretKey())    // 서명 검증에 사용할 비밀키 지정
-                    .parseClaimsJws(token)                          // JWT Base64로 디코딩 및 파싱 -> header, payload, signature 검증
-//                만료되었거나 위조된 경우 -> ExpiredJwtException, SignatureException 같은 에외 발생시킴
-                    .getBody();
+//    public String validateAndGetUserId(String token) {
+//        try {
+////        73번째줄 parseClaimsJws메소드가 Base64로 디코딩 및 파싱
+////        - header, payload를 setSigningKey로 넘어온 SECRET KEY를 사용해 서명한 후, token의 서명과 비교
+////        - 서명이 위조되거나 만료된 토큰이라면 -> 예외 발생
+////        - 위조되지 않았다면 페이로드(Claims) 리턴
+//            Claims claims = Jwts.parser()
+//                    .setSigningKey(jwtProperties.getSecretKey())    // 서명 검증에 사용할 비밀키 지정
+//                    .parseClaimsJws(token)                          // JWT Base64로 디코딩 및 파싱 -> header, payload, signature 검증
 
-            return claims.getSubject(); // 46번줄 jwt 생성시 넣었던 sub(userId) 값을 꺼냄
+    /// /                만료되었거나 위조된 경우 -> ExpiredJwtException, SignatureException 같은 에외 발생시킴
+//                    .getBody();
+//
+//            return claims.getSubject(); // 46번줄 jwt 생성시 넣었던 sub(userId) 값을 꺼냄
+//        } catch (ExpiredJwtException e) {
+//            log.warn("만료된 토큰입니다: {}", token, e);    // ,e 때문에 에러메시지+스택트레이스까지 같이 로그에 찍힘
+//            return null;
+//        } catch (SignatureException e) {
+//            log.warn("서명이 위조된 토큰입니다: {}", token, e);
+//            return null;
+//        } catch (Exception e) {
+//            log.warn("유효하지 않은 토큰입니다: {}", token, e);
+//            return null;
+//        }
+//    }
+
+// JwtAuthenticationFilter에서 사용할 메서드
+    public Claims validateAndGetClaims(String token) {
+        try {
+            return Jwts.parser()
+                    .setSigningKey(jwtProperties.getSecretKey())
+                    .parseClaimsJws(token)
+                    .getBody();
         } catch (ExpiredJwtException e) {
-            log.warn("만료된 토큰입니다: {}", token, e);    // ,e 때문에 에러메시지+스택트레이스까지 같이 로그에 찍힘
-            return null;
+            log.warn("만료된 토큰입니다: {}", token, e);
+            throw e;
         } catch (SignatureException e) {
             log.warn("서명이 위조된 토큰입니다: {}", token, e);
-            return null;
+            throw e;
         } catch (Exception e) {
             log.warn("유효하지 않은 토큰입니다: {}", token, e);
-            return null;
+            throw e;
         }
     }
 }

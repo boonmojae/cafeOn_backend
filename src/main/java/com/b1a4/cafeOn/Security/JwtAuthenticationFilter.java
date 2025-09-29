@@ -1,4 +1,4 @@
-package com.b1a4.cafeOn.security;
+package com.b1a4.cafeOn.Security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,7 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -52,16 +54,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { // Servlet F
             log.info("JwtAuthenticationFilter 실행 중...");
 
 //            2-2. token 검사
-            if (token != null && !token.equalsIgnoreCase("null")) { // 정상 토큰만 처리
-                String userId = tokenProvider.validateAndGetUserId(token);  // 토큰을 검증하며 서명 위조나 만료면 예외가 발생, 정상이라면 sub로 넣어둔 userId를 꺼내 로그로 남김
-                log.info("Authenticated user id: "+userId);
+//            if (token != null && !token.equalsIgnoreCase("null")) { // 정상 토큰만 처리
+//                String userId = tokenProvider.validateAndGetUserId(token);  // 토큰을 검증하며 서명 위조나 만료면 예외가 발생, 정상이라면 sub로 넣어둔 userId를 꺼내 로그로 남김
+//                log.info("Authenticated user id: "+userId);
+//
+////                2-3. 유효성 검사가 끝나면, 직전에 추출한 userId로 Spring Security의 인증 객체 생성
+//                AbstractAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+//                        // username이랑 password로 인증토큰객체 만드는 spring security 메소드
+//                        userId, null, AuthorityUtils.NO_AUTHORITIES
+//                );
+//                log.info("authentication: "+authentication);
 
-//                2-3. 유효성 검사가 끝나면, 직전에 추출한 userId로 Spring Security의 인증 객체 생성
+            if (token != null && !token.equalsIgnoreCase("null")) {
+                // 1. TokenProvider로부터 Claims를 받아옵니다. (userId가 아님)
+                io.jsonwebtoken.Claims claims = tokenProvider.validateAndGetClaims(token);
+                String userId = claims.getSubject();
+                String role = claims.get("auth", String.class);
+
+                java.util.Collection<? extends GrantedAuthority> authorities =
+                        java.util.Collections.singletonList(new SimpleGrantedAuthority(role));
+
                 AbstractAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        // username이랑 password로 인증토큰객체 만드는 spring security 메소드
-                        userId, null, AuthorityUtils.NO_AUTHORITIES
+                        userId,
+                        null,
+                        authorities
                 );
-                log.info("authentication: "+authentication);
 
 //                SecurityContextHolder: Spring Security에서 인증된 사용자 정보를 저장하는 곳
 //                -> 이 요청을 처리하는 동안 사용자 인증 정보를 여기에 보관해 두자)
