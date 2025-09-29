@@ -71,7 +71,7 @@ public class TokenProvider {
 //    ---------------------------------------------------------------
 
     //    2. 토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
-//    => 클라이언트가 보낸 토큰이 유효한지 검증하고, userId를 반환함
+//    => 클라이언트가 보낸 토큰이 유효한지 검증하고, <userId,role> 맵을 반환함
     public Map<String, String> validateAndExtractClaims(String token, String expectedTokenType) {
         try {
 //        2-1. 79번째줄 parseClaimsJws메소드가 Base64로 디코딩 및 파싱
