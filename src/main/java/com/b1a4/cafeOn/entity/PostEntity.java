@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.entity;
 
+import com.b1a4.cafeOn.dto.post.PostRequestDTO;
 import com.b1a4.cafeOn.enums.PostType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -31,6 +32,9 @@ public class PostEntity {
 
     @Column(name = "content", nullable = false)
     private String content;
+
+    @Column(name = "image_url")
+    private String imageUrl;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -66,10 +70,11 @@ public class PostEntity {
         this.viewCount++;
     }
 
-    public void update(String title, String content, PostType type) {
+    public void update(String title, String content, PostType type, String imageUrl) {
         this.title = title;
         this.content = content;
         this.type = type;
+        this.imageUrl = imageUrl;
     }
 
 

@@ -7,15 +7,22 @@ import com.b1a4.cafeOn.enums.UserStatus;
 import com.b1a4.cafeOn.repositories.PostRepository;
 import com.b1a4.cafeOn.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +30,9 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
 
     // 전체 게시글 조회
     public Page<PostEntity> getAllPosts(Pageable pageable) {
@@ -59,13 +69,47 @@ public class PostService {
 
 
     // 게시글 생성
-    public PostEntity createPost(String userId, PostRequestDTO requestDto) {
+    @Transactional
+    public PostEntity createPost(String userId, PostRequestDTO requestDto, MultipartFile imageFile) throws IOException {
+
         UserEntity author = userStatus(userId);
+
+        String imageUrl = null;
+
+        // 이미지 파일이 존재할 경우 서버에 저장하는 로직
+        if (imageFile != null && !imageFile.isEmpty()) {
+            
+            // 원본 파일 이름에서 확장자 추출
+            String originalFileName = imageFile.getOriginalFilename();
+            String extension = "";
+            if (originalFileName != null && originalFileName.contains(".")) {
+                extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            }
+
+            // UUID를 이용해 고유한 파일명 생성
+            String storedFileName = UUID.randomUUID().toString() + extension;
+
+            // 저장할 전체 경로 설정 (예: C:/cafeon/uploads/posts/UUID.jpg)
+            Path filePath = Paths.get(uploadDir, storedFileName);
+
+            // 해당 경로에 디렉토리가 없으면 생성
+            File dir = new File(uploadDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            
+            // 파일을 서버에 실제로 저장
+            imageFile.transferTo(filePath.toFile());
+
+            // DB에 저장할 웹 접근 경로 설정
+            imageUrl = "/images/" + storedFileName;
+        }
 
         PostEntity post = PostEntity.builder()
                 .title(requestDto.getTitle())
                 .content(requestDto.getContent())
                 .type(requestDto.getType())
+                .imageUrl(imageUrl)
                 .user(author).
                 build();
 
@@ -74,17 +118,17 @@ public class PostService {
 
 
     // 게시글 수정
-    public PostEntity updatePost(String userId, Long postId, PostRequestDTO postRequestDTO) {
-        userStatus(userId);
-
-        PostEntity post = postRepository.findByPostIdAndUser_UserId(postId, userId)
-                .orElseThrow(() -> new RuntimeException("수정 권한이 없거나 게시글이 존재하지 않습니다."));
-
-        post.update(postRequestDTO.getTitle(), postRequestDTO.getContent(), postRequestDTO.getType());
-
-        return postRepository.save(post);
-
-    }
+//    public PostEntity updatePost(String userId, Long postId, PostRequestDTO postRequestDTO) {
+//        userStatus(userId);
+//
+//        PostEntity post = postRepository.findByPostIdAndUser_UserId(postId, userId)
+//                .orElseThrow(() -> new RuntimeException("수정 권한이 없거나 게시글이 존재하지 않습니다."));
+//
+//        post.update(postRequestDTO.getTitle(), postRequestDTO.getContent(), postRequestDTO.getType(), postRequestDTO.getImageUrl());
+//
+//        return postRepository.save(post);
+//
+//    }
 
 
     // 게시글 삭제
