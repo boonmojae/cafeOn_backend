@@ -38,10 +38,10 @@ CREATE TABLE IF NO EXISTS posts(
 )
 
 CREATE TABLE IF NOT EXISTS images (
-    id BIGINT NOT NULL AUTO_INCREMENT,
+    image_id BIGINT NOT NULL AUTO_INCREMENT,
     post_id BIGINT NOT NULL,
     original_file_name VARCHAR(255) NULL,
     stored_file_name VARCHAR(255) NULL,
-    PRIMARY KEY (id),
+    PRIMARY KEY (image_id),
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
 );

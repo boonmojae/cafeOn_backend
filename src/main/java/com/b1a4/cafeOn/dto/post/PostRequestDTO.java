@@ -5,6 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Getter
 @Setter
 @Builder
@@ -20,4 +23,9 @@ public class PostRequestDTO {
     
     @NotNull(message = "게시글 타입을 선택해주세요")
     private PostType type;
+    
+    // 수정 시 유지할 기존 이미지들의 ID 리스트
+    @Builder.Default
+    private List<Long> existingImageIds = new ArrayList<>();
+
 }

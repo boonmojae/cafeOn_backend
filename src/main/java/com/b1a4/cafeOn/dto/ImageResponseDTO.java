@@ -1,6 +1,6 @@
 package com.b1a4.cafeOn.dto;
 
-import com.b1a4.cafeOn.entity.Image;
+import com.b1a4.cafeOn.entity.ImageEntity;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,9 +12,9 @@ public class ImageResponseDTO {
     private String originalFileName;
     private String imageUrl; // 프론트엔드가 사용할 최종 이미지 URL
 
-    public static ImageResponseDTO from(Image image) {
+    public static ImageResponseDTO from(ImageEntity image) {
         return ImageResponseDTO.builder()
-                .imageId(image.getId())
+                .imageId(image.getImageId())
                 .originalFileName(image.getOriginalFileName())
                 .imageUrl("/api/posts/images/" + image.getStoredFileName())
                 .build();

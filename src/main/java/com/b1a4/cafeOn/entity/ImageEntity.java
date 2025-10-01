@@ -1,22 +1,21 @@
 package com.b1a4.cafeOn.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "images")
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Image {
+public class ImageEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "image_id")
+    private Long imageId;
 
     private String originalFileName; // 원본 파일명
     private String storedFileName;   // 서버 저장용 파일명 (UUID)

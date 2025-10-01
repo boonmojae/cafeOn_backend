@@ -7,6 +7,7 @@ import com.b1a4.cafeOn.dto.post.PostRequestDTO;
 import com.b1a4.cafeOn.entity.PostEntity;
 import com.b1a4.cafeOn.services.PostService;
 import com.b1a4.cafeOn.services.ViewCountService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,6 +21,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -222,49 +224,68 @@ public class PostController {
 
 
     // 게시글 수정
-//    @PutMapping("/{id}")
-//    public ResponseEntity<?> updatePost(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId, @RequestBody PostRequestDTO postRequestDTO) {
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updatePost(@AuthenticationPrincipal String userId,
+                                        @PathVariable("id") Long postId,
+                                        @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
+                                        @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
+        try {
+
+            PostEntity post = postService.updatePost(userId, postId, postRequestDTO, imageFiles);
+            PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(post);
+            ApiResponse<?> response = ApiResponse.builder()
+                    .message("게시글이 수정되었습니다.")
+                    .data(responseDTO)
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+
+        } catch (EntityNotFoundException e) {
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+
+        } catch (AccessDeniedException e) {
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message("이 게시글을 수정할 권한이 없습니다.")
+                    .build();
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+
+        } catch (IOException e) {
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message("이미지 파일 처리 중 오류가 발생했습니다: " + e.getMessage())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+
+        } catch (Exception e) {
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message("요청 처리 중 예상치 못한 오류가 발생했습니다.")
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+
+    // 게시글 삭제
+    // todo: 이미지 삭제 로직 추가
+//    @DeleteMapping("/{id}")
+//    public ResponseEntity<?> deletePost(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId) {
 //
 //        try {
 //
-//            PostEntity updatePost = postService.updatePost(userId, postId, postRequestDTO);
+//            postService.deletePost(userId, postId);
 //
-//            PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(updatePost);
-//
-//            ApiResponse<PostDetailResponseDTO> response = ApiResponse.<PostDetailResponseDTO>builder()
-//                    .data(responseDTO)
-//                    .message("게시글이 수정되었습니다.")
-//                    .build();
-//
-//            return ResponseEntity.ok(response);
+//            return ResponseEntity.noContent().build();
 //
 //        } catch (Exception e) {
 //            ApiResponse<?> errorResponse = ApiResponse.builder()
-//                    .message("게시글을 수정할 수 없습니다.")
+//                    .message("게시글을 삭제할 수 없습니다.")
 //                    .build();
 //
 //            return ResponseEntity.badRequest().body(errorResponse);
 //        }
 //    }
-
-    // 게시글 삭제
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletePost(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId) {
-
-        try {
-
-            postService.deletePost(userId, postId);
-
-            return ResponseEntity.noContent().build();
-
-        } catch (Exception e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("게시글을 삭제할 수 없습니다.")
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
 
 
 }

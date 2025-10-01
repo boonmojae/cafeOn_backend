@@ -1,29 +1,29 @@
 package com.b1a4.cafeOn.services;
 
 import com.b1a4.cafeOn.dto.post.PostRequestDTO;
-import com.b1a4.cafeOn.entity.Image;
+import com.b1a4.cafeOn.entity.ImageEntity;
 import com.b1a4.cafeOn.entity.PostEntity;
 import com.b1a4.cafeOn.entity.UserEntity;
 import com.b1a4.cafeOn.enums.UserStatus;
 import com.b1a4.cafeOn.repositories.PostRepository;
 import com.b1a4.cafeOn.repositories.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,15 +49,9 @@ public class PostService {
                 .orElseThrow(() -> new RuntimeException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
     }
 
-//    @Transactional(readOnly = true)
-//    public PostEntity getPost(Long postId) {
-//        PostEntity post = findByPostId(postId);
-//
-//        return post;
-//    }
-
 
     // 내가 작성한 게시글 목록
+    // fixme: feat/mypage 브랜치로 이동
     public Page<PostEntity> getPostsById(String userId, Pageable pageable) {
         userStatus(userId);
         Page<PostEntity> posts = postRepository.findAllByUser_UserId(userId, pageable);
@@ -73,7 +67,7 @@ public class PostService {
 
     // 게시글 생성
     @Transactional
-    public PostEntity createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException { // 👈 List로 받음
+    public PostEntity createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException {
 
         UserEntity author = userStatus(userId);
 
@@ -84,7 +78,6 @@ public class PostService {
                 .user(author)
                 .build();
 
-        // 2. 이미지 파일이 존재할 경우에만 저장 로직을 실행합니다.
         if (imageFiles != null && !imageFiles.isEmpty()) {
 
             for (MultipartFile imageFile : imageFiles) {
@@ -92,7 +85,7 @@ public class PostService {
                 // 원본 파일명 추출
                 String originalFileName = imageFile.getOriginalFilename();
 
-                // 확장자 추출 (코드를 간결하게 만들기 위해 별도 메소드로 분리하는 것을 추천)
+                // 확장자 추출
                 String extension = "";
                 if (originalFileName != null && originalFileName.contains(".")) {
                     extension = originalFileName.substring(originalFileName.lastIndexOf("."));
@@ -113,13 +106,12 @@ public class PostService {
                 // 파일을 서버에 실제로 저장
                 imageFile.transferTo(filePath.toFile());
 
-                Image image = Image.builder()
+                ImageEntity image = ImageEntity.builder()
                         .originalFileName(originalFileName)
                         .storedFileName(storedFileName)
-                        .post(post)
                         .build();
 
-                post.getImages().add(image);
+                post.addImage(image);
             }
         }
 
@@ -128,45 +120,93 @@ public class PostService {
 
 
     // 게시글 수정
-//    public PostEntity updatePost(String userId, Long postId, PostRequestDTO postRequestDTO) {
-//        userStatus(userId);
-//
-//        PostEntity post = postRepository.findByPostIdAndUser_UserId(postId, userId)
-//                .orElseThrow(() -> new RuntimeException("수정 권한이 없거나 게시글이 존재하지 않습니다."));
-//
-//        post.update(postRequestDTO.getTitle(), postRequestDTO.getContent(), postRequestDTO.getType(), postRequestDTO.getImageUrl());
-//
-//        return postRepository.save(post);
-//
-//    }
-
-
-    // 게시글 삭제
-    public void deletePost(String userId, Long postId) {
+    @Transactional
+    public PostEntity updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
         userStatus(userId);
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean isAdmin = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(role -> role.equals("ADMIN"));
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new EntityNotFoundException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
 
-        PostEntity post = findPostById(postId);
-
-        if (isAdmin || post.getUser().getUserId().equals(userId)) {
-            postRepository.delete(post);
-        } else {
-            throw new AccessDeniedException("이 게시글을 삭제할 권한이 없습니다.");
+        if (!post.getUser().getUserId().equals(userId)) {
+            throw new AccessDeniedException("이 게시글을 수정할 권한이 없습니다.");
         }
 
+        post.update(requestDTO.getTitle(), requestDTO.getContent(), requestDTO.getType());
+
+        List<Long> imagesToKeepIds = requestDTO.getExistingImageIds();
+        if (imagesToKeepIds == null) {
+            imagesToKeepIds = Collections.emptyList();
+        }
+
+        Iterator<ImageEntity> iterator = post.getImages().iterator();
+        while (iterator.hasNext()) {
+            ImageEntity image = iterator.next();
+
+            Long imageId = image.getImageId();
+
+            if (imageId == null || !imagesToKeepIds.contains(imageId)) {
+                try {
+                    Path filePath = Paths.get(uploadDir, image.getStoredFileName());
+                    Files.deleteIfExists(filePath);
+                } catch (IOException e) {
+                    throw new RuntimeException("이미지 파일 삭제에 실패했습니다: " + image.getStoredFileName(), e);
+                }
+
+                iterator.remove();
+            }
+        }
+
+        if (newImageFiles != null && !newImageFiles.isEmpty()) {
+            for (MultipartFile imageFile : newImageFiles) {
+                String originalFileName = imageFile.getOriginalFilename();
+                String extension = "";
+                if (originalFileName != null && originalFileName.contains(".")) {
+                    extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+                }
+
+                String storedFileName = UUID.randomUUID().toString() + extension;
+                Path filePath = Paths.get(uploadDir, storedFileName);
+
+                File dir = new File(uploadDir);
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+
+                imageFile.transferTo(filePath.toFile());
+
+                ImageEntity newImage = ImageEntity.builder()
+                        .originalFileName(originalFileName)
+                        .storedFileName(storedFileName)
+                        .build();
+
+                post.addImage(newImage);
+            }
+        }
+
+        return post;
     }
 
 
-    // 게시글 검증
-//    public PostEntity findByPostId(Long postId) {
-//        PostEntity post = postRepository.findById(postId)
-//                .orElseThrow(() -> new RuntimeException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
-//        return post;
+    // 게시글 삭제
+    // todo: 이미지 삭제 로직 추가
+//    public void deletePost(String userId, Long postId) {
+//        userStatus(userId);
+//
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        boolean isAdmin = authentication.getAuthorities().stream()
+//                .map(GrantedAuthority::getAuthority)
+//                .anyMatch(role -> role.equals("ADMIN"));
+//
+//        PostEntity post = findPostById(postId);
+//
+//        if (isAdmin || post.getUser().getUserId().equals(userId)) {
+//            postRepository.delete(post);
+//        } else {
+//            throw new AccessDeniedException("이 게시글을 삭제할 권한이 없습니다.");
+//        }
+//
 //    }
+
 
     // 사용자 검증
     public UserEntity findByUserId(String userId) {

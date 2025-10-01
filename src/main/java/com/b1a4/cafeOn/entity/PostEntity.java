@@ -1,6 +1,5 @@
 package com.b1a4.cafeOn.entity;
 
-import com.b1a4.cafeOn.dto.post.PostRequestDTO;
 import com.b1a4.cafeOn.enums.PostType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -67,11 +66,11 @@ public class PostEntity {
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<Image> images = new ArrayList<>();
+    private List<ImageEntity> images = new ArrayList<>();
 
-    public void addImage(Image image) {
+    public void addImage(ImageEntity image) {
         images.add(image);
-        // image.setPost(this); // Image 엔티티에 Setter가 있다면
+        image.setPost(this);
     }
 
     public void increaseViewCount() {

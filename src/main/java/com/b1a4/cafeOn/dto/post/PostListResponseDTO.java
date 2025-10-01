@@ -5,7 +5,6 @@ import com.b1a4.cafeOn.enums.PostType;
 import com.b1a4.cafeOn.enums.UserStatus;
 import lombok.Builder;
 import lombok.Getter;
-import org.springframework.security.core.parameters.P;
 
 import java.time.LocalDateTime;
 
@@ -17,6 +16,8 @@ public class PostListResponseDTO {
     private String title;
     private String authorNickname;
     private LocalDateTime createdAt;
+    private Long viewCount;
+    private Long likeCount;
     // fixme: CommentEntity 추가할때 주석 해제
     // private int commentCount;
 
