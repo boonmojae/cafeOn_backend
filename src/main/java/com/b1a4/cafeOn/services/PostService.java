@@ -9,6 +9,7 @@ import com.b1a4.cafeOn.repositories.PostRepository;
 import com.b1a4.cafeOn.repositories.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PostService {
 
     private final PostRepository postRepository;
@@ -127,47 +129,60 @@ public class PostService {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new EntityNotFoundException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
 
-        if (!post.getUser().getUserId().equals(userId)) {
+        String ownerId = post.getUser().getUserId();
+        log.info("[UPDATE] ownerId={}, callerId={}", ownerId, userId);
+
+        boolean isAdmin = org.springframework.security.core.context.SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getAuthorities()
+                .stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isAdmin && !equalsSafe(ownerId, userId)) {
             throw new AccessDeniedException("이 게시글을 수정할 권한이 없습니다.");
         }
 
         post.update(requestDTO.getTitle(), requestDTO.getContent(), requestDTO.getType());
 
+
         List<Long> imagesToKeepIds = requestDTO.getExistingImageIds();
-        if (imagesToKeepIds == null) {
-            imagesToKeepIds = Collections.emptyList();
-        }
-
-        Iterator<ImageEntity> iterator = post.getImages().iterator();
-        while (iterator.hasNext()) {
-            ImageEntity image = iterator.next();
-
-            Long imageId = image.getImageId();
-
-            if (imageId == null || !imagesToKeepIds.contains(imageId)) {
-                try {
-                    Path filePath = Paths.get(uploadDir, image.getStoredFileName());
-                    Files.deleteIfExists(filePath);
-                } catch (IOException e) {
-                    throw new RuntimeException("이미지 파일 삭제에 실패했습니다: " + image.getStoredFileName(), e);
-                }
-
-                iterator.remove();
+        if (imagesToKeepIds != null) {
+            if (imagesToKeepIds.isEmpty()) {
+                imagesToKeepIds = java.util.Collections.emptyList();
             }
+
+            java.util.Iterator<ImageEntity> iterator = post.getImages().iterator();
+            while (iterator.hasNext()) {
+                ImageEntity image = iterator.next();
+                Long imageId = image.getImageId();
+
+                if (imageId == null || !imagesToKeepIds.contains(imageId)) {
+                    try {
+                        java.nio.file.Path filePath = java.nio.file.Paths.get(uploadDir, image.getStoredFileName());
+                        java.nio.file.Files.deleteIfExists(filePath);
+                    } catch (IOException e) {
+                        throw new RuntimeException("이미지 파일 삭제에 실패했습니다: " + image.getStoredFileName(), e);
+                    }
+                    iterator.remove();
+                }
+            }
+        } else {
+            log.info("[UPDATE] imagesToKeepIds is null -> keep existing images as-is");
         }
 
         if (newImageFiles != null && !newImageFiles.isEmpty()) {
             for (MultipartFile imageFile : newImageFiles) {
                 String originalFileName = imageFile.getOriginalFilename();
+
                 String extension = "";
                 if (originalFileName != null && originalFileName.contains(".")) {
                     extension = originalFileName.substring(originalFileName.lastIndexOf("."));
                 }
 
-                String storedFileName = UUID.randomUUID().toString() + extension;
-                Path filePath = Paths.get(uploadDir, storedFileName);
+                String storedFileName = java.util.UUID.randomUUID().toString() + extension;
+                java.nio.file.Path filePath = java.nio.file.Paths.get(uploadDir, storedFileName);
 
-                File dir = new File(uploadDir);
+                java.io.File dir = new java.io.File(uploadDir);
                 if (!dir.exists()) {
                     dir.mkdirs();
                 }
@@ -185,6 +200,77 @@ public class PostService {
 
         return post;
     }
+
+    private boolean equalsSafe(String a, String b) {
+        if (a == null || b == null) return false;
+        return a.trim().equalsIgnoreCase(b.trim());
+    }
+
+//    @Transactional
+//    public PostEntity updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
+//        userStatus(userId);
+//
+//        PostEntity post = postRepository.findById(postId)
+//                .orElseThrow(() -> new EntityNotFoundException("해당 게시글을 찾을 수 없습니다. ID: " + postId));
+//
+//        if (!post.getUser().getUserId().equals(userId)) {
+//            throw new AccessDeniedException("이 게시글을 수정할 권한이 없습니다.");
+//        }
+//
+//        post.update(requestDTO.getTitle(), requestDTO.getContent(), requestDTO.getType());
+//
+//        List<Long> imagesToKeepIds = requestDTO.getExistingImageIds();
+//        if (imagesToKeepIds == null) {
+//            imagesToKeepIds = Collections.emptyList();
+//        }
+//
+//        Iterator<ImageEntity> iterator = post.getImages().iterator();
+//        while (iterator.hasNext()) {
+//            ImageEntity image = iterator.next();
+//
+//            Long imageId = image.getImageId();
+//
+//            if (imageId == null || !imagesToKeepIds.contains(imageId)) {
+//                try {
+//                    Path filePath = Paths.get(uploadDir, image.getStoredFileName());
+//                    Files.deleteIfExists(filePath);
+//                } catch (IOException e) {
+//                    throw new RuntimeException("이미지 파일 삭제에 실패했습니다: " + image.getStoredFileName(), e);
+//                }
+//
+//                iterator.remove();
+//            }
+//        }
+//
+//        if (newImageFiles != null && !newImageFiles.isEmpty()) {
+//            for (MultipartFile imageFile : newImageFiles) {
+//                String originalFileName = imageFile.getOriginalFilename();
+//                String extension = "";
+//                if (originalFileName != null && originalFileName.contains(".")) {
+//                    extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+//                }
+//
+//                String storedFileName = UUID.randomUUID().toString() + extension;
+//                Path filePath = Paths.get(uploadDir, storedFileName);
+//
+//                File dir = new File(uploadDir);
+//                if (!dir.exists()) {
+//                    dir.mkdirs();
+//                }
+//
+//                imageFile.transferTo(filePath.toFile());
+//
+//                ImageEntity newImage = ImageEntity.builder()
+//                        .originalFileName(originalFileName)
+//                        .storedFileName(storedFileName)
+//                        .build();
+//
+//                post.addImage(newImage);
+//            }
+//        }
+//
+//        return post;
+//    }
 
 
     // 게시글 삭제

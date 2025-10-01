@@ -101,7 +101,7 @@ public class PostController {
 
         // 기존 쿠키들 확인
         if (cookies != null) {
-            for (Cookie cookie: cookies) {
+            for (Cookie cookie : cookies) {
                 if (cookie.getName().equals("postView")) {
                     oldCookie = cookie;
                 }
@@ -189,80 +189,96 @@ public class PostController {
     }
 
     // 게시글 생성
-    @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
-    public ResponseEntity<?> createPost(@AuthenticationPrincipal String userId,
-                                        @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
-                                        @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
+    // JSON + 파일 (멀티파트)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createPostMultipart(
+            @AuthenticationPrincipal String userId,
+            @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
+            @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles
+    ) throws IOException {
+        PostEntity saved = postService.createPost(userId, postRequestDTO, imageFiles);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.builder()
+                        .data(PostDetailResponseDTO.from(saved))
+                        .message("게시글이 생성되었습니다.")
+                        .build());
+    }
 
-        try {
-            PostEntity savePost = postService.createPost(userId, postRequestDTO, imageFiles);
-
-            PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(savePost);
-
-            ApiResponse<PostDetailResponseDTO> response = ApiResponse.<PostDetailResponseDTO>builder()
-                    .data(responseDTO)
-                    .message("게시글이 생성 되었습니다.")
-                    .build();
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch(IOException e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("이미지 업로드에 실패했습니다: " + e.getMessage())
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorResponse);
-
-        } catch (RuntimeException e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("사용자를 찾을 수 없습니다.")
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
+    // JSON만
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createPostJsonOnly(
+            @AuthenticationPrincipal String userId,
+            @RequestBody PostRequestDTO postRequestDTO
+    ) throws IOException {
+        PostEntity saved = postService.createPost(userId, postRequestDTO, null);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.builder()
+                        .data(PostDetailResponseDTO.from(saved))
+                        .message("게시글이 생성되었습니다.")
+                        .build());
     }
 
 
-    // 게시글 수정
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updatePost(@AuthenticationPrincipal String userId,
-                                        @PathVariable("id") Long postId,
-                                        @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
-                                        @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
+    // 멀티파트
+    @PutMapping(path = "/{id}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updatePostMultipart(
+            @AuthenticationPrincipal String userId,
+            @PathVariable("id") Long postId,
+            @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
+            @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
+
         try {
-
             PostEntity post = postService.updatePost(userId, postId, postRequestDTO, imageFiles);
-            PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(post);
-            ApiResponse<?> response = ApiResponse.builder()
-                    .message("게시글이 수정되었습니다.")
-                    .data(responseDTO)
-                    .build();
-
-            return ResponseEntity.ok().body(response);
-
+            return ResponseEntity.ok(
+                    ApiResponse.builder()
+                            .message("게시글이 수정되었습니다.")
+                            .data(PostDetailResponseDTO.from(post))
+                            .build()
+            );
         } catch (EntityNotFoundException e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.builder().message(e.getMessage()).build());
         } catch (AccessDeniedException e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("이 게시글을 수정할 권한이 없습니다.")
-                    .build();
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
-
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.builder().message("이 게시글을 수정할 권한이 없습니다.").build());
         } catch (IOException e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("이미지 파일 처리 중 오류가 발생했습니다: " + e.getMessage())
-                    .build();
-            return ResponseEntity.badRequest().body(errorResponse);
-
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.builder().message("이미지 파일 처리 중 오류가 발생했습니다: " + e.getMessage()).build());
         } catch (Exception e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("요청 처리 중 예상치 못한 오류가 발생했습니다.")
-                    .build();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.builder().message("요청 처리 중 예상치 못한 오류가 발생했습니다.").build());
+        }
+    }
+
+    // JSON
+    @PutMapping(path = "/{id}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updatePostJsonOnly(
+            @AuthenticationPrincipal String userId,
+            @PathVariable("id") Long postId,
+            @RequestBody PostRequestDTO postRequestDTO) {
+
+        try {
+            // JSON-only → 이미지 변경 없음
+            PostEntity post = postService.updatePost(userId, postId, postRequestDTO, null);
+            return ResponseEntity.ok(
+                    ApiResponse.builder()
+                            .message("게시글이 수정되었습니다.")
+                            .data(PostDetailResponseDTO.from(post))
+                            .build()
+            );
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.builder().message(e.getMessage()).build());
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.builder().message("이 게시글을 수정할 권한이 없습니다.").build());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.builder().message("요청 처리 중 예상치 못한 오류가 발생했습니다.").build());
         }
     }
 
