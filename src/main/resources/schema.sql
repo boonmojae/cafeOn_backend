@@ -37,6 +37,19 @@ CREATE TABLE IF NO EXISTS posts(
     FOREIGN KEY (user_id) REFERENCES user (user_id)
 )
 
+CREATE TABLE IF NO EXISTS posts(
+    post_id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id CHAR(36) NULL,
+    type ENUM('GENERAL', 'QUESTION', 'INFO') NOT NULL DEFAULT 'GENERAL',
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NULL,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (post_id),
+    FOREIGN KEY (user_id) REFERENCES user (user_id)
+)
+
 CREATE TABLE IF NOT EXISTS images (
     image_id BIGINT NOT NULL AUTO_INCREMENT,
     post_id BIGINT NOT NULL,

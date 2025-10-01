@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.security;
 
+import com.b1a4.cafeOn.Security.TokenProvider;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

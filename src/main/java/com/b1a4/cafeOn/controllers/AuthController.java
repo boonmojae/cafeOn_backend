@@ -6,7 +6,7 @@ import com.b1a4.cafeOn.entity.UserEntity;
 import com.b1a4.cafeOn.enums.UserProvider;
 import com.b1a4.cafeOn.enums.UserRole;
 import com.b1a4.cafeOn.enums.UserStatus;
-import com.b1a4.cafeOn.security.TokenProvider;
+import com.b1a4.cafeOn.Security.TokenProvider;
 import com.b1a4.cafeOn.services.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;

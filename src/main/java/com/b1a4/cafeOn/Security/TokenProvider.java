@@ -1,4 +1,4 @@
-package com.b1a4.cafeOn.security;
+package com.b1a4.cafeOn.Security;
 
 import com.b1a4.cafeOn.configs.jwt.JwtProperties;
 import com.b1a4.cafeOn.entity.UserEntity;
@@ -22,7 +22,6 @@ public class TokenProvider {
     //    [after] JwtProperties 클래스 이용해 설정 파일 값 불러오기
     @Autowired
     private JwtProperties jwtProperties;
-
 
     //    1. Access, Refresh Token 둘 다 발급 (로그인 시)
     public Map<String, String> issueTokens(UserEntity userEntity) {

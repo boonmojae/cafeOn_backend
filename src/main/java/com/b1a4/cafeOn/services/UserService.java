@@ -1,8 +1,9 @@
 package com.b1a4.cafeOn.services;
 
+import com.b1a4.cafeOn.Security.TokenProvider;
 import com.b1a4.cafeOn.entity.UserEntity;
 import com.b1a4.cafeOn.repositories.UserRepository;
-import com.b1a4.cafeOn.security.TokenProvider;
+import com.b1a4.cafeOn.Security.TokenProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
