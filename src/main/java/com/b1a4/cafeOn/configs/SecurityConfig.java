@@ -47,10 +47,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/", "/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs", "/api-docs-json")  // 요청 경로가 일치하는 애들한테는
                         .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
+                        .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").hasAuthority("USER")
                         .requestMatchers(HttpMethod.POST, "/api/posts").hasAuthority("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasAuthority("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasAuthority("USER")
-                        .requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/**").permitAll()
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
 //        filter 등록: 매 요청마다 (1)CorsFilter를 실행한 후에 -> (2)JwtAuthenticationFilter{}를 실행되게 순서 세팅

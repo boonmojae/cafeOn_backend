@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.dto.post;
 
+import com.b1a4.cafeOn.dto.ImageResponseDTO;
 import com.b1a4.cafeOn.entity.PostEntity;
 import com.b1a4.cafeOn.enums.PostType;
 import com.b1a4.cafeOn.enums.UserStatus;
@@ -9,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Getter
 @Builder
@@ -19,9 +22,9 @@ public class PostDetailResponseDTO {
     private String title;
     private String content;
     private String authorNickname;
-    private String imageUrl;
     private PostType type;
     private long viewCount;
+    private List<ImageResponseDTO> images;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     // fixme: CommentEntity 추가할때 주석 해제
@@ -38,13 +41,17 @@ public class PostDetailResponseDTO {
             nicknameToDisplay = post.getUser().getNickname();
         }
 
+        List<ImageResponseDTO> imageResponseDTOS = post.getImages().stream()
+                .map(ImageResponseDTO::from)
+                .collect(Collectors.toList());
+
         return PostDetailResponseDTO.builder()
                 .id(post.getPostId())
                 .title(post.getTitle())
                 .content(post.getContent())
                 .authorNickname(nicknameToDisplay)
-                .imageUrl(post.getImageUrl())
                 .type(post.getType())
+                .images(imageResponseDTOS)
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .viewCount(post.getViewCount())

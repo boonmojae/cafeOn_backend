@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Table(name = "posts")
 @Entity
@@ -32,9 +34,6 @@ public class PostEntity {
 
     @Column(name = "content", nullable = false)
     private String content;
-
-    @Column(name = "image_url")
-    private String imageUrl;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -66,15 +65,23 @@ public class PostEntity {
     @JoinColumn(name = "user_id")
     private UserEntity user;
 
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Image> images = new ArrayList<>();
+
+    public void addImage(Image image) {
+        images.add(image);
+        // image.setPost(this); // Image 엔티티에 Setter가 있다면
+    }
+
     public void increaseViewCount() {
         this.viewCount++;
     }
 
-    public void update(String title, String content, PostType type, String imageUrl) {
+    public void update(String title, String content, PostType type) {
         this.title = title;
         this.content = content;
         this.type = type;
-        this.imageUrl = imageUrl;
     }
 
 

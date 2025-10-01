@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.services;
 
 import com.b1a4.cafeOn.dto.post.PostRequestDTO;
+import com.b1a4.cafeOn.entity.Image;
 import com.b1a4.cafeOn.entity.PostEntity;
 import com.b1a4.cafeOn.entity.UserEntity;
 import com.b1a4.cafeOn.enums.UserStatus;
@@ -18,10 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -70,48 +73,55 @@ public class PostService {
 
     // 게시글 생성
     @Transactional
-    public PostEntity createPost(String userId, PostRequestDTO requestDto, MultipartFile imageFile) throws IOException {
+    public PostEntity createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException { // 👈 List로 받음
 
         UserEntity author = userStatus(userId);
 
-        String imageUrl = null;
-
-        // 이미지 파일이 존재할 경우 서버에 저장하는 로직
-        if (imageFile != null && !imageFile.isEmpty()) {
-            
-            // 원본 파일 이름에서 확장자 추출
-            String originalFileName = imageFile.getOriginalFilename();
-            String extension = "";
-            if (originalFileName != null && originalFileName.contains(".")) {
-                extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-            }
-
-            // UUID를 이용해 고유한 파일명 생성
-            String storedFileName = UUID.randomUUID().toString() + extension;
-
-            // 저장할 전체 경로 설정 (예: C:/cafeon/uploads/posts/UUID.jpg)
-            Path filePath = Paths.get(uploadDir, storedFileName);
-
-            // 해당 경로에 디렉토리가 없으면 생성
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-            
-            // 파일을 서버에 실제로 저장
-            imageFile.transferTo(filePath.toFile());
-
-            // DB에 저장할 웹 접근 경로 설정
-            imageUrl = "/images/" + storedFileName;
-        }
-
         PostEntity post = PostEntity.builder()
-                .title(requestDto.getTitle())
-                .content(requestDto.getContent())
-                .type(requestDto.getType())
-                .imageUrl(imageUrl)
-                .user(author).
-                build();
+                .title(requestDTO.getTitle())
+                .content(requestDTO.getContent())
+                .type(requestDTO.getType())
+                .user(author)
+                .build();
+
+        // 2. 이미지 파일이 존재할 경우에만 저장 로직을 실행합니다.
+        if (imageFiles != null && !imageFiles.isEmpty()) {
+
+            for (MultipartFile imageFile : imageFiles) {
+
+                // 원본 파일명 추출
+                String originalFileName = imageFile.getOriginalFilename();
+
+                // 확장자 추출 (코드를 간결하게 만들기 위해 별도 메소드로 분리하는 것을 추천)
+                String extension = "";
+                if (originalFileName != null && originalFileName.contains(".")) {
+                    extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+                }
+
+                // UUID를 이용해 고유한 파일명 생성
+                String storedFileName = UUID.randomUUID().toString() + extension;
+
+                // 저장할 전체 경로 설정
+                Path filePath = Paths.get(uploadDir, storedFileName);
+
+                // 디렉토리가 없으면 생성
+                File dir = new File(uploadDir);
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+
+                // 파일을 서버에 실제로 저장
+                imageFile.transferTo(filePath.toFile());
+
+                Image image = Image.builder()
+                        .originalFileName(originalFileName)
+                        .storedFileName(storedFileName)
+                        .post(post)
+                        .build();
+
+                post.getImages().add(image);
+            }
+        }
 
         return postRepository.save(post);
     }
