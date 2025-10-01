@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "user")   // DB 테이블명
+@Table(name = "users")   // DB 테이블명
 public class UserEntity {
 //    ENUM 기본값으로 첫 값이 0으로 설정되어 들어감. 하지만 엔티티 생성할 때 생성자나 setter로 다른 상태로 가입 처리 가능
 
