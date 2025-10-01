@@ -42,9 +42,17 @@ public class SecurityConfig {
                 .sessionManagement(sessionManagement ->
                         sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))   // session 기반이 아니므로 무상태(STATELESS) 설정
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/", "/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs", "/api-docs-json")  // 요청 경로가 일치하는 애들한테는
+                        .requestMatchers("/", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs", "/api-docs-json")  // 요청 경로가 일치하는 애들한테는
                         .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
+//                                ** URL 기반 인가 규칙 추가 **
+//                                  1. 로그인 전 허용
+                        .requestMatchers("/api/auth/**").permitAll()
+//                                  2. 로그인 사용자
+                        .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
+//                                  3. 관리자 전용
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
+
 
 //        filter 등록: 매 요청마다 (1)CorsFilter를 실행한 후에 -> (2)JwtAuthenticationFilter{}를 실행되게 순서 세팅
         http.addFilterAfter(jwtAuthenticationFilter, CorsFilter.class);
@@ -53,7 +61,7 @@ public class SecurityConfig {
 //        @Bean메서드에서 완성된 SecurityFilterChain 빈을 반환해야 하기 때문에, 이 반환값을 스프링이 받아서 보안 필터링의 기준으로 사용
     }
 
-//    cors 설정
+    //    cors 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
