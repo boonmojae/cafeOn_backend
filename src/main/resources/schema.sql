@@ -23,3 +23,16 @@ CREATE TABLE IF NOT EXISTS user(
 );
 
 DESC user;
+
+CREATE TABLE IF NOT EXISTS questions (
+  question_id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id CHAR(36) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  is_private TINYINT(1) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NULL,
+  type ENUM('QUESTION','REPORT') NOT NULL,
+  status ENUM('PENDING','ANSWERED') NOT NULL,
+  PRIMARY KEY (question_id)
+);
