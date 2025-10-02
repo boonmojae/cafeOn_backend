@@ -67,29 +67,23 @@ public class PostController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getPost(@PathVariable("id") Long postId, HttpServletRequest request, HttpServletResponse response) {
 
-        try {
 
-            // 조회수 중복 방지 처리
+        PostEntity post = postService.findPostById(postId);
+
+        try {
             handleViewCount(postId, request, response);
 
-            // 게시글 데이터 조회
-            PostEntity post = postService.findPostById(postId);
-
-            // 최종 응답 생성
-            PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(post);
-            ApiResponse<PostDetailResponseDTO> responseF = ApiResponse.<PostDetailResponseDTO>builder()
-                    .data(responseDTO)
-                    .message("게시글을 성공적으로 조회했습니다")
-                    .build();
-
-            return ResponseEntity.ok(responseF);
-
         } catch (Exception e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("게시글을 조회할 수 없습니다")
-                    .build();
-            return ResponseEntity.badRequest().body(errorResponse);
+            log.warn("Failed to update view count. postId={}", postId, e);
         }
+
+        PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(post);
+        ApiResponse<PostDetailResponseDTO> responseF = ApiResponse.<PostDetailResponseDTO>builder()
+                .data(responseDTO)
+                .message("게시글을 성공적으로 조회했습니다")
+                .build();
+
+        return ResponseEntity.ok(responseF);
 
     }
 
@@ -218,6 +212,7 @@ public class PostController {
     }
 
 
+    // 게시글 수정
     // 멀티파트
     @PutMapping(path = "/{id}",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
