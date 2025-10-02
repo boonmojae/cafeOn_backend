@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.awt.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,6 +74,11 @@ public class PostEntity {
     public void addImage(ImageEntity image) {
         images.add(image);
         image.setPost(this);
+    }
+
+    public void removeImage(ImageEntity image) {
+        images.remove(image);
+        image.setPost(null);
     }
 
     public void increaseViewCount() {
