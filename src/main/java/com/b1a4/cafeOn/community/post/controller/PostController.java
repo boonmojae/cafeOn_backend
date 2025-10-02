@@ -5,6 +5,7 @@ import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
+import com.b1a4.cafeOn.community.post.exception.ImageDeleteException;
 import com.b1a4.cafeOn.community.post.service.PostService;
 import com.b1a4.cafeOn.community.post.service.ViewCountService;
 import jakarta.persistence.EntityNotFoundException;
@@ -278,24 +279,13 @@ public class PostController {
 
 
     // 게시글 삭제
-    // todo: 이미지 삭제 로직 추가
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<?> deletePost(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId) {
-//
-//        try {
-//
-//            postService.deletePost(userId, postId);
-//
-//            return ResponseEntity.noContent().build();
-//
-//        } catch (Exception e) {
-//            ApiResponse<?> errorResponse = ApiResponse.builder()
-//                    .message("게시글을 삭제할 수 없습니다.")
-//                    .build();
-//
-//            return ResponseEntity.badRequest().body(errorResponse);
-//        }
-//    }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deletePost(@AuthenticationPrincipal String userId, @PathVariable(name = "id") Long postId) {
+
+        postService.deletePost(userId, postId);
+
+        return ResponseEntity.noContent().build();
+    }
 
 
 }

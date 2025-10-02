@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -191,110 +192,34 @@ public class PostService {
         return post;
     }
 
-//    @Transactional
-//    public PostEntity updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
-//        userStatus(userId);
-//
-//        PostEntity post = postRepository.findById(postId)
-//                .orElseThrow(() -> new PostNotFoundException(postId));
-//
-//        String ownerId = post.getUser().getUserId();
-//        log.info("[UPDATE] ownerId={}, callerId={}", ownerId, userId);
-//
-//        boolean isAdmin = org.springframework.security.core.context.SecurityContextHolder.getContext()
-//                .getAuthentication()
-//                .getAuthorities()
-//                .stream()
-//                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-//
-//        if (!isAdmin && !equalsSafe(ownerId, userId)) {
-//            throw new PostForbiddenException();
-//        }
-//
-//        post.update(requestDTO.getTitle(), requestDTO.getContent(), requestDTO.getType());
-//
-//
-//        List<Long> imagesToKeepIds = requestDTO.getExistingImageIds();
-//        if (imagesToKeepIds != null) {
-//            if (imagesToKeepIds.isEmpty()) {
-//                imagesToKeepIds = java.util.Collections.emptyList();
-//            }
-//
-//            java.util.Iterator<ImageEntity> iterator = post.getImages().iterator();
-//            while (iterator.hasNext()) {
-//                ImageEntity image = iterator.next();
-//                Long imageId = image.getImageId();
-//
-//                if (imageId == null || !imagesToKeepIds.contains(imageId)) {
-//                    try {
-//                        java.nio.file.Path filePath = java.nio.file.Paths.get(uploadDir, image.getStoredFileName());
-//                        java.nio.file.Files.deleteIfExists(filePath);
-//                    } catch (IOException e) {
-//                        throw new ImageDeleteException();
-//                    }
-//                    iterator.remove();
-//                }
-//            }
-//        } else {
-//            log.info("[UPDATE] imagesToKeepIds is null -> keep existing images as-is");
-//        }
-//
-//        if (newImageFiles != null && !newImageFiles.isEmpty()) {
-//            for (MultipartFile imageFile : newImageFiles) {
-//                String originalFileName = imageFile.getOriginalFilename();
-//
-//                String extension = "";
-//                if (originalFileName != null && originalFileName.contains(".")) {
-//                    extension = originalFileName.substring(originalFileName.lastIndexOf("."));
-//                }
-//
-//                String storedFileName = java.util.UUID.randomUUID().toString() + extension;
-//                java.nio.file.Path filePath = java.nio.file.Paths.get(uploadDir, storedFileName);
-//
-//                java.io.File dir = new java.io.File(uploadDir);
-//                if (!dir.exists()) {
-//                    dir.mkdirs();
-//                }
-//
-//                imageFile.transferTo(filePath.toFile());
-//
-//                ImageEntity newImage = ImageEntity.builder()
-//                        .originalFileName(originalFileName)
-//                        .storedFileName(storedFileName)
-//                        .build();
-//
-//                post.addImage(newImage);
-//            }
-//        }
-//
-//        return post;
-//    }
-//
-//    private boolean equalsSafe(String a, String b) {
-//        if (a == null || b == null) return false;
-//        return a.trim().equalsIgnoreCase(b.trim());
-//    }
-
 
     // 게시글 삭제
-    // todo: 이미지 삭제 로직 추가
-//    public void deletePost(String userId, Long postId) {
-//        userStatus(userId);
-//
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//        boolean isAdmin = authentication.getAuthorities().stream()
-//                .map(GrantedAuthority::getAuthority)
-//                .anyMatch(role -> role.equals("ADMIN"));
-//
-//        PostEntity post = findPostById(postId);
-//
-//        if (isAdmin || post.getUser().getUserId().equals(userId)) {
-//            postRepository.delete(post);
-//        } else {
-//            throw new AccessDeniedException("이 게시글을 삭제할 권한이 없습니다.");
-//        }
-//
-//    }
+    @Transactional
+    public void deletePost(String userId, Long postId) {
+        // 사용자/게시글 검증
+        UserEntity user = findByUserId(userId);
+        PostEntity post = findPostById(postId);
+
+        boolean isOwner = post.getUser().getUserId().equals(userId);
+        boolean isAdmin = SecurityContextHolder.getContext()
+                .getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isOwner && !isAdmin) {
+            throw new AccessDeniedException("삭제 권한이 없습니다.");
+        }
+
+        for (ImageEntity img : post.getImages()) {
+            Path path = Paths.get(uploadDir, img.getStoredFileName());
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException e) {
+                throw new ImageDeleteException("이미지 파일 삭제 실패: " + path, e);
+            }
+        }
+
+        postRepository.delete(post);
+    }
 
 
     // 사용자 검증
