@@ -9,7 +9,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -21,9 +20,19 @@ public interface PostLikeRepository extends JpaRepository<PostLikeEntity, Long> 
     // 게시글과 유저 정보로 좋아요 엔티티 조회
     Optional<PostLikeEntity> findByPostAndUser(PostEntity post, UserEntity user);
 
-    @Query("SELECT l.post.postId, COUNT(l) " +
-            "FROM PostLikeEntity l " +
-            "WHERE l.post IN :posts " +
-            "GROUP BY l.post.postId")
-    Map<Long, Long> findLikeCountByPostIn(@Param("posts")List<PostEntity> posts);
+
+    // Map<Long, Long> 반환 → 인터페이스 리스트 반환으로 교체
+    @Query("""
+       SELECT l.post.postId AS postId, count(l) AS cnt
+       FROM PostLikeEntity l
+       WHERE l.post.postId in :postIds
+       GROUP by l.post.postId
+       """)
+    List<LikeCount> findLikeCountByPostIdIn(@Param("postIds") List<Long> postIds);
+
+//    @Query("SELECT l.post.postId, COUNT(l) " +
+//            "FROM PostLikeEntity l " +
+//            "WHERE l.post IN :posts " +
+//            "GROUP BY l.post.postId")
+//    Map<Long, Long> findLikeCountByPostIn(@Param("posts")List<PostEntity> posts); postId, count
 }

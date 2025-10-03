@@ -18,7 +18,7 @@ public class PostLikeController {
 
     private final PostLikeService postLikeService;
 
-    @PostMapping("/{id}/likes")
+    @PostMapping("/{id}/like")
     public ResponseEntity<?> toggleLikes(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId) {
 
         PostLikeResponseDTO responseDTO = postLikeService.toggleLike(postId, userId);

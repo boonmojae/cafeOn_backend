@@ -11,6 +11,6 @@ import org.springframework.stereotype.Repository;
 public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
     Page<PostEntity> findAllByUser_UserId(String userId, Pageable pageable);
-    Page<PostEntity> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(String title, String content, Pageable pageable);
+//    Page<PostEntity> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(String title, String content, Pageable pageable);
 
 }

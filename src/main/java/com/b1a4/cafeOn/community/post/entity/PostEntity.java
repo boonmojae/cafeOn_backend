@@ -81,6 +81,7 @@ public class PostEntity {
     private List<ImageEntity> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
     private List<PostLikeEntity> likes = new ArrayList<>();
 
     public void addImage(ImageEntity image) {
@@ -96,8 +97,6 @@ public class PostEntity {
     public void increaseViewCount() {
         this.viewCount++;
     }
-
-
 
 
 }

@@ -52,11 +52,12 @@ public class PostController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            log.error("전체 게시글 조회 중 오류 발생", e);
             ApiResponse<?> errorResponse = ApiResponse.builder()
                     .message("게시글을 조회할 수 없습니다.")
                     .build();
 
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 

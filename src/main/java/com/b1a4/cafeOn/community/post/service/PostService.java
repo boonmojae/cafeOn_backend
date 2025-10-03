@@ -3,9 +3,9 @@ package com.b1a4.cafeOn.community.post.service;
 import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
-import com.b1a4.cafeOn.community.post.exception.ImageDeleteException;
 import com.b1a4.cafeOn.community.post.exception.PostForbiddenException;
 import com.b1a4.cafeOn.community.post.exception.PostNotFoundException;
+import com.b1a4.cafeOn.community.post.repository.LikeCount;
 import com.b1a4.cafeOn.community.post.repository.PostLikeRepository;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
@@ -13,7 +13,6 @@ import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.community.post.repository.PostRepository;
 import com.b1a4.cafeOn.user.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -55,7 +55,14 @@ public class PostService {
             return Page.empty();
         }
 
-        Map<Long, Long> likeCountsMap = postLikeRepository.findLikeCountByPostIn(postsContent);
+        List<Long> postIds = postsContent.stream()
+                .map(PostEntity::getPostId)
+                .toList();
+
+        List<LikeCount> rows = postLikeRepository.findLikeCountByPostIdIn(postIds);
+
+        Map<Long, Long> likeCountsMap = rows.stream()
+                .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
 
         return postsPage.map(post ->
                 PostListResponseDTO.from(post, likeCountsMap.getOrDefault(post.getPostId(), 0L)));
@@ -85,10 +92,16 @@ public class PostService {
             return Page.empty();
         }
 
-        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIn(postsContent);
+        List<Long> postIds = postsContent.stream()
+                .map(PostEntity::getPostId).toList();
+
+        List<LikeCount> rows = postLikeRepository.findLikeCountByPostIdIn(postIds);
+
+        Map<Long, Long> likeCountsMap = rows.stream()
+                .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
 
         return postsPage.map(post ->
-                PostListResponseDTO.from(post, likeCountMap.getOrDefault(post.getPostId(), 0L)));
+                PostListResponseDTO.from(post, likeCountsMap.getOrDefault(post.getPostId(), 0L)));
     }
 
 
