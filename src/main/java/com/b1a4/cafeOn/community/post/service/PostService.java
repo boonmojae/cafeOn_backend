@@ -1,9 +1,12 @@
 package com.b1a4.cafeOn.community.post.service;
 
+import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
+import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
 import com.b1a4.cafeOn.community.post.exception.ImageDeleteException;
 import com.b1a4.cafeOn.community.post.exception.PostForbiddenException;
 import com.b1a4.cafeOn.community.post.exception.PostNotFoundException;
+import com.b1a4.cafeOn.community.post.repository.PostLikeRepository;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
@@ -20,6 +23,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -27,10 +32,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -39,41 +41,66 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final PostLikeRepository postLikeRepository;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
     // 전체 게시글 조회
-    public Page<PostEntity> getAllPosts(Pageable pageable) {
-        return postRepository.findAll(pageable);
+    public Page<PostListResponseDTO> getAllPosts(Pageable pageable) {
+        Page<PostEntity> postsPage = postRepository.findAll(pageable);
+        List<PostEntity> postsContent = postsPage.getContent();
+
+        if (postsContent.isEmpty()) {
+            return Page.empty();
+        }
+
+        Map<Long, Long> likeCountsMap = postLikeRepository.findLikeCountByPostIn(postsContent);
+
+        return postsPage.map(post ->
+                PostListResponseDTO.from(post, likeCountsMap.getOrDefault(post.getPostId(), 0L)));
     }
 
     // 특정 게시글 조회
     @Transactional(readOnly = true)
-    public PostEntity findPostById(Long postId) {
-        return postRepository.findById(postId)
+    public PostDetailResponseDTO findPostById(Long postId) {
+
+        PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException(postId));
+
+        long likeCount = postLikeRepository.countByPost(post);
+
+        return PostDetailResponseDTO.from(post, likeCount);
     }
 
 
     // 내가 작성한 게시글 목록
     // fixme: feat/mypage 브랜치로 이동
-    public Page<PostEntity> getPostsById(String userId, Pageable pageable) {
+    public Page<PostListResponseDTO> getPostsById(String userId, Pageable pageable) {
         userStatus(userId);
-        Page<PostEntity> posts = postRepository.findAllByUser_UserId(userId, pageable);
-        return posts;
+        Page<PostEntity> postsPage = postRepository.findAllByUser_UserId(userId, pageable);
+        List<PostEntity> postsContent = postsPage.getContent();
+
+        if (postsContent.isEmpty()) {
+            return Page.empty();
+        }
+
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIn(postsContent);
+
+        return postsPage.map(post ->
+                PostListResponseDTO.from(post, likeCountMap.getOrDefault(post.getPostId(), 0L)));
     }
 
 
     // 특정 게시글 단어 검색
-    public Page<PostEntity> searchPosts(String keyword, Pageable pageable) {
-        return postRepository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, pageable);
-    }
+//    public Page<PostEntity> searchPosts(String keyword, Pageable pageable) {
+//        return postRepository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, pageable);
+//    }
 
 
     // 게시글 생성
     @Transactional
-    public PostEntity createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException {
+    public PostDetailResponseDTO createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException {
 
         UserEntity author = userStatus(userId);
 
@@ -121,13 +148,15 @@ public class PostService {
             }
         }
 
-        return postRepository.save(post);
+        PostEntity savedPost = postRepository.save(post);
+
+        return PostDetailResponseDTO.from(savedPost, 0L);
     }
 
 
     // 게시글 수정
     @Transactional
-    public PostEntity updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
+    public PostDetailResponseDTO updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
         userStatus(userId);
 
         PostEntity post = postRepository.findById(postId)
@@ -189,18 +218,19 @@ public class PostService {
             }
         }
 
-        return post;
+        long currentLikeCount = postLikeRepository.countByPost(post);
+
+        return PostDetailResponseDTO.from(post, currentLikeCount);
     }
 
 
     // 게시글 삭제
     @Transactional
     public void deletePost(String userId, Long postId) {
-        // 사용자/게시글 검증
         UserEntity user = findByUserId(userId);
-        PostEntity post = findPostById(postId);
+        PostEntity post = postRepository.findById(postId).orElseThrow(() -> new PostNotFoundException(postId));
 
-        boolean isOwner = post.getUser().getUserId().equals(userId);
+        boolean isOwner = post.getUser() != null && post.getUser().getUserId().equals(userId);
         boolean isAdmin = SecurityContextHolder.getContext()
                 .getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
@@ -209,16 +239,28 @@ public class PostService {
             throw new AccessDeniedException("삭제 권한이 없습니다.");
         }
 
-        for (ImageEntity img : post.getImages()) {
-            Path path = Paths.get(uploadDir, img.getStoredFileName());
-            try {
-                Files.deleteIfExists(path);
-            } catch (IOException e) {
-                throw new ImageDeleteException("이미지 파일 삭제 실패: " + path, e);
-            }
-        }
+        // 파일 경로만 미리 수집 (커밋 후 삭제)
+        List<Path> paths = post.getImages().stream()
+                .map(img -> Paths.get(uploadDir, img.getStoredFileName()))
+                .toList();
 
+
+        // 게시글 삭제 (이미지 엔티티는 JPA 연관/캐스케이드로 함께 삭제)
         postRepository.delete(post);
+
+        // 커밋 후 실제 파일 삭제 (DB 정합성 확정 뒤 I/O 처리)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                for (Path p : paths) {
+                    try {
+                        Files.deleteIfExists(p);
+                    } catch (IOException e) {
+                        log.warn("이미지 파일 삭제 실패: {}", p, e);
+                    }
+                }
+            }
+        });
     }
 
 

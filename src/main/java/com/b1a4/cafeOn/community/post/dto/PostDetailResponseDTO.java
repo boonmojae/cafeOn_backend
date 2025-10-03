@@ -27,10 +27,11 @@ public class PostDetailResponseDTO {
     private List<ImageResponseDTO> images;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private long likeCount;
     // fixme: CommentEntity 추가할때 주석 해제
     // private List<CommentDTO> comment;
 
-    public static PostDetailResponseDTO from(PostEntity post) {
+    public static PostDetailResponseDTO from(PostEntity post, long likeCount) {
 
         // 탈퇴한 회원 닉네임
         String nicknameToDisplay;
@@ -55,6 +56,7 @@ public class PostDetailResponseDTO {
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .viewCount(post.getViewCount())
+                .likeCount(likeCount)
                 .build();
     }
 }

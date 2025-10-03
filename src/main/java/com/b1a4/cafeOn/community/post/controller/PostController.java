@@ -43,9 +43,7 @@ public class PostController {
     @GetMapping
     public ResponseEntity<?> getAllPosts(@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         try {
-            Page<PostEntity> posts = postService.getAllPosts(pageable);
-
-            Page<PostListResponseDTO> responseDTOS = posts.map(PostListResponseDTO::from);
+            Page<PostListResponseDTO> responseDTOS = postService.getAllPosts(pageable);
 
             ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .data(responseDTOS)
@@ -68,9 +66,6 @@ public class PostController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getPost(@PathVariable("id") Long postId, HttpServletRequest request, HttpServletResponse response) {
 
-
-        PostEntity post = postService.findPostById(postId);
-
         try {
             handleViewCount(postId, request, response);
 
@@ -78,7 +73,8 @@ public class PostController {
             log.warn("Failed to update view count. postId={}", postId, e);
         }
 
-        PostDetailResponseDTO responseDTO = PostDetailResponseDTO.from(post);
+        PostDetailResponseDTO responseDTO = postService.findPostById(postId);
+
         ApiResponse<PostDetailResponseDTO> responseF = ApiResponse.<PostDetailResponseDTO>builder()
                 .data(responseDTO)
                 .message("게시글을 성공적으로 조회했습니다")
@@ -128,9 +124,7 @@ public class PostController {
 
         try {
 
-            Page<PostEntity> posts = postService.getPostsById(userId, pageable);
-
-            Page<PostListResponseDTO> responseDTOS = posts.map(PostListResponseDTO::from);
+            Page<PostListResponseDTO> responseDTOS  = postService.getPostsById(userId, pageable);
 
             ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .data(responseDTOS)
@@ -149,38 +143,38 @@ public class PostController {
     }
 
     // 특정 게시글 단어 검색
-    @GetMapping("/search")
-    public ResponseEntity<?> searchPosts(@RequestParam String keyword, @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-
-        try {
-
-            Page<PostEntity> posts = postService.searchPosts(keyword, pageable);
-
-            if (posts.isEmpty()) {
-                ApiResponse<?> response = ApiResponse.builder()
-                        .message("'" + keyword + "'에 대한 검색 결과가 없습니다.")
-                        .build();
-                return ResponseEntity.ok().body(response);
-            }
-
-            Page<PostDetailResponseDTO> responseDTOS = posts.map(PostDetailResponseDTO::from);
-
-            ApiResponse<Page<PostDetailResponseDTO>> response = ApiResponse.<Page<PostDetailResponseDTO>>builder()
-                    .data(responseDTOS)
-                    .message("'" + keyword + "'에 대한 검색 결과입니다.")
-                    .build();
-
-            return ResponseEntity.ok().body(response);
-
-        } catch (Exception e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("검색 중 오류가 발생했습니다.")
-                    .build();
-
-            return ResponseEntity.internalServerError().body(errorResponse);
-        }
-
-    }
+//    @GetMapping("/search")
+//    public ResponseEntity<?> searchPosts(@RequestParam String keyword, @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+//
+//        try {
+//
+//            Page<PostEntity> posts = postService.searchPosts(keyword, pageable);
+//
+//            if (posts.isEmpty()) {
+//                ApiResponse<?> response = ApiResponse.builder()
+//                        .message("'" + keyword + "'에 대한 검색 결과가 없습니다.")
+//                        .build();
+//                return ResponseEntity.ok().body(response);
+//            }
+//
+//            Page<PostDetailResponseDTO> responseDTOS = posts.map(PostDetailResponseDTO::from);
+//
+//            ApiResponse<Page<PostDetailResponseDTO>> response = ApiResponse.<Page<PostDetailResponseDTO>>builder()
+//                    .data(responseDTOS)
+//                    .message("'" + keyword + "'에 대한 검색 결과입니다.")
+//                    .build();
+//
+//            return ResponseEntity.ok().body(response);
+//
+//        } catch (Exception e) {
+//            ApiResponse<?> errorResponse = ApiResponse.builder()
+//                    .message("검색 중 오류가 발생했습니다.")
+//                    .build();
+//
+//            return ResponseEntity.internalServerError().body(errorResponse);
+//        }
+//
+//    }
 
     // 게시글 생성
     // JSON + 파일 (멀티파트)
@@ -190,10 +184,10 @@ public class PostController {
             @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
             @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles
     ) throws IOException {
-        PostEntity saved = postService.createPost(userId, postRequestDTO, imageFiles);
+        PostDetailResponseDTO saved = postService.createPost(userId, postRequestDTO, imageFiles);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.builder()
-                        .data(PostDetailResponseDTO.from(saved))
+                        .data(saved)
                         .message("게시글이 생성되었습니다.")
                         .build());
     }
@@ -204,10 +198,10 @@ public class PostController {
             @AuthenticationPrincipal String userId,
             @RequestBody PostRequestDTO postRequestDTO
     ) throws IOException {
-        PostEntity saved = postService.createPost(userId, postRequestDTO, null);
+        PostDetailResponseDTO saved = postService.createPost(userId, postRequestDTO, null);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.builder()
-                        .data(PostDetailResponseDTO.from(saved))
+                        .data(saved)
                         .message("게시글이 생성되었습니다.")
                         .build());
     }
@@ -225,11 +219,11 @@ public class PostController {
             @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
 
         try {
-            PostEntity post = postService.updatePost(userId, postId, postRequestDTO, imageFiles);
+            PostDetailResponseDTO post = postService.updatePost(userId, postId, postRequestDTO, imageFiles);
             return ResponseEntity.ok(
                     ApiResponse.builder()
                             .message("게시글이 수정되었습니다.")
-                            .data(PostDetailResponseDTO.from(post))
+                            .data(post)
                             .build()
             );
         } catch (EntityNotFoundException e) {
@@ -258,11 +252,11 @@ public class PostController {
 
         try {
             // JSON-only → 이미지 변경 없음
-            PostEntity post = postService.updatePost(userId, postId, postRequestDTO, null);
+            PostDetailResponseDTO post = postService.updatePost(userId, postId, postRequestDTO, null);
             return ResponseEntity.ok(
                     ApiResponse.builder()
                             .message("게시글이 수정되었습니다.")
-                            .data(PostDetailResponseDTO.from(post))
+                            .data(post)
                             .build()
             );
         } catch (EntityNotFoundException e) {

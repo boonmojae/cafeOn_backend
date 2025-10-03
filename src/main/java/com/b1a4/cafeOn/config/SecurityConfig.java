@@ -50,9 +50,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/images/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/posts/*/likes").hasRole("USER")
                         .requestMatchers(HttpMethod.GET,    "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST,   "/api/posts").hasRole("USER")
-//                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("USER")
 

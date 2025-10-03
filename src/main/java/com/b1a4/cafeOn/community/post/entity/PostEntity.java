@@ -46,6 +46,9 @@ public class PostEntity {
     @Column(name = "view_count")
     private long viewCount;
 
+//    @Column(name = "like_count")
+//    private long likeCount;
+
     @PrePersist
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -63,6 +66,12 @@ public class PostEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void update(String title, String content, PostType type) {
+        this.title = title;
+        this.content = content;
+        this.type = type;
+    }
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserEntity user;
@@ -70,6 +79,9 @@ public class PostEntity {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ImageEntity> images = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<PostLikeEntity> likes = new ArrayList<>();
 
     public void addImage(ImageEntity image) {
         images.add(image);
@@ -85,11 +97,7 @@ public class PostEntity {
         this.viewCount++;
     }
 
-    public void update(String title, String content, PostType type) {
-        this.title = title;
-        this.content = content;
-        this.type = type;
-    }
+
 
 
 }

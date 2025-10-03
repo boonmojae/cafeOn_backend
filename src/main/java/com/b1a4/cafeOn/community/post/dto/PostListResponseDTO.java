@@ -16,12 +16,12 @@ public class PostListResponseDTO {
     private String title;
     private String authorNickname;
     private LocalDateTime createdAt;
-    private Long viewCount;
-//    private Long likeCount;
+    private long viewCount;
+    private long likeCount;
     // fixme: CommentEntity 추가할때 주석 해제
     // private int commentCount;
 
-    public static PostListResponseDTO from(PostEntity post) {
+    public static PostListResponseDTO from(PostEntity post, long likeCount) {
 
         String nicknameToDisplay;
 
@@ -37,6 +37,7 @@ public class PostListResponseDTO {
                 .title(post.getTitle())
                 .authorNickname(post.getUser().getNickname())
                 .viewCount(post.getViewCount())
+                .likeCount(likeCount)
                 .createdAt(post.getCreatedAt())
                 .build();
     }
