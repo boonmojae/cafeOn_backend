@@ -4,8 +4,6 @@ import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
-import com.b1a4.cafeOn.community.post.entity.PostEntity;
-import com.b1a4.cafeOn.community.post.exception.ImageDeleteException;
 import com.b1a4.cafeOn.community.post.service.PostService;
 import com.b1a4.cafeOn.community.post.service.ViewCountService;
 import jakarta.persistence.EntityNotFoundException;

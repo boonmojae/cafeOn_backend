@@ -12,6 +12,8 @@ import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -58,6 +60,11 @@ public class CommentService {
     }
 
     // 댓글 목록 조회
+    public Page<CommentResponseDTO> getAllComments(Pageable pageable) {
+        Page<CommentEntity> comments = commentRepository.findAll(pageable);
+
+        return comments.map(CommentResponseDTO::from);
+    }
 
     // 특정 댓글 상세 조회
 
