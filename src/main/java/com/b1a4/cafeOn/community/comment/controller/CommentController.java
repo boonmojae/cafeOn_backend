@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import javax.xml.stream.events.Comment;
+
 @RestController
 @Slf4j
 @RequestMapping("/api")
@@ -77,8 +79,50 @@ public class CommentController {
 
 
     // 특정 댓글 상세 조회
+    @GetMapping("/comment/{commentId}")
+    public ResponseEntity<?> getComment(@AuthenticationPrincipal String userId, @PathVariable Long commentId) {
+        try {
+            CommentResponseDTO responseDTO = commentService.findCommentById(commentId, userId);
 
-    // 내가 작성한 댓글 목록
+            ApiResponse<CommentResponseDTO> response = ApiResponse.<CommentResponseDTO>builder()
+                    .data(responseDTO)
+                    .message("댓글을 조회했습니다.")
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+
+        } catch (Exception e) {
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message(e.getMessage())
+                    .build();
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+    }
+
+    // 내가 작성한 댓글 목록 fixme: mypage 브랜치로 이동
+    @GetMapping("/my/comments")
+    public ResponseEntity<?> findCommentByUserId(@AuthenticationPrincipal String userId, @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        try {
+            Page<CommentResponseDTO> responseDTOS = commentService.getCommentByUserId(userId, pageable);
+
+            ApiResponse<Page<CommentResponseDTO>> response = ApiResponse.<Page<CommentResponseDTO>>builder()
+                    .data(responseDTOS)
+                    .message("내가 작성한 댓글 목록 조회")
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+
+        } catch (Exception e) {
+            ApiResponse errorResponse = ApiResponse.builder()
+                    .message(e.getMessage())
+                    .build();
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+    }
 
     // 댓글 수정
 

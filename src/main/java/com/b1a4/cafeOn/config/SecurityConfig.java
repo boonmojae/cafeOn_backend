@@ -50,12 +50,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/images/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,    "/api/posts/**").hasRole("USER")
-                        .requestMatchers(HttpMethod.POST,   "/api/posts").hasRole("USER")
-                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/posts").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").hasRole("USER")
-
+                        .requestMatchers(HttpMethod.POST, "/api/comments").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/comments/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/comments/**").hasRole("USER")
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
 //        filter 등록: 매 요청마다 (1)CorsFilter를 실행한 후에 -> (2)JwtAuthenticationFilter{}를 실행되게 순서 세팅
@@ -70,7 +72,7 @@ public class SecurityConfig {
         return RoleHierarchyImpl.fromHierarchy("ROLE_ADMIN > ROLE_USER");
     }
 
-//    cors 설정
+    //    cors 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

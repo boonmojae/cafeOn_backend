@@ -39,7 +39,7 @@ public class CommentService {
 
         if (parentId != null) {
 
-            CommentEntity parent = findByCommentId(existsParentId);
+            CommentEntity parent = existsCommentById(existsParentId);
 
             if (!parent.getPost().getPostId().equals(postId)) {
                 throw new IllegalArgumentException("부모 댓글이 해당 게시글에 속하지 않습니다.");
@@ -67,8 +67,25 @@ public class CommentService {
     }
 
     // 특정 댓글 상세 조회
+    public CommentResponseDTO findCommentById(Long commentId, String userId) {
+
+        findByUserId(userId);
+
+        CommentEntity comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new CommentNotFoundException(commentId));
+        return CommentResponseDTO.from(comment);
+    }
 
     // 내가 작성한 댓글 목록
+    // fixme: mypage 브랜치로 이동
+    public Page<CommentResponseDTO> getCommentByUserId(String userId, Pageable pageable) {
+
+        findByUserId(userId);
+
+        Page<CommentEntity> myCommentList =  commentRepository.findCommentByUser_UserId(userId, pageable);
+
+        return myCommentList.map(CommentResponseDTO::from);
+    }
 
     // 댓글 수정
 
@@ -92,7 +109,7 @@ public class CommentService {
     }
 
     // 댓글 검증
-    public CommentEntity findByCommentId(Long commentId) {
+    public CommentEntity existsCommentById(Long commentId) {
         CommentEntity comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CommentNotFoundException(commentId));
         return comment;
