@@ -18,11 +18,11 @@ public class CommentRequestDTO {
     private String content;
 
 
-    public static CommentEntity toEntity(PostEntity post, UserEntity user, CommentRequestDTO commentRequestDTO) {
+    public static CommentEntity toEntity(PostEntity post, UserEntity user, CommentRequestDTO commentRequestDTO, CommentEntity parent) {
         return CommentEntity.builder()
                 .post(post)
                 .user(user)
-                .parentId(commentRequestDTO.getParentId())
+                .parent(parent)
                 .content(commentRequestDTO.getContent())
                 .build();
     }

@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Builder
@@ -20,16 +22,18 @@ public class CommentResponseDTO {
     private String authorName;
     private String content;
     private LocalDateTime createdAt;
+    private List<CommentResponseDTO> children;
     // private long likeCount;
 
     public static CommentResponseDTO from(CommentEntity comment) {
         return CommentResponseDTO.builder()
                 .commentId(comment.getCommentId())
-                .parentId(comment.getParentId())
+                .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
                 .postId(comment.getPost().getPostId())
                 .content(comment.getContent())
                 .authorName(comment.getUser().getNickname())
                 .createdAt(comment.getCreatedAt())
+                .children(new ArrayList<>())
                 .build();
     }
 

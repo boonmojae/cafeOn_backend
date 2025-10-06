@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.community.comment.entity;
 
+import com.b1a4.cafeOn.community.comment.dto.CommentRequestDTO;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
@@ -9,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "comments")
@@ -23,8 +26,13 @@ public class CommentEntity {
     @Column(name = "comment_id")
     private Long commentId;
 
-    @Column(name = "parent_id")
-    private Long parentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private CommentEntity parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentEntity> children = new ArrayList<>();
 
     @Column(name = "content")
     private String content;
@@ -39,6 +47,10 @@ public class CommentEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    public void update(String content) {
+        this.content = content;
+    }
 
 
     @PrePersist
