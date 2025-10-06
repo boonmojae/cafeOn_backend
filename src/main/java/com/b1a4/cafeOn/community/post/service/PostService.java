@@ -105,12 +105,6 @@ public class PostService {
     }
 
 
-    // 특정 게시글 단어 검색
-//    public Page<PostEntity> searchPosts(String keyword, Pageable pageable) {
-//        return postRepository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, pageable);
-//    }
-
-
     // 게시글 생성
     @Transactional
     public PostDetailResponseDTO createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException {

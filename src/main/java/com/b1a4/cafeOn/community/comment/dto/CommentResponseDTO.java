@@ -22,10 +22,20 @@ public class CommentResponseDTO {
     private String authorName;
     private String content;
     private LocalDateTime createdAt;
-    private List<CommentResponseDTO> children;
-    // private long likeCount;
 
+    @Builder.Default
+    private List<CommentResponseDTO> children = new ArrayList<>();
+
+    private long likeCount;
+    private boolean likedByMe;
+
+    // 기본형(기존 코드 호환)
     public static CommentResponseDTO from(CommentEntity comment) {
+        return from(comment, 0L, false);
+    }
+
+    // 좋아요 정보 포함(목록/트리에서 사용)
+    public static CommentResponseDTO from(CommentEntity comment, long likeCount, boolean likedByMe) {
         return CommentResponseDTO.builder()
                 .commentId(comment.getCommentId())
                 .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
@@ -33,9 +43,8 @@ public class CommentResponseDTO {
                 .content(comment.getContent())
                 .authorName(comment.getUser().getNickname())
                 .createdAt(comment.getCreatedAt())
-                .children(new ArrayList<>())
+                .likeCount(likeCount)
+                .likedByMe(likedByMe)
                 .build();
     }
-
-
 }

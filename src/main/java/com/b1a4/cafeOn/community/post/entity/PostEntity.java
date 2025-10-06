@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.community.post.entity;
 
+import com.b1a4.cafeOn.community.comment.entity.CommentEntity;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.community.post.enums.PostType;
@@ -46,9 +47,6 @@ public class PostEntity {
     @Column(name = "view_count")
     private long viewCount;
 
-//    @Column(name = "like_count")
-//    private long likeCount;
-
     @PrePersist
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -83,6 +81,10 @@ public class PostEntity {
     @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE, orphanRemoval = true)
     @Builder.Default
     private List<PostLikeEntity> likes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentEntity> comments = new ArrayList<>();
 
     public void addImage(ImageEntity image) {
         images.add(image);

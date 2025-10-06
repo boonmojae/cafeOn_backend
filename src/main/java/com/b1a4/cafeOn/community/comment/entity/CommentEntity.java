@@ -1,6 +1,5 @@
 package com.b1a4.cafeOn.community.comment.entity;
 
-import com.b1a4.cafeOn.community.comment.dto.CommentRequestDTO;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
@@ -47,6 +46,10 @@ public class CommentEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentLikeEntity> likes = new ArrayList<>();
 
     public void update(String content) {
         this.content = content;

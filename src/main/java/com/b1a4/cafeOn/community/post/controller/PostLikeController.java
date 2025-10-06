@@ -33,6 +33,4 @@ public class PostLikeController {
         return ResponseEntity.ok().body(response);
     }
 
-    // fixme: 마이페이지 브랜치로 이동
-    // 내가 좋아요한 게시글 목록 전체
 }

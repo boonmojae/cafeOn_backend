@@ -6,5 +6,4 @@ public record PostLikeResponseDTO(
         long likes
 ) {
 
-
 }

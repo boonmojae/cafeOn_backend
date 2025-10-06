@@ -20,19 +20,24 @@ public interface PostLikeRepository extends JpaRepository<PostLikeEntity, Long> 
     // 게시글과 유저 정보로 좋아요 엔티티 조회
     Optional<PostLikeEntity> findByPostAndUser(PostEntity post, UserEntity user);
 
-
-    // Map<Long, Long> 반환 → 인터페이스 리스트 반환으로 교체
+    // 게시글 목록 좋아요 카운트
     @Query("""
-       SELECT l.post.postId AS postId, count(l) AS cnt
-       FROM PostLikeEntity l
-       WHERE l.post.postId in :postIds
-       GROUP by l.post.postId
-       """)
+            SELECT l.post.postId AS postId, count(l) AS cnt
+            FROM PostLikeEntity l
+            WHERE l.post.postId in :postIds
+            GROUP by l.post.postId
+            """)
     List<LikeCount> findLikeCountByPostIdIn(@Param("postIds") List<Long> postIds);
 
-//    @Query("SELECT l.post.postId, COUNT(l) " +
-//            "FROM PostLikeEntity l " +
-//            "WHERE l.post IN :posts " +
-//            "GROUP BY l.post.postId")
-//    Map<Long, Long> findLikeCountByPostIn(@Param("posts")List<PostEntity> posts); postId, count
+    // 내가 좋아요 누른 게시글
+    @Query("""
+            SELECT DISTINCT pl.post.postId
+            FROM PostLikeEntity pl
+            WHERE pl.user.userId =:userId
+            AND pl.post.postId in :postIds
+            """)
+    List<Long> findLikedPostIds(@Param("userId") String userId, @Param("postIds") List<Long> postIds);
+
+    // 게시글 좋아요 여부
+    boolean existsByPost_PostIdAndUser_UserId(Long postId, String userId);
 }

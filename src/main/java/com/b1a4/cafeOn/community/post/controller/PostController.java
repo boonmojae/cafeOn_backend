@@ -141,39 +141,6 @@ public class PostController {
         }
     }
 
-    // 특정 게시글 단어 검색
-//    @GetMapping("/search")
-//    public ResponseEntity<?> searchPosts(@RequestParam String keyword, @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-//
-//        try {
-//
-//            Page<PostEntity> posts = postService.searchPosts(keyword, pageable);
-//
-//            if (posts.isEmpty()) {
-//                ApiResponse<?> response = ApiResponse.builder()
-//                        .message("'" + keyword + "'에 대한 검색 결과가 없습니다.")
-//                        .build();
-//                return ResponseEntity.ok().body(response);
-//            }
-//
-//            Page<PostDetailResponseDTO> responseDTOS = posts.map(PostDetailResponseDTO::from);
-//
-//            ApiResponse<Page<PostDetailResponseDTO>> response = ApiResponse.<Page<PostDetailResponseDTO>>builder()
-//                    .data(responseDTOS)
-//                    .message("'" + keyword + "'에 대한 검색 결과입니다.")
-//                    .build();
-//
-//            return ResponseEntity.ok().body(response);
-//
-//        } catch (Exception e) {
-//            ApiResponse<?> errorResponse = ApiResponse.builder()
-//                    .message("검색 중 오류가 발생했습니다.")
-//                    .build();
-//
-//            return ResponseEntity.internalServerError().body(errorResponse);
-//        }
-//
-//    }
 
     // 게시글 생성
     // JSON + 파일 (멀티파트)

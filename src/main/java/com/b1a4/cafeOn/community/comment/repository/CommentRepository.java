@@ -18,9 +18,6 @@ import java.util.Optional;
 @Repository
 public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     
-    // 특정 게시글의 댓글 카운트
-    long countByPost_PostId(Long postId);
-
     // 특정 유저의 댓글 목록
     Page<CommentEntity> findByUser_UserId(String userId, Pageable pageable);
 
