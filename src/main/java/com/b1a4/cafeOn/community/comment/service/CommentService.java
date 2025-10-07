@@ -38,11 +38,11 @@ public class CommentService {
 
     // 댓글 생성
     @Transactional
-    public CommentResponseDTO createComment(String userId, Long postId, Long parentId, CommentRequestDTO req) {
+    public CommentResponseDTO createComment(String userId, Long postId, Long parentId, CommentRequestDTO commentRequestDTO) {
         UserEntity author = findByUserId(userId);
         PostEntity post = findByPostId(postId);
 
-        Long resolvedParentId = (req.getParentId() != null) ? req.getParentId() : parentId;
+        Long resolvedParentId = (commentRequestDTO.getParentId() != null) ? commentRequestDTO.getParentId() : parentId;
         CommentEntity parent = null;
         if (resolvedParentId != null) {
             // 부모는 같은 게시글에 속해야 함
@@ -50,16 +50,16 @@ public class CommentService {
                     .orElseThrow(() -> new ParentCommentMismatchException(resolvedParentId, postId));
         }
 
-        CommentEntity saved = commentRepository.save(
+        CommentEntity saveComment = commentRepository.save(
                 CommentEntity.builder()
                         .parent(parent)
-                        .content(req.getContent())
+                        .content(commentRequestDTO.getContent())
                         .post(post)
                         .user(author)
                         .build()
         );
 
-        return CommentResponseDTO.from(saved);
+        return CommentResponseDTO.from(saveComment);
     }
 
     // 게시글 상세: 루트 페이징 + 서브트리
@@ -90,7 +90,7 @@ public class CommentService {
     // 특정 댓글 단건 조회
     @Transactional(readOnly = true)
     public CommentResponseDTO findCommentById(Long commentId, String userId) {
-        findByUserId(userId); // 권한/존재 검증
+        findByUserId(userId);
 
         CommentEntity comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CommentNotFoundException(commentId));
@@ -114,13 +114,14 @@ public class CommentService {
         linkParentChild(all, dtoById);
 
         CommentResponseDTO rootDto = dtoById.get(root.getCommentId());
-        // (선택) 정렬
+        // 정렬
         sortRecursively(rootDto.getChildren());
         return rootDto;
     }
 
 
     // 내가 작성한 댓글 목록
+    // fixme: mypage 브랜치
     @Transactional(readOnly = true)
     public Page<CommentResponseDTO> getCommentByUserId(String userId, Pageable pageable) {
         findByUserId(userId);
@@ -138,6 +139,43 @@ public class CommentService {
                 false // 내 목록에서는 likedByMe를 안 씀
         ));
     }
+    
+    // 내가 좋아요한 댓글 목록
+    // fixme: mypage 브랜치
+    @Transactional(readOnly = true)
+    public Page<CommentResponseDTO> getLikeCommentByUserId(String userId, Pageable pageable) {
+        // 유저 검증
+        findByUserId(userId);
+
+        // 유저가 좋아요한 댓글 ID를 페이징으로 가져오기
+        Page<Long> likedCommentIds = commentLikeRepository.findLikedCommentIdsByUserId(userId, pageable);
+
+        if (likedCommentIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        // 해당 댓글 엔티티들 조회
+        List<CommentEntity> comments = commentRepository.findByCommentIdIn(likedCommentIds.getContent());
+
+        // 좋아요 수 맵으로 로드
+        Map<Long, Long> likeCountMap = commentLikeRepository.findLikeCountByCommentIdIn(
+                comments.stream().map(CommentEntity::getCommentId).toList()
+        ).stream().collect(Collectors.toMap(LikeCount::getCommentId, LikeCount::getCnt));
+
+        // DTO 변환
+        List<CommentResponseDTO> dtoList = comments.stream()
+                .map(c -> CommentResponseDTO.from(
+                        c,
+                        likeCountMap.getOrDefault(c.getCommentId(), 0L),
+                        true // 내가 누른 목록이므로 likedByMe = true
+                ))
+                .toList();
+
+        // PageImpl로 감싸서 반환
+        return new PageImpl<>(dtoList, pageable, likedCommentIds.getTotalElements());
+    }
+
+
 
 
     // 수정
@@ -172,13 +210,13 @@ public class CommentService {
         if (!isOwner && !isAdmin) {
             throw new AccessDeniedException("댓글을 삭제할 권한이 없습니다.");
         }
-        commentRepository.delete(comment); // 연쇄로 댓글 좋아요도 삭제
+        commentRepository.delete(comment); // 댓글 좋아요도 삭제
     }
 
 
-
     // 내부 유틸(공통)
-    private record LikeBatch(Map<Long, Long> likeCountMap, Set<Long> likedIds) {}
+    private record LikeBatch(Map<Long, Long> likeCountMap, Set<Long> likedIds) {
+    }
 
     // 루트 목록의 모든 자손을 BFS로 수집
     private List<CommentEntity> collectSubtreeBfs(List<CommentEntity> roots) {
@@ -202,7 +240,7 @@ public class CommentService {
     }
 
     // 좋아요 카운트/내가 누른 댓글을 한 번에 로딩
-    private LikeBatch loadLikeBatch(List<CommentEntity> all, String userId /* nullable */) {
+    private LikeBatch loadLikeBatch(List<CommentEntity> all, String userId) {
         List<Long> ids = all.stream().map(CommentEntity::getCommentId).toList();
 
         Map<Long, Long> likeCountMap = ids.isEmpty() ? Map.of()

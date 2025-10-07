@@ -32,7 +32,7 @@ public interface CommentLikeRepository extends JpaRepository<CommentLikeEntity, 
             """)
     List<LikeCount> findLikeCountByCommentIdIn(@Param("commentIds") List<Long> commentIds);
 
-    // 내가 좋아요 누른 댓글 목록 조회
+    // 댓글 목록 중 내가 좋아요한 것만 필터링
     @Query("""
             SELECT DISTINCT cl.comment.commentId 
             FROM CommentLikeEntity cl 
@@ -41,11 +41,12 @@ public interface CommentLikeRepository extends JpaRepository<CommentLikeEntity, 
             """)
     List<Long> findLikedCommentIds(@Param("userId") String userId, @Param("commentIds") List<Long> commentIds);
 
+    // 특정 유저가 좋아요한 댓글 ID 목록 (페이징)
+    @Query("SELECT cl.comment.commentId FROM CommentLikeEntity cl WHERE cl.user.userId = :userId")
+    Page<Long> findLikedCommentIdsByUserId(@Param("userId") String userId, Pageable pageable);
+
     // 댓글 좋아요 여부
     boolean existsByComment_CommentIdAndUser_UserId(Long commentId, String userId);
 
-    // 내가 좋아요한 댓글 목록
-    @EntityGraph(attributePaths = {"comment", "comment.post"})
-    Page<CommentLikeEntity> findByUser_UserId(String userId, Pageable pageable);
 
 }

@@ -21,6 +21,9 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     // 특정 유저의 댓글 목록
     Page<CommentEntity> findByUser_UserId(String userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"user", "parent", "post"})
+    List<CommentEntity> findByCommentIdIn(Collection<Long> ids);
+
     // 댓글 + 게시글 일치 검증
     Optional<CommentEntity> findByCommentIdAndPost_PostId(Long commentId, Long postId);
 
