@@ -147,34 +147,38 @@ public class CommentService {
         // 유저 검증
         findByUserId(userId);
 
-        // 유저가 좋아요한 댓글 ID를 페이징으로 가져오기
-        Page<Long> likedCommentIds = commentLikeRepository.findLikedCommentIdsByUserId(userId, pageable);
+        // 좋아요한 댓글 ID
+        Page<Long> pageCommentIds = commentLikeRepository.findLikedCommentIdsByUserId(userId, pageable);
+        List<Long> commentIds = pageCommentIds.getContent();
 
-        if (likedCommentIds.isEmpty()) {
+        if (commentIds.isEmpty()) {
             return Page.empty(pageable);
         }
 
-        // 해당 댓글 엔티티들 조회
-        List<CommentEntity> comments = commentRepository.findByCommentIdIn(likedCommentIds.getContent());
+        List<CommentEntity> comments = commentRepository.findByCommentIdIn(commentIds);
 
-        // 좋아요 수 맵으로 로드
-        Map<Long, Long> likeCountMap = commentLikeRepository.findLikeCountByCommentIdIn(
-                comments.stream().map(CommentEntity::getCommentId).toList()
-        ).stream().collect(Collectors.toMap(LikeCount::getCommentId, LikeCount::getCnt));
+        // 재정렬
+        Map<Long, CommentEntity> byId = comments.stream()
+                .collect(Collectors.toMap(CommentEntity::getCommentId, c -> c));
+        List<CommentEntity> ordered = commentIds.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull) // 누락된 경우 방어
+                .toList();
 
-        // DTO 변환
-        List<CommentResponseDTO> dtoList = comments.stream()
+        // 좋아요 카운트 배치 로딩 (ids 기준)
+        Map<Long, Long> likeCountMap = commentLikeRepository.findLikeCountByCommentIdIn(commentIds).stream()
+                .collect(Collectors.toMap(LikeCount::getCommentId, LikeCount::getCnt));
+
+        List<CommentResponseDTO> content = ordered.stream()
                 .map(c -> CommentResponseDTO.from(
                         c,
                         likeCountMap.getOrDefault(c.getCommentId(), 0L),
-                        true // 내가 누른 목록이므로 likedByMe = true
+                        true
                 ))
                 .toList();
 
-        // PageImpl로 감싸서 반환
-        return new PageImpl<>(dtoList, pageable, likedCommentIds.getTotalElements());
+        return new PageImpl<>(content, pageable, pageCommentIds.getTotalElements());
     }
-
 
 
 

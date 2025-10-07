@@ -40,14 +40,22 @@ public interface PostLikeRepository extends JpaRepository<PostLikeEntity, Long> 
             """)
     List<Long> findLikedPostIds(@Param("userId") String userId, @Param("postIds") List<Long> postIds);
 
-    // 내가 좋아요한 게시글 ID 페이징(마이페이지)
-    @Query("""
-            SELECT pl.post.postId
-            FROM PostLikeEntity pl
-            WHERE pl.user.userId =:userId
-            """)
+    // 내가 좋아요한 게시글 ID 페이징 (좋아요 시각 최신순)
+    @Query(
+            value = """
+                      SELECT pl.post.postId
+                      FROM PostLikeEntity pl
+                      WHERE pl.user.userId = :userId
+                      ORDER BY pl.createdAt DESC
+                    """,
+            countQuery = """
+                      SELECT COUNT(pl)
+                      FROM PostLikeEntity pl
+                      WHERE pl.user.userId = :userId
+                    """
+    )
     Page<Long> findLikedPostIdsByUserId(@Param("userId") String userId, Pageable pageable);
-    
+
     // 게시글 좋아요 여부
     boolean existsByPost_PostIdAndUser_UserId(Long postId, String userId);
 }

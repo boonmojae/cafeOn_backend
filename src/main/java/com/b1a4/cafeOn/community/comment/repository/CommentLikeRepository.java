@@ -41,8 +41,20 @@ public interface CommentLikeRepository extends JpaRepository<CommentLikeEntity, 
             """)
     List<Long> findLikedCommentIds(@Param("userId") String userId, @Param("commentIds") List<Long> commentIds);
 
-    // 특정 유저가 좋아요한 댓글 ID 목록 (페이징)
-    @Query("SELECT cl.comment.commentId FROM CommentLikeEntity cl WHERE cl.user.userId = :userId")
+    // 내가 좋아요한 댓글 ID 페이징 (좋아요 시각 최신순)
+    @Query(
+            value = """
+                      SELECT cl.comment.commentId
+                      FROM CommentLikeEntity cl
+                      WHERE cl.user.userId = :userId
+                      ORDER BY cl.createdAt DESC
+                    """,
+            countQuery = """
+                      SELECT COUNT(cl)
+                      FROM CommentLikeEntity cl
+                      WHERE cl.user.userId = :userId
+                    """
+    )
     Page<Long> findLikedCommentIdsByUserId(@Param("userId") String userId, Pageable pageable);
 
     // 댓글 좋아요 여부
