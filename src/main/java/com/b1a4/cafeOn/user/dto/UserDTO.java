@@ -17,6 +17,8 @@ public class UserDTO {
     private String token;           // jwt 저장 공간 (DB에는 없음, DTO에서만 필요)
 
     private String userId;              // CHAR(36)
+    private String name;                // VARCHAR(50)
+    private String phone;               // VARCHAR(15)
     private String email;               // VARCHAR(255)
     private String password;            // VARCHAR(255)
     private String nickname;            // VARCHAR(50)

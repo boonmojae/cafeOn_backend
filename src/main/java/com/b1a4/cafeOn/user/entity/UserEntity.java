@@ -23,6 +23,12 @@ public class UserEntity {
     @Column(name = "user_id", columnDefinition = "CHAR(36)")
     private String userId;
 
+    @Column(name = "name", columnDefinition = "CHAR(50)")
+    private String name;
+
+    @Column(name = "phone", columnDefinition = "CHAR(15)")
+    private String phone;
+
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 

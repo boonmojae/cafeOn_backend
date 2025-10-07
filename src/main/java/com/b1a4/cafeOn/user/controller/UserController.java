@@ -33,20 +33,15 @@ import java.util.UUID;
 @RequestMapping("/api/auth")
 @Tag(name = "Auth", description = "인증/회원가입/로그인 API")
 public class UserController {
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private TokenProvider tokenProvider;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    @Autowired private UserService userService;
+    @Autowired private TokenProvider tokenProvider;
+    @Autowired private PasswordEncoder passwordEncoder;
 
 
 //  1. 회원가입
     @Operation(
             summary = "회원가입",
-            description = "이메일/비밀번호/닉네임으로 회원 생성. 기본 상태 ACTIVE, 역할 USER, 제공자 LOCAL.",
+            description = "이름/닉네임/전화번호/이메일/비밀번호로 회원 생성. 기본 상태 ACTIVE, 역할 USER, 제공자 LOCAL.",
             // ⬇️ 스웨거 RequestBody는 여기(메서드 수준)에 넣기
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
@@ -57,9 +52,11 @@ public class UserController {
                                             name = "회원가입 요청 예시",
                                             value = """
                         {
+                          "name": "테스트",
+                          "nickname": "테스트유저",
+                          "phone": "010-1111-1111",
                           "email": "user@example.com",
-                          "password": "P@ssw0rd!",
-                          "nickname": "테스트유저"
+                          "password": "P@ssw0rd!"
                         }
                         """
                                     )
@@ -118,9 +115,11 @@ public class UserController {
                                             name = "회원가입 요청 예시",
                                             value = """
                     {
+                      "name": "테스트",
+                      "nickname": "테스트유저",
+                      "phone": "010-1111-1111",
                       "email": "user@example.com",
-                      "password": "P@ssw0rd!",
-                      "nickname": "테스트유저"
+                      "password": "P@ssw0rd!"
                     }
                     """
                                     )
@@ -143,9 +142,11 @@ public class UserController {
 //            1-2. 요청 본문과 생성한 UUID를 이용해 저장할 사용자 만들기
             UserEntity user = UserEntity.builder()
 //                    유저의 입력으로 DTO를 통해 전달받은 값들로 부여
+                    .name(userDTO.getName())
+                    .nickname(userDTO.getNickname())
+                    .phone(userDTO.getPhone())
                     .email(userDTO.getEmail())
                     .password(encryptedPassword)    // 1-1-2에서 암호화된 비밀번호
-                    .nickname(userDTO.getNickname())
 //                    여기부턴 서버에서 자동으로 처리해야 할 값들로 부여
                     .userId(uuid.toString())    // 위에서 생성한 uuid값
                     .status(UserStatus.ACTIVE)   // 기본 ACTIVE
@@ -161,6 +162,8 @@ public class UserController {
 //            1-3. 사용자 생성 완료 후, 프론트로 보낼 응답DTO들 세팅
             UserDTO responseUserDTO = UserDTO.builder()
                     .userId(registeredUser.getUserId())
+                    .name(registeredUser.getName())
+                    .phone(registeredUser.getPhone())
                     .email(registeredUser.getEmail())
                     .nickname(registeredUser.getNickname())
                     .build();
@@ -180,6 +183,9 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
+    
+//  1-1. 이메일 인증
+    
 
 
 //  2. 로그인(JWT 적용)
