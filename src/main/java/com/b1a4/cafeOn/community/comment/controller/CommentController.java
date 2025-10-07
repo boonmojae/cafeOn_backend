@@ -3,12 +3,10 @@ package com.b1a4.cafeOn.community.comment.controller;
 import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.community.comment.dto.CommentRequestDTO;
 import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
-import com.b1a4.cafeOn.community.comment.entity.CommentEntity;
 import com.b1a4.cafeOn.community.comment.service.CommentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -126,6 +124,7 @@ public class CommentController {
     }
     
     // 내가 좋아요한 댓글 목록
+    // fixme: mypage
     @GetMapping("/my/comments/likes")
     public ResponseEntity<?> findLikeCommentByUserId(@AuthenticationPrincipal String userId,
                                                      @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -141,11 +140,11 @@ public class CommentController {
 
         } catch (Exception e) {
             log.error("내 좋아요 댓글 목록 조회 실패", e);
-            ApiResponse<?> errorResonse = ApiResponse.builder()
+            ApiResponse<?> errorRepsonse = ApiResponse.builder()
                     .message(e.getMessage())
                     .build();
 
-            return ResponseEntity.badRequest().body(errorResonse);
+            return ResponseEntity.badRequest().body(errorRepsonse);
         }
     }
 

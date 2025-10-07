@@ -39,9 +39,10 @@ public class PostController {
 
     // 전체 게시글 조회
     @GetMapping
-    public ResponseEntity<?> getAllPosts(@PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<?> getAllPosts(@AuthenticationPrincipal String userId,
+                                         @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         try {
-            Page<PostListResponseDTO> responseDTOS = postService.getAllPosts(pageable);
+            Page<PostListResponseDTO> responseDTOS = postService.getAllPosts(pageable, userId);
 
             ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .data(responseDTOS)
@@ -63,7 +64,8 @@ public class PostController {
     // 특정 게시글 조회
     // 조회수 증가 로직(쿠키 기반) 함께 처리
     @GetMapping("/{id}")
-    public ResponseEntity<?> getPost(@PathVariable("id") Long postId, HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> getPost(@AuthenticationPrincipal String userId,
+                                     @PathVariable("id") Long postId, HttpServletRequest request, HttpServletResponse response) {
 
         try {
             handleViewCount(postId, request, response);
@@ -72,7 +74,7 @@ public class PostController {
             log.warn("Failed to update view count. postId={}", postId, e);
         }
 
-        PostDetailResponseDTO responseDTO = postService.findPostById(postId);
+        PostDetailResponseDTO responseDTO = postService.findPostById(postId, userId);
 
         ApiResponse<PostDetailResponseDTO> responseF = ApiResponse.<PostDetailResponseDTO>builder()
                 .data(responseDTO)
@@ -119,11 +121,11 @@ public class PostController {
     // 내가 작성한 게시글
     // fixme: mypage 브랜치로 이동
     @GetMapping("/my")
-    public ResponseEntity<?> myPosts(@AuthenticationPrincipal String userId, @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-
+    public ResponseEntity<?> findPostByUserId(@AuthenticationPrincipal String userId,
+                                              @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         try {
 
-            Page<PostListResponseDTO> responseDTOS  = postService.getPostsById(userId, pageable);
+            Page<PostListResponseDTO> responseDTOS = postService.getPostsById(userId, pageable);
 
             ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .data(responseDTOS)
@@ -141,15 +143,37 @@ public class PostController {
         }
     }
 
+    // 내가 좋아요한 게시글
+    // fixme: mypage
+    @GetMapping("/my/likes")
+    public ResponseEntity<?> findLikePostByUserId(@AuthenticationPrincipal String userId,
+                                                  @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        try {
+
+            Page<PostListResponseDTO> page = postService.getLikePostById(userId, pageable);
+            ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
+                    .data(page)
+                    .message("내가 좋아요한 게시글 목록 조회 성공")
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+        } catch (Exception e) {
+            log.error("내 좋아요 게시글 목록 조회 실패");
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message(e.getMessage())
+                    .build();
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
 
     // 게시글 생성
     // JSON + 파일 (멀티파트)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createPostMultipart(
-            @AuthenticationPrincipal String userId,
-            @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
-            @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles
-    ) throws IOException {
+    public ResponseEntity<?> createPostMultipart(@AuthenticationPrincipal String userId,
+                                                 @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
+                                                 @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) throws IOException {
         PostDetailResponseDTO saved = postService.createPost(userId, postRequestDTO, imageFiles);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.builder()
@@ -160,10 +184,7 @@ public class PostController {
 
     // JSON만
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> createPostJsonOnly(
-            @AuthenticationPrincipal String userId,
-            @RequestBody PostRequestDTO postRequestDTO
-    ) throws IOException {
+    public ResponseEntity<?> createPostJsonOnly(@AuthenticationPrincipal String userId, @RequestBody PostRequestDTO postRequestDTO) throws IOException {
         PostDetailResponseDTO saved = postService.createPost(userId, postRequestDTO, null);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.builder()
@@ -178,11 +199,9 @@ public class PostController {
     @PutMapping(path = "/{id}",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> updatePostMultipart(
-            @AuthenticationPrincipal String userId,
-            @PathVariable("id") Long postId,
-            @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
-            @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
+    public ResponseEntity<?> updatePostMultipart(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId,
+                                                 @RequestPart("postRequestDTO") PostRequestDTO postRequestDTO,
+                                                 @RequestPart(value = "image", required = false) List<MultipartFile> imageFiles) {
 
         try {
             PostDetailResponseDTO post = postService.updatePost(userId, postId, postRequestDTO, imageFiles);
@@ -211,10 +230,8 @@ public class PostController {
     @PutMapping(path = "/{id}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> updatePostJsonOnly(
-            @AuthenticationPrincipal String userId,
-            @PathVariable("id") Long postId,
-            @RequestBody PostRequestDTO postRequestDTO) {
+    public ResponseEntity<?> updatePostJsonOnly(@AuthenticationPrincipal String userId,
+                                                @PathVariable("id") Long postId, @RequestBody PostRequestDTO postRequestDTO) {
 
         try {
             // JSON-only → 이미지 변경 없음

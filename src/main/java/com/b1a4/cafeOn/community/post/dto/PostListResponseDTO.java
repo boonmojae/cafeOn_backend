@@ -18,10 +18,11 @@ public class PostListResponseDTO {
     private LocalDateTime createdAt;
     private long viewCount;
     private long likeCount;
-    // fixme: CommentEntity 추가할때 주석 해제
-    // private int commentCount;
+    private long commentCount;
+    private boolean likedByMe;
 
-    public static PostListResponseDTO from(PostEntity post, long likeCount) {
+    // 게시글 전체 목록 + 댓글 카운트
+    public static PostListResponseDTO from(PostEntity post, long likeCount, long commentCount, boolean likedByMe) {
 
         String nicknameToDisplay;
 
@@ -35,9 +36,11 @@ public class PostListResponseDTO {
                 .id(post.getPostId())
                 .type(post.getType())
                 .title(post.getTitle())
-                .authorNickname(post.getUser().getNickname())
+                .authorNickname(nicknameToDisplay)
                 .viewCount(post.getViewCount())
                 .likeCount(likeCount)
+                .likedByMe(likedByMe)
+                .commentCount(commentCount)
                 .createdAt(post.getCreatedAt())
                 .build();
     }

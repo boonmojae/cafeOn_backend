@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.community.comment.repository;
 
 import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
 import com.b1a4.cafeOn.community.comment.entity.CommentEntity;
+import com.b1a4.cafeOn.community.post.repository.PostRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -17,7 +18,7 @@ import java.util.Optional;
 
 @Repository
 public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
-    
+
     // 특정 유저의 댓글 목록
     Page<CommentEntity> findByUser_UserId(String userId, Pageable pageable);
 
@@ -36,4 +37,6 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     List<CommentEntity> findByParent_CommentIdIn(Collection<Long> parentIds);
 
 
+    // 상세용 댓글 단건 카운트
+    long countByPost_PostId(Long postId);
 }

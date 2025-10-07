@@ -3,6 +3,8 @@ package com.b1a4.cafeOn.community.post.repository;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.community.post.entity.PostLikeEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,6 +40,14 @@ public interface PostLikeRepository extends JpaRepository<PostLikeEntity, Long> 
             """)
     List<Long> findLikedPostIds(@Param("userId") String userId, @Param("postIds") List<Long> postIds);
 
+    // 내가 좋아요한 게시글 ID 페이징(마이페이지)
+    @Query("""
+            SELECT pl.post.postId
+            FROM PostLikeEntity pl
+            WHERE pl.user.userId =:userId
+            """)
+    Page<Long> findLikedPostIdsByUserId(@Param("userId") String userId, Pageable pageable);
+    
     // 게시글 좋아요 여부
     boolean existsByPost_PostIdAndUser_UserId(Long postId, String userId);
 }

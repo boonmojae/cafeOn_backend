@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -47,7 +48,7 @@ public class PostService {
     private String uploadDir;
 
     // 전체 게시글 조회
-    public Page<PostListResponseDTO> getAllPosts(Pageable pageable) {
+    public Page<PostListResponseDTO> getAllPosts(Pageable pageable, String userId) {
         Page<PostEntity> postsPage = postRepository.findAll(pageable);
         List<PostEntity> postsContent = postsPage.getContent();
 
@@ -59,30 +60,46 @@ public class PostService {
                 .map(PostEntity::getPostId)
                 .toList();
 
-        List<LikeCount> rows = postLikeRepository.findLikeCountByPostIdIn(postIds);
-
-        Map<Long, Long> likeCountsMap = rows.stream()
+        // 좋아요 수
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIdIn(postIds).stream()
                 .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
 
-        return postsPage.map(post ->
-                PostListResponseDTO.from(post, likeCountsMap.getOrDefault(post.getPostId(), 0L)));
+        // 댓글 수
+        Map<Long, Long> commentCountMap = postRepository.findCommentCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(PostRepository.PostCommentCount::getPostId, PostRepository.PostCommentCount::getCnt));
+
+        // 내가 좋아요한 글
+        Set<Long> likedIds = (userId == null || userId.isBlank())
+                ? Set.of()
+                : new HashSet<>(postLikeRepository.findLikedPostIds(userId, postIds));
+
+        return postsPage.map(p -> PostListResponseDTO.from(
+                p,
+                likeCountMap.getOrDefault(p.getPostId(), 0L),
+                commentCountMap.getOrDefault(p.getPostId(), 0L),
+                likedIds.contains(p.getPostId())
+        ));
     }
 
-    // 특정 게시글 조회
+    // 특정 게시글 상세 조회
     @Transactional(readOnly = true)
-    public PostDetailResponseDTO findPostById(Long postId) {
+    public PostDetailResponseDTO findPostById(Long postId, String userId) {
 
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException(postId));
 
+        // 좋아요 카운트
         long likeCount = postLikeRepository.countByPost(post);
+        
+        boolean likedByMe = (userId == null || userId.isBlank())
+                && postLikeRepository.existsByPost_PostIdAndUser_UserId(postId, userId);
 
-        return PostDetailResponseDTO.from(post, likeCount);
+        return PostDetailResponseDTO.from(post, likeCount, likedByMe);
     }
 
 
     // 내가 작성한 게시글 목록
-    // fixme: feat/mypage 브랜치로 이동
+    // fixme: mypage 브랜치
     public Page<PostListResponseDTO> getPostsById(String userId, Pageable pageable) {
         userStatus(userId);
         Page<PostEntity> postsPage = postRepository.findAllByUser_UserId(userId, pageable);
@@ -92,16 +109,61 @@ public class PostService {
             return Page.empty();
         }
 
-        List<Long> postIds = postsContent.stream()
-                .map(PostEntity::getPostId).toList();
+        // 게시글 목록 id
+        List<Long> postIds = postsContent.stream().map(PostEntity::getPostId).toList();
 
-        List<LikeCount> rows = postLikeRepository.findLikeCountByPostIdIn(postIds);
+        // 게시글 좋아요 카운트
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
+        
+        // 게시글 댓글 카운트
+        Map<Long, Long> commentCountMap = postRepository.findCommentCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(PostRepository.PostCommentCount::getPostId, PostRepository.PostCommentCount::getCnt));
 
-        Map<Long, Long> likeCountsMap = rows.stream()
+        Set<Long> likedIds = new HashSet<>(postLikeRepository.findLikedPostIds(userId, postIds));
+
+        return postsPage.map(p -> PostListResponseDTO.from(
+                p,
+                likeCountMap.getOrDefault(p.getPostId(), 0L),
+                commentCountMap.getOrDefault(p.getPostId(), 0L),
+                likedIds.contains(p.getPostId())
+        ));
+
+    }
+
+    // 내가 좋아요한 게시글 목록
+    // fixme: mypage 브랜치
+    @Transactional(readOnly = true)
+    public Page<PostListResponseDTO> getLikePostById(String userId, Pageable pageable) {
+        userStatus(userId);
+
+        // 내가 좋아요한 게시글 페이징
+        Page<Long> idPage = postLikeRepository.findLikedPostIdsByUserId(userId, pageable);
+        List<Long> postIds = idPage.getContent();
+        if (postIds.isEmpty()) return Page.empty(pageable);
+
+        List<PostEntity> posts = postRepository.findByPostIdIn(postIds);
+        Map<Long, PostEntity> byId = posts.stream().collect(Collectors.toMap(PostEntity::getPostId, p -> p));
+        List<PostEntity> ordered = postIds.stream().map(byId::get).filter(Objects::nonNull).toList();
+
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIdIn(postIds).stream()
                 .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
 
-        return postsPage.map(post ->
-                PostListResponseDTO.from(post, likeCountsMap.getOrDefault(post.getPostId(), 0L)));
+        Map<Long, Long> commentCountMap = postRepository.findCommentCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(PostRepository.PostCommentCount::getPostId,
+                        PostRepository.PostCommentCount::getCnt));
+
+        // DTO (이 목록은 전부 likedByMe = true)
+        List<PostListResponseDTO> content = ordered.stream()
+                .map(p -> PostListResponseDTO.from(
+                        p,
+                        likeCountMap.getOrDefault(p.getPostId(), 0L),
+                        commentCountMap.getOrDefault(p.getPostId(), 0L),
+                        true
+                ))
+                .toList();
+
+        return new PageImpl<>(content, pageable, idPage.getTotalElements());
     }
 
 
@@ -157,7 +219,7 @@ public class PostService {
 
         PostEntity savedPost = postRepository.save(post);
 
-        return PostDetailResponseDTO.from(savedPost, 0L);
+        return PostDetailResponseDTO.from(savedPost, 0L, false);
     }
 
 
@@ -226,8 +288,9 @@ public class PostService {
         }
 
         long currentLikeCount = postLikeRepository.countByPost(post);
+        boolean likedByMe = postLikeRepository.existsByPost_PostIdAndUser_UserId(postId, userId);
 
-        return PostDetailResponseDTO.from(post, currentLikeCount);
+        return PostDetailResponseDTO.from(post, currentLikeCount, likedByMe);
     }
 
 
