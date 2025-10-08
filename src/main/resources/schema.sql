@@ -24,7 +24,22 @@ CREATE TABLE IF NOT EXISTS user(
 
 DESC user;
 
-CREATE TABLE IF NO EXISTS posts(
+CREATE TABLE IF NOT EXISTS cafes (
+    cafe_id BIGINT AUTO_INCREMENT PRIMARY KEY, -- 내부 서비스 PK
+    kakao_id VARCHAR(50) UNIQUE, -- 카카오 API ID (없으면 NULL)
+    name VARCHAR(255) NOT NULL, -- 카페 이름
+    address VARCHAR(500) NOT NULL, -- 카페 주소(도로명 or 지번)
+    latitude DECIMAL(20, 15) NOT NULL, -- 위도
+    longitude DECIMAL(20, 15) NOT NULL, -- 경도
+    phone VARCHAR(50), -- 전화번호
+    open_hours TEXT, -- 오픈 시간
+    avg_rating DECIMAL(3,2), -- 평균 별점(ex. 3.44)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    kakao_url VARCHAR(255), -- 카카오맵 URL
+    source ENUM('KAKAO', 'USER') DEFAULT 'KAKAO' -- 데이터 출처
+);
+
+CREATE TABLE IF NOT EXISTS posts(
     post_id BIGINT NOT NULL AUTO_INCREMENT,
     user_id CHAR(36) NULL,
     type ENUM('GENERAL', 'QUESTION', 'INFO') NOT NULL DEFAULT 'GENERAL',
@@ -35,7 +50,7 @@ CREATE TABLE IF NO EXISTS posts(
     view_count BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (post_id),
     FOREIGN KEY (user_id) REFERENCES user (user_id)
-)
+);
 
 CREATE TABLE IF NOT EXISTS images (
     image_id BIGINT NOT NULL AUTO_INCREMENT,
