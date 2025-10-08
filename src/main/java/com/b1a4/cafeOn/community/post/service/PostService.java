@@ -1,25 +1,31 @@
 package com.b1a4.cafeOn.community.post.service;
 
+import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
+import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
-import com.b1a4.cafeOn.community.post.exception.ImageDeleteException;
+import com.b1a4.cafeOn.community.post.enums.PostType;
 import com.b1a4.cafeOn.community.post.exception.PostForbiddenException;
 import com.b1a4.cafeOn.community.post.exception.PostNotFoundException;
+import com.b1a4.cafeOn.community.post.repository.LikeCount;
+import com.b1a4.cafeOn.community.post.repository.PostLikeRepository;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.community.post.repository.PostRepository;
 import com.b1a4.cafeOn.user.repository.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -27,10 +33,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,41 +43,141 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final PostLikeRepository postLikeRepository;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
     // 전체 게시글 조회
-    public Page<PostEntity> getAllPosts(Pageable pageable) {
-        return postRepository.findAll(pageable);
+    public Page<PostListResponseDTO> getAllPosts(Pageable pageable, String userId, PostType type, String keyword) {
+        Page<PostEntity> postsPage;
+
+        if ((type == null) && (keyword == null || keyword.isBlank())) {
+            postsPage = postRepository.findAll(pageable);
+        } else {
+            postsPage = postRepository.search(type, keyword, pageable);
+        }
+
+        List<PostEntity> postsContent = postsPage.getContent();
+
+        if (postsContent.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        List<Long> postIds = postsContent.stream()
+                .map(PostEntity::getPostId)
+                .toList();
+
+        // 좋아요 수
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
+
+        // 댓글 수
+        Map<Long, Long> commentCountMap = postRepository.findCommentCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(PostRepository.PostCommentCount::getPostId, PostRepository.PostCommentCount::getCnt));
+
+        // 내가 좋아요한 글
+        Set<Long> likedIds = (userId == null || userId.isBlank())
+                ? Set.of()
+                : new HashSet<>(postLikeRepository.findLikedPostIds(userId, postIds));
+
+        return postsPage.map(p -> PostListResponseDTO.from(
+                p,
+                likeCountMap.getOrDefault(p.getPostId(), 0L),
+                commentCountMap.getOrDefault(p.getPostId(), 0L),
+                likedIds.contains(p.getPostId())
+        ));
     }
 
-    // 특정 게시글 조회
+    // 특정 게시글 상세 조회
     @Transactional(readOnly = true)
-    public PostEntity findPostById(Long postId) {
-        return postRepository.findById(postId)
+    public PostDetailResponseDTO findPostById(Long postId, String userId) {
+
+        PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException(postId));
+
+        // 좋아요 카운트
+        long likeCount = postLikeRepository.countByPost(post);
+
+        boolean likedByMe = (userId != null && !userId.isBlank())
+                && postLikeRepository.existsByPost_PostIdAndUser_UserId(postId, userId);
+
+        return PostDetailResponseDTO.from(post, likeCount, likedByMe);
     }
 
 
     // 내가 작성한 게시글 목록
-    // fixme: feat/mypage 브랜치로 이동
-    public Page<PostEntity> getPostsById(String userId, Pageable pageable) {
+    // fixme: mypage 브랜치
+    public Page<PostListResponseDTO> getPostsById(String userId, Pageable pageable) {
         userStatus(userId);
-        Page<PostEntity> posts = postRepository.findAllByUser_UserId(userId, pageable);
-        return posts;
+        Page<PostEntity> postsPage = postRepository.findAllByUser_UserId(userId, pageable);
+        List<PostEntity> postsContent = postsPage.getContent();
+
+        if (postsContent.isEmpty()) {
+            return Page.empty();
+        }
+
+        // 게시글 목록 id
+        List<Long> postIds = postsContent.stream().map(PostEntity::getPostId).toList();
+
+        // 게시글 좋아요 카운트
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
+        
+        // 게시글 댓글 카운트
+        Map<Long, Long> commentCountMap = postRepository.findCommentCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(PostRepository.PostCommentCount::getPostId, PostRepository.PostCommentCount::getCnt));
+
+        Set<Long> likedIds = new HashSet<>(postLikeRepository.findLikedPostIds(userId, postIds));
+
+        return postsPage.map(p -> PostListResponseDTO.from(
+                p,
+                likeCountMap.getOrDefault(p.getPostId(), 0L),
+                commentCountMap.getOrDefault(p.getPostId(), 0L),
+                likedIds.contains(p.getPostId())
+        ));
+
     }
 
+    // 내가 좋아요한 게시글 목록
+    // fixme: mypage 브랜치
+    @Transactional(readOnly = true)
+    public Page<PostListResponseDTO> getLikePostById(String userId, Pageable pageable) {
+        userStatus(userId);
 
-    // 특정 게시글 단어 검색
-    public Page<PostEntity> searchPosts(String keyword, Pageable pageable) {
-        return postRepository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, pageable);
+        // 내가 좋아요한 게시글 페이징
+        Page<Long> idPage = postLikeRepository.findLikedPostIdsByUserId(userId, pageable);
+        List<Long> postIds = idPage.getContent();
+        if (postIds.isEmpty()) return Page.empty(pageable);
+
+        List<PostEntity> posts = postRepository.findByPostIdIn(postIds);
+        Map<Long, PostEntity> byId = posts.stream().collect(Collectors.toMap(PostEntity::getPostId, p -> p));
+        List<PostEntity> ordered = postIds.stream().map(byId::get).filter(Objects::nonNull).toList();
+
+        Map<Long, Long> likeCountMap = postLikeRepository.findLikeCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(LikeCount::getPostId, LikeCount::getCnt));
+
+        Map<Long, Long> commentCountMap = postRepository.findCommentCountByPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(PostRepository.PostCommentCount::getPostId,
+                        PostRepository.PostCommentCount::getCnt));
+
+        // DTO (이 목록은 전부 likedByMe = true)
+        List<PostListResponseDTO> content = ordered.stream()
+                .map(p -> PostListResponseDTO.from(
+                        p,
+                        likeCountMap.getOrDefault(p.getPostId(), 0L),
+                        commentCountMap.getOrDefault(p.getPostId(), 0L),
+                        true
+                ))
+                .toList();
+
+        return new PageImpl<>(content, pageable, idPage.getTotalElements());
     }
 
 
     // 게시글 생성
     @Transactional
-    public PostEntity createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException {
+    public PostDetailResponseDTO createPost(String userId, PostRequestDTO requestDTO, List<MultipartFile> imageFiles) throws IOException {
 
         UserEntity author = userStatus(userId);
 
@@ -121,13 +225,15 @@ public class PostService {
             }
         }
 
-        return postRepository.save(post);
+        PostEntity savedPost = postRepository.save(post);
+
+        return PostDetailResponseDTO.from(savedPost, 0L, false);
     }
 
 
     // 게시글 수정
     @Transactional
-    public PostEntity updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
+    public PostDetailResponseDTO updatePost(String userId, Long postId, PostRequestDTO requestDTO, List<MultipartFile> newImageFiles) throws IOException {
         userStatus(userId);
 
         PostEntity post = postRepository.findById(postId)
@@ -189,18 +295,20 @@ public class PostService {
             }
         }
 
-        return post;
+        long currentLikeCount = postLikeRepository.countByPost(post);
+        boolean likedByMe = postLikeRepository.existsByPost_PostIdAndUser_UserId(postId, userId);
+
+        return PostDetailResponseDTO.from(post, currentLikeCount, likedByMe);
     }
 
 
     // 게시글 삭제
     @Transactional
     public void deletePost(String userId, Long postId) {
-        // 사용자/게시글 검증
         UserEntity user = findByUserId(userId);
-        PostEntity post = findPostById(postId);
+        PostEntity post = postRepository.findById(postId).orElseThrow(() -> new PostNotFoundException(postId));
 
-        boolean isOwner = post.getUser().getUserId().equals(userId);
+        boolean isOwner = post.getUser() != null && post.getUser().getUserId().equals(userId);
         boolean isAdmin = SecurityContextHolder.getContext()
                 .getAuthentication().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
@@ -209,16 +317,28 @@ public class PostService {
             throw new AccessDeniedException("삭제 권한이 없습니다.");
         }
 
-        for (ImageEntity img : post.getImages()) {
-            Path path = Paths.get(uploadDir, img.getStoredFileName());
-            try {
-                Files.deleteIfExists(path);
-            } catch (IOException e) {
-                throw new ImageDeleteException("이미지 파일 삭제 실패: " + path, e);
-            }
-        }
+        // 파일 경로만 미리 수집 (커밋 후 삭제)
+        List<Path> paths = post.getImages().stream()
+                .map(img -> Paths.get(uploadDir, img.getStoredFileName()))
+                .toList();
 
+
+        // 게시글 삭제 (이미지 엔티티는 JPA 연관/캐스케이드로 함께 삭제)
         postRepository.delete(post);
+
+        // 커밋 후 실제 파일 삭제 (DB 정합성 확정 뒤 I/O 처리)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                for (Path p : paths) {
+                    try {
+                        Files.deleteIfExists(p);
+                    } catch (IOException e) {
+                        log.warn("이미지 파일 삭제 실패: {}", p, e);
+                    }
+                }
+            }
+        });
     }
 
 

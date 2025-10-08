@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.community.post.entity;
 
+import com.b1a4.cafeOn.community.comment.entity.CommentEntity;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.community.post.enums.PostType;
@@ -9,13 +10,12 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.awt.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-@Table(name = "posts")
 @Entity
+@Table(name = "posts")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,14 +27,14 @@ public class PostEntity {
     @Column(name = "post_id", nullable = false)
     private Long postId;
 
-    @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false)
     private PostType type;
 
-    @Column(name = "title", nullable = false)
+    @Column(name = "title", nullable = false, length = 255)
     private String title;
 
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "created_at", nullable = false)
@@ -43,19 +43,31 @@ public class PostEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "view_count")
+    @Column(name = "view_count", nullable = false)
     private long viewCount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, columnDefinition = "CHAR(36)")
+    private UserEntity user;
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ImageEntity> images = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<PostLikeEntity> likes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentEntity> comments = new ArrayList<>();
 
     @PrePersist
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.viewCount = 0L;
-
-        if (type == null) {
-            this.type = PostType.GENERAL;
-        }
-
+        if (this.type == null) this.type = PostType.GENERAL;
     }
 
     @PreUpdate
@@ -63,13 +75,11 @@ public class PostEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private UserEntity user;
-
-    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<ImageEntity> images = new ArrayList<>();
+    public void update(String title, String content, PostType type) {
+        this.title = title;
+        this.content = content;
+        this.type = type;
+    }
 
     public void addImage(ImageEntity image) {
         images.add(image);
@@ -84,12 +94,4 @@ public class PostEntity {
     public void increaseViewCount() {
         this.viewCount++;
     }
-
-    public void update(String title, String content, PostType type) {
-        this.title = title;
-        this.content = content;
-        this.type = type;
-    }
-
-
 }
