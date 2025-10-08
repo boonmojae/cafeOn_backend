@@ -33,18 +33,18 @@ public class CommentEntity {
     @Builder.Default
     private List<CommentEntity> children = new ArrayList<>();
 
-    @Column(name = "content")
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id")
+    @JoinColumn(name = "post_id", nullable = false)
     private PostEntity post;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false, columnDefinition = "CHAR(36)")
     private UserEntity user;
 
     @OneToMany(mappedBy = "comment", cascade = CascadeType.REMOVE, orphanRemoval = true)
@@ -55,10 +55,8 @@ public class CommentEntity {
         this.content = content;
     }
 
-
     @PrePersist
     private void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
-
 }
