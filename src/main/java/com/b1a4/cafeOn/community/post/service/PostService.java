@@ -3,6 +3,7 @@ package com.b1a4.cafeOn.community.post.service;
 import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
+import com.b1a4.cafeOn.community.post.enums.PostType;
 import com.b1a4.cafeOn.community.post.exception.PostForbiddenException;
 import com.b1a4.cafeOn.community.post.exception.PostNotFoundException;
 import com.b1a4.cafeOn.community.post.repository.LikeCount;
@@ -48,12 +49,19 @@ public class PostService {
     private String uploadDir;
 
     // 전체 게시글 조회
-    public Page<PostListResponseDTO> getAllPosts(Pageable pageable, String userId) {
-        Page<PostEntity> postsPage = postRepository.findAll(pageable);
+    public Page<PostListResponseDTO> getAllPosts(Pageable pageable, String userId, PostType type, String keyword) {
+        Page<PostEntity> postsPage;
+
+        if ((type == null) && (keyword == null || keyword.isBlank())) {
+            postsPage = postRepository.findAll(pageable);
+        } else {
+            postsPage = postRepository.search(type, keyword, pageable);
+        }
+
         List<PostEntity> postsContent = postsPage.getContent();
 
         if (postsContent.isEmpty()) {
-            return Page.empty();
+            return Page.empty(pageable);
         }
 
         List<Long> postIds = postsContent.stream()
@@ -90,8 +98,8 @@ public class PostService {
 
         // 좋아요 카운트
         long likeCount = postLikeRepository.countByPost(post);
-        
-        boolean likedByMe = (userId == null || userId.isBlank())
+
+        boolean likedByMe = (userId != null && !userId.isBlank())
                 && postLikeRepository.existsByPost_PostIdAndUser_UserId(postId, userId);
 
         return PostDetailResponseDTO.from(post, likeCount, likedByMe);

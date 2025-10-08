@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.community.post.repository;
 
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
+import com.b1a4.cafeOn.community.post.enums.PostType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -16,6 +17,28 @@ import java.util.Optional;
 
 @Repository
 public interface PostRepository extends JpaRepository<PostEntity, Long> {
+
+    // 전체 게시글 조회 필터링(타입, 키워드)
+    @EntityGraph(attributePaths = {"user"})
+    @Query("""
+            SELECT p
+            FROM PostEntity p
+            LEFT JOIN p.user u
+            WHERE (:type IS NULL OR p.type = :type)
+              AND (
+                  :kw IS NULL OR :kw = '' OR
+                  LOWER(p.title)   LIKE LOWER(CONCAT('%', :kw, '%')) OR
+                  LOWER(p.content) LIKE LOWER(CONCAT('%', :kw, '%')) OR
+                  LOWER(u.nickname) LIKE LOWER(CONCAT('%', :kw, '%'))
+              )
+            ORDER BY p.createdAt DESC
+            """)
+    Page<PostEntity> search(
+            @Param("type") PostType type,
+            @Param("kw") String keyword,
+            Pageable pageable
+    );
+
 
     // 유저가 작성한 게시글 목록
     Page<PostEntity> findAllByUser_UserId(String userId, Pageable pageable);
@@ -39,6 +62,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
     interface PostCommentCount {
         Long getPostId();
+
         Long getCnt();
     }
 

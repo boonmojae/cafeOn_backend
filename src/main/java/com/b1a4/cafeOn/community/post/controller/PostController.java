@@ -4,6 +4,7 @@ import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.community.post.dto.PostDetailResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.dto.PostRequestDTO;
+import com.b1a4.cafeOn.community.post.enums.PostType;
 import com.b1a4.cafeOn.community.post.service.PostService;
 import com.b1a4.cafeOn.community.post.service.ViewCountService;
 import jakarta.persistence.EntityNotFoundException;
@@ -40,9 +41,11 @@ public class PostController {
     // 전체 게시글 조회
     @GetMapping
     public ResponseEntity<?> getAllPosts(@AuthenticationPrincipal String userId,
+                                         @RequestParam(required = false) PostType type,
+                                         @RequestParam(required = false) String keyword,
                                          @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         try {
-            Page<PostListResponseDTO> responseDTOS = postService.getAllPosts(pageable, userId);
+            Page<PostListResponseDTO> responseDTOS = postService.getAllPosts(pageable, userId, type, keyword);
 
             ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .data(responseDTOS)
