@@ -2,12 +2,9 @@ package com.b1a4.cafeOn.user.controller;
 
 import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.user.dto.EmailRequestDTO;
-import com.b1a4.cafeOn.user.dto.RefreshTokenRequest;
+import com.b1a4.cafeOn.user.dto.RefreshTokenRequestDTO;
 import com.b1a4.cafeOn.user.dto.UserDTO;
 import com.b1a4.cafeOn.user.entity.UserEntity;
-import com.b1a4.cafeOn.user.enums.UserProvider;
-import com.b1a4.cafeOn.user.enums.UserRole;
-import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.config.security.TokenProvider;
 import com.b1a4.cafeOn.user.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,7 +24,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.UUID;
 
 // 회원가입, 로그인, 토큰 갱신만 담당 (모든 사용자 접근 가능 - permitAll)
 @Slf4j
@@ -282,7 +278,7 @@ public class AuthController {
                     required = true,
                     content = @Content(
                             mediaType = "application/json",
-                            schema = @Schema(implementation = Map.class),
+                            schema = @Schema(implementation = RefreshTokenRequestDTO.class),
                             examples = {
                                     @ExampleObject(
                                             name = "토큰 갱신 요청 예시",
@@ -333,7 +329,7 @@ public class AuthController {
             )
     })
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@RequestBody RefreshTokenRequest request) {
+    public ResponseEntity<?> refreshToken(@RequestBody RefreshTokenRequestDTO request) {
         String refreshToken = request.getRefreshToken();
 
 //        3-1. 서비스 단의 토큰갱신 메서드로 새 토큰<Access, Refresh>들 발급
@@ -544,8 +540,85 @@ public class AuthController {
     @PostMapping("/password/reset")
     @Operation(
             summary = "임시 비밀번호 발급",
-            description = "비로그인 상태에서 이메일로 임시 비밀번호를 발급합니다."
+            description = """
+                    비로그인 상태에서 이메일 주소를 입력하면, 해당 계정으로 임시 비밀번호가 발급되어 이메일로 전송됩니다.
+                    - **요청값:** email
+                    - **응답값:** message
+                    """,
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = EmailRequestDTO.class),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "임시 비밀번호 발급 요청 예시",
+                                            value = """
+                                                    {
+                                                        "email": "user@example.com"
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
     )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "임시 비밀번호 발급 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "임시 비밀번호가 이메일로 발송되었습니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "해당 이메일로 가입된 사용자가 없음",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "해당 이메일로 가입된 사용자가 없습니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "메일 발송 중 서버 오류",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "임시 비밀번호 발송 중 오류가 발생했습니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+    })
     public ResponseEntity<?> resetPassword(@RequestBody EmailRequestDTO request) {
         authService.resetPassword(request.getEmail());
 
