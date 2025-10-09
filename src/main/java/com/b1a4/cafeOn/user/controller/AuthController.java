@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.user.controller;
 
 import com.b1a4.cafeOn.common.api.ApiResponse;
+import com.b1a4.cafeOn.user.dto.EmailRequestDTO;
 import com.b1a4.cafeOn.user.dto.RefreshTokenRequest;
 import com.b1a4.cafeOn.user.dto.UserDTO;
 import com.b1a4.cafeOn.user.entity.UserEntity;
@@ -532,6 +533,24 @@ public class AuthController {
 
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .message("비밀번호가 성공적으로 변경되었습니다.")
+                .data(null)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+//    6. 비로그인 상태에서 임시 비밀번호 발급
+    @PostMapping("/password/reset")
+    @Operation(
+            summary = "임시 비밀번호 발급",
+            description = "비로그인 상태에서 이메일로 임시 비밀번호를 발급합니다."
+    )
+    public ResponseEntity<?> resetPassword(@RequestBody EmailRequestDTO request) {
+        authService.resetPassword(request.getEmail());
+
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .message("임시 비밀번호가 이메일로 발송되었습니다.")
                 .data(null)
                 .build();
 

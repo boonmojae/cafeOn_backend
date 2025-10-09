@@ -7,14 +7,17 @@ import com.b1a4.cafeOn.user.enums.UserProvider;
 import com.b1a4.cafeOn.user.enums.UserRole;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.user.repository.UserRepository;
+import jakarta.mail.MessagingException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 @Slf4j
@@ -25,6 +28,7 @@ public class AuthService {
     @Autowired private UserRepository userRepository;
     @Autowired private TokenProvider tokenProvider;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private EmailService emailService;
 
     //    1. 회원가입
     public UserDTO signUp(UserDTO userDTO) {
@@ -195,5 +199,37 @@ public class AuthService {
         userRepository.save(user);
 
         log.info("비밀번호 변경 완료 - email: {}, NewPassword(plain): {}", user.getEmail(), newPassword);
+    }
+
+
+//    8. 임시 비밀번호 발급
+    public void resetPassword(String email) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("해당 이메일로 가입된 사용자가 없습니다."));
+
+//        8-1. 임시 비밀번호 생성
+        String tempPassword = generateTempPassword();
+
+//        8-2. 임시 비밀번호 암호화 후 저장
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        userRepository.save(user);
+
+//        8-3. 이메일 전송
+        try {
+            emailService.sendTempPasswordEmail(user.getEmail(), tempPassword);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new RuntimeException("임시 비밀번호 발송 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private String generateTempPassword() {
+        int length = 10;
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i=0; i<length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 }
