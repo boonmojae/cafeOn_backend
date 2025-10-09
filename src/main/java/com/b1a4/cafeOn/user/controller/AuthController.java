@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.user.controller;
 
 import com.b1a4.cafeOn.common.api.ApiResponse;
+import com.b1a4.cafeOn.user.dto.RefreshTokenRequest;
 import com.b1a4.cafeOn.user.dto.UserDTO;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.enums.UserProvider;
@@ -366,8 +367,8 @@ public class AuthController {
             )
     })
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> request) {
-        String refreshToken = request.get("refreshToken");
+    public ResponseEntity<?> refreshToken(@RequestBody RefreshTokenRequest request) {
+        String refreshToken = request.getRefreshToken();
 
 //        3-1. 서비스 단의 토큰갱신 메서드로 새 토큰<Access, Refresh>들 발급
         Map<String, String> newTokens = authService.refreshTokens(refreshToken);
