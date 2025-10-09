@@ -21,7 +21,7 @@ import java.util.Map;
 @Slf4j
 @Component  // 스프링컨테이너한테 Bean으로 등록해서 의존성 주입받으려고
 public class JwtAuthenticationFilter extends OncePerRequestFilter { // Servlet Filter(미들웨어)를 구현한 것
-    //    OncePerRequestFilter클래스를 상속받는 JwtAuthenticationFilter 구현
+//    OncePerRequestFilter클래스를 상속받는 JwtAuthenticationFilter 구현
 //    - OncePerRequestFilter 클래스 : 한 요청당 반드시 한 번만 실행됨
     @Autowired
     private TokenProvider tokenProvider;

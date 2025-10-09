@@ -15,7 +15,7 @@ import java.util.Map;
 @Service
 // /api/user/**
 // 내정보 조회/수정/탈퇴, 위시리스트 관리, 마이페이지 관련 API (reviews, bookmarks, posts, comments, questions 등)
-public class UserService {
+public class AuthService {
     @Autowired
     private UserRepository userRepository;
 
@@ -39,6 +39,7 @@ public class UserService {
         return userRepository.save(userEntity); // UserEntity를 DB에 저장
     }
 
+
     //    2. 로그인(암호화된 비밀번호 검증)
     public UserEntity getByCredentials(final String email,
                                        final String password,
@@ -57,6 +58,7 @@ public class UserService {
 
         return null;    // 이메일이 일치하는 유저가 없다면, 로그인 실패니까 null 반환
     }
+
 
     //    3. 토큰들 갱신(refresh Access Token)
     public Map<String, String> refreshTokens(String refreshToken) {
@@ -106,13 +108,38 @@ public class UserService {
         );
     }
 
+
     //    4. 사용자 정보 수정
     public UserEntity update(final UserEntity user) {
         return userRepository.save(user);
     }
 
+
     //    5. Refresh Token 으로 유저 조회
     public UserEntity getByRefreshToken(final String refreshToken) {
         return userRepository.findByRefreshToken(refreshToken).orElse(null);
+    }
+
+
+//    6. 로그아웃
+    public void logout(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("잘못된 토큰 형식입니다.");
+        }
+
+        String token = authorizationHeader.substring(7);
+
+        Map<String, String> claims = tokenProvider.validateAndExtractClaims(token, "access");
+        if (claims == null) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        String userId = claims.get("userId");
+
+//        RefreshToken 제거 (!! Update쿼리는 Service레벨에서 엔티티 조작으로 (find -> set -> save))
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setRefreshToken(null);
+            userRepository.save(user);
+        });
     }
 }
