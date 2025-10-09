@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.community.post.dto;
 
+import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
 import com.b1a4.cafeOn.image.dto.ImageResponseDTO;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.community.post.enums.PostType;
@@ -27,10 +28,11 @@ public class PostDetailResponseDTO {
     private List<ImageResponseDTO> images;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    // fixme: CommentEntity 추가할때 주석 해제
-    // private List<CommentDTO> comment;
+    private long likeCount;
+    private boolean likedByMe;
 
-    public static PostDetailResponseDTO from(PostEntity post) {
+    // 게시글 상세 조회(댓글 데이터 X, 댓글 API사용)
+    public static PostDetailResponseDTO from(PostEntity post, long likeCount, boolean likedByMe) {
 
         // 탈퇴한 회원 닉네임
         String nicknameToDisplay;
@@ -55,6 +57,8 @@ public class PostDetailResponseDTO {
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
                 .viewCount(post.getViewCount())
+                .likeCount(likeCount)
+                .likedByMe(likedByMe)
                 .build();
     }
 }

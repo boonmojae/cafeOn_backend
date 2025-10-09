@@ -50,11 +50,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/images/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,    "/api/posts/**").hasRole("USER")
-                        .requestMatchers(HttpMethod.POST,   "/api/posts").hasRole("USER")
-//                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
-                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/posts").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/comments/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/comments").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/comments/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/comments/**").hasRole("USER")
                         // QnA 조회
                         .requestMatchers(HttpMethod.GET, "/api/qna/questions", "/api/qna/questions/**").permitAll()
                         // QnA 작성
@@ -78,7 +81,7 @@ public class SecurityConfig {
         return RoleHierarchyImpl.fromHierarchy("ROLE_ADMIN > ROLE_USER");
     }
 
-//    cors 설정
+    //    cors 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

@@ -19,11 +19,11 @@ public class TokenProvider {
 //    [before] JWT 서명에 사용되는 비밀키 (일단은 하드코딩 했지만, [after]로 바꾸었음)
 //    private static final String SECRET_KEY = "cafe-on-kimdoi1004";
 
-    //    [after] JwtProperties 클래스 이용해 설정 파일 값 불러오기
+//    [after] JwtProperties 클래스 이용해 설정 파일 값 불러오기
     @Autowired
     private JwtProperties jwtProperties;
 
-    //    1. Access, Refresh Token 둘 다 발급 (로그인 시)
+//    1. Access, Refresh Token 둘 다 발급 (로그인 시)
     public Map<String, String> issueTokens(UserEntity userEntity) {
         String accessToken = issueAccessToken(userEntity);
         String refreshToken = issueRefreshToken(userEntity);
@@ -31,7 +31,7 @@ public class TokenProvider {
         return Map.of("accessToken", accessToken, "refreshToken", refreshToken);
     }
 
-    //      1-1. Access Token만 발급 (30분 뒤 만료시간만 다름)
+//      1-1. Access Token만 발급 (30분 뒤 만료시간만 다름)
     public String issueAccessToken(UserEntity userEntity) {
         // Access Token 발급
 //        JWT Access 토큰 만료시간을 현재시각으로부터 30분 뒤 만료되는 시각으로 계산
@@ -50,7 +50,7 @@ public class TokenProvider {
                 .compact(); // 토큰 생성해주세요! -> "header.payload.signature" 토큰 문자열 최종 생성(리턴타입 그래서 String)
     }
 
-    //      1-2. Refresh Token만 발급 (14일 뒤 만료시간만 다름)
+//      1-2. Refresh Token만 발급 (14일 뒤 만료시간만 다름)
     public String issueRefreshToken(UserEntity userEntity) {   // Refresh Token 발급 (토큰 갱신 시)
         Date expiryDate = Date.from(Instant.now().plus(14, ChronoUnit.DAYS));   // 14일 뒤 만료
 
@@ -69,7 +69,7 @@ public class TokenProvider {
 
 //    ---------------------------------------------------------------
 
-    //    2. 토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
+//    2. 토큰 디코딩 및 파싱 & 토큰 위조 여부를 확인 -> 사용자의 id 리턴
 //    => 클라이언트가 보낸 토큰이 유효한지 검증하고, <userId,role> 맵을 반환함
     public Map<String, String> validateAndExtractClaims(String token, String expectedTokenType) {
         try {

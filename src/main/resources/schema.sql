@@ -4,8 +4,10 @@ CREATE DATABASE IF NOT EXISTS cafeOn
 
 USE cafeOn;
 
-CREATE TABLE IF NOT EXISTS user(
+CREATE TABLE IF NOT EXISTS users(
     user_id CHAR(36) PRIMARY KEY,   -- UUID
+    name VARCHAR(50) NOT NULL,
+    phone VARCHAR(15) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255),
     nickname VARCHAR(50),
@@ -39,31 +41,98 @@ CREATE TABLE IF NOT EXISTS cafes (
     source ENUM('KAKAO', 'USER') DEFAULT 'KAKAO' -- 데이터 출처
 );
 
-CREATE TABLE IF NOT EXISTS posts(
-    post_id BIGINT NOT NULL AUTO_INCREMENT,
-    user_id CHAR(36) NULL,
-    type ENUM('GENERAL', 'QUESTION', 'INFO') NOT NULL DEFAULT 'GENERAL',
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NULL,
-    view_count BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (post_id),
-    FOREIGN KEY (user_id) REFERENCES user (user_id)
-)
+CREATE TABLE IF NOT EXISTS posts (
+  post_id     BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id     CHAR(36)         NOT NULL,
+  type        ENUM('GENERAL','QUESTION','INFO') NOT NULL DEFAULT 'GENERAL',
+  title       VARCHAR(255)     NOT NULL,
+  content     TEXT             NOT NULL,
+  created_at  DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  view_count  BIGINT           NOT NULL DEFAULT 0,
 
-CREATE TABLE IF NOT EXISTS posts(
-    post_id BIGINT NOT NULL AUTO_INCREMENT,
-    user_id CHAR(36) NULL,
-    type ENUM('GENERAL', 'QUESTION', 'INFO') NOT NULL DEFAULT 'GENERAL',
-    title VARCHAR(255) NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NULL,
-    view_count BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (post_id),
-    FOREIGN KEY (user_id) REFERENCES user (user_id)
-)
+  INDEX idx_posts_user_id (user_id),
+  INDEX idx_posts_created_at (created_at),
+
+  CONSTRAINT fk_posts_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS post_likes (
+  post_like_id BIGINT      NOT NULL AUTO_INCREMENT,
+  post_id      BIGINT      NOT NULL,
+  user_id      CHAR(36)    NOT NULL,
+  created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (post_like_id),
+  CONSTRAINT uk_post_like_post_user UNIQUE (post_id, user_id),
+
+  INDEX idx_post_likes_post_id (post_id),
+  INDEX idx_post_likes_user_id (user_id),
+
+  CONSTRAINT fk_post_likes_post
+    FOREIGN KEY (post_id) REFERENCES posts(post_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_post_likes_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS comments (
+  comment_id   BIGINT      NOT NULL AUTO_INCREMENT,
+  post_id      BIGINT      NOT NULL,
+  user_id      CHAR(36)    NOT NULL,
+  parent_id    BIGINT      NULL,
+  content      TEXT        NOT NULL,
+  created_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (comment_id),
+
+  INDEX idx_comments_post_id   (post_id),
+  INDEX idx_comments_user_id   (user_id),
+  INDEX idx_comments_parent_id (parent_id),
+  INDEX idx_comments_created_at(created_at),
+
+  CONSTRAINT fk_comments_post
+    FOREIGN KEY (post_id) REFERENCES posts(post_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_comments_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_comments_parent
+    FOREIGN KEY (parent_id) REFERENCES comments(comment_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS comment_likes (
+  comment_like_id BIGINT     NOT NULL AUTO_INCREMENT,
+  comment_id      BIGINT     NOT NULL,
+  user_id         CHAR(36)   NOT NULL,
+  created_at      DATETIME   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (comment_like_id),
+  CONSTRAINT uk_comment_like_comment_user UNIQUE (comment_id, user_id),
+
+  INDEX idx_comment_likes_comment_id (comment_id),
+  INDEX idx_comment_likes_user_id    (user_id),
+
+  CONSTRAINT fk_comment_likes_comment
+    FOREIGN KEY (comment_id) REFERENCES comments(comment_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_comment_likes_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
 
 CREATE TABLE IF NOT EXISTS images (
     image_id BIGINT NOT NULL AUTO_INCREMENT,

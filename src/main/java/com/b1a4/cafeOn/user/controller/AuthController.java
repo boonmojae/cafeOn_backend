@@ -7,22 +7,21 @@ import com.b1a4.cafeOn.user.enums.UserProvider;
 import com.b1a4.cafeOn.user.enums.UserRole;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.config.security.TokenProvider;
-import com.b1a4.cafeOn.user.service.UserService;
+import com.b1a4.cafeOn.user.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.UUID;
@@ -32,21 +31,16 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Auth", description = "인증/회원가입/로그인 API")
-public class UserController {
-    @Autowired
-    private UserService userService;
-
-    @Autowired
-    private TokenProvider tokenProvider;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+public class AuthController {
+    @Autowired private AuthService authService;
+    @Autowired private TokenProvider tokenProvider;
+    @Autowired private PasswordEncoder passwordEncoder;
 
 
 //  1. 회원가입
     @Operation(
             summary = "회원가입",
-            description = "이메일/비밀번호/닉네임으로 회원 생성. 기본 상태 ACTIVE, 역할 USER, 제공자 LOCAL.",
+            description = "이름/닉네임/전화번호/이메일/비밀번호로 회원 생성. 기본 상태 ACTIVE, 역할 USER, 제공자 LOCAL.",
             // ⬇️ 스웨거 RequestBody는 여기(메서드 수준)에 넣기
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
@@ -57,9 +51,11 @@ public class UserController {
                                             name = "회원가입 요청 예시",
                                             value = """
                         {
+                          "name": "테스트",
+                          "nickname": "테스트유저",
+                          "phone": "010-1111-1111",
                           "email": "user@example.com",
-                          "password": "P@ssw0rd!",
-                          "nickname": "테스트유저"
+                          "password": "P@ssw0rd!"
                         }
                         """
                                     )
@@ -118,9 +114,11 @@ public class UserController {
                                             name = "회원가입 요청 예시",
                                             value = """
                     {
+                      "name": "테스트",
+                      "nickname": "테스트유저",
+                      "phone": "010-1111-1111",
                       "email": "user@example.com",
-                      "password": "P@ssw0rd!",
-                      "nickname": "테스트유저"
+                      "password": "P@ssw0rd!"
                     }
                     """
                                     )
@@ -143,9 +141,11 @@ public class UserController {
 //            1-2. 요청 본문과 생성한 UUID를 이용해 저장할 사용자 만들기
             UserEntity user = UserEntity.builder()
 //                    유저의 입력으로 DTO를 통해 전달받은 값들로 부여
+                    .name(userDTO.getName())
+                    .nickname(userDTO.getNickname())
+                    .phone(userDTO.getPhone())
                     .email(userDTO.getEmail())
                     .password(encryptedPassword)    // 1-1-2에서 암호화된 비밀번호
-                    .nickname(userDTO.getNickname())
 //                    여기부턴 서버에서 자동으로 처리해야 할 값들로 부여
                     .userId(uuid.toString())    // 위에서 생성한 uuid값
                     .status(UserStatus.ACTIVE)   // 기본 ACTIVE
@@ -156,11 +156,13 @@ public class UserController {
                     .build();
 
 //            1-2. 서비스계층 메서드를 이용해 repo에 사용자 저장
-            UserEntity registeredUser = userService.create(user);
+            UserEntity registeredUser = authService.create(user);
 
 //            1-3. 사용자 생성 완료 후, 프론트로 보낼 응답DTO들 세팅
             UserDTO responseUserDTO = UserDTO.builder()
                     .userId(registeredUser.getUserId())
+                    .name(registeredUser.getName())
+                    .phone(registeredUser.getPhone())
                     .email(registeredUser.getEmail())
                     .nickname(registeredUser.getNickname())
                     .build();
@@ -180,6 +182,9 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
     }
+    
+//  1-1. 이메일 인증
+    
 
 
 //  2. 로그인(JWT 적용)
@@ -264,7 +269,7 @@ public class UserController {
             )
             @RequestBody UserDTO userDTO)
     {
-        UserEntity user = userService.getByCredentials( // 사용자 인증하는 메서드
+        UserEntity user = authService.getByCredentials( // 사용자 인증하는 메서드
                 userDTO.getEmail(), userDTO.getPassword(),passwordEncoder
         );
 
@@ -280,7 +285,7 @@ public class UserController {
 
 //            DB에 refresh_token 저장(user update)
             user.setRefreshToken(token.get("refreshToken"));
-            userService.update(user);   // update는 결국 save() 호출하니까 컬럼 하나만 수정
+            authService.update(user);   // update는 결국 save() 호출하니까 컬럼 하나만 수정
 
             ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
                     .message("로그인 성공")
@@ -365,11 +370,94 @@ public class UserController {
         String refreshToken = request.get("refreshToken");
 
 //        3-1. 서비스 단의 토큰갱신 메서드로 새 토큰<Access, Refresh>들 발급
-        Map<String, String> newTokens = userService.refreshTokens(refreshToken);
+        Map<String, String> newTokens = authService.refreshTokens(refreshToken);
 
         ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
                 .message("토큰 재발급 성공")
                 .data(newTokens)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+//  4. 로그아웃(refresh token 무효화)
+//  DB에 저장된 refresh token을 삭제하거나 블랙리스트로 등록 -> 재발급(refresh) 시도 시 토큰이 유효하지 않아 로그인 상태가 완전히 종료
+    @Operation(
+            summary = "로그아웃",
+            description = """
+                    클라이언트가 보유 중인 AccessToken을 Authorization 헤더에 담아 요청하면, 서버는 해당 유저의 RefreshToken을 DB에서 제거(null처리)하여 로그인 세션을 무효화합니다.
+                    - **Access Token 형식:** `"Authorization: Bearer <AccessToken>"`
+                    - RefreshToken은 DB에서 제거되므로, 이후 `/api/auth/refresh` 요청 시 거부됩니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그아웃 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "로그아웃 성공",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청 (토큰 누락 또는 형식 오류)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "잘못된 토큰 형식입니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "유효하지 않은 또는 만료된 토큰",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "유효하지 않은 토큰입니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+    })
+    @SecurityRequirement(name = "Bearer Authentication")    // ✅ Authorize 버튼과 연동
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @Parameter(hidden = true)   // ✅ Swagger 문서에는 헤더파라미터 중복이므로, 안 뜨게 숨김
+            @RequestHeader(name = "Authorization") String authorizationHeader
+    ) {
+        authService.logout(authorizationHeader);
+
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .message("로그아웃 성공")
+                .data(null)
                 .build();
 
         return ResponseEntity.ok(response);
