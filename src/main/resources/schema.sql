@@ -4,8 +4,10 @@ CREATE DATABASE IF NOT EXISTS cafeOn
 
 USE cafeOn;
 
-CREATE TABLE IF NOT EXISTS user(
+CREATE TABLE IF NOT EXISTS users(
     user_id CHAR(36) PRIMARY KEY,   -- UUID
+    name VARCHAR(50) NOT NULL,
+    phone VARCHAR(15) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255),
     nickname VARCHAR(50),
