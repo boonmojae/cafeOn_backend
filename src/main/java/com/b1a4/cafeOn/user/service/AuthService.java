@@ -15,7 +15,7 @@ import java.util.Map;
 @Service
 // /api/user/**
 // 내정보 조회/수정/탈퇴, 위시리스트 관리, 마이페이지 관련 API (reviews, bookmarks, posts, comments, questions 등)
-public class UserService {
+public class AuthService {
     @Autowired
     private UserRepository userRepository;
 

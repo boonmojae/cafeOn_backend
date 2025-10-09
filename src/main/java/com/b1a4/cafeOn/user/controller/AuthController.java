@@ -7,7 +7,7 @@ import com.b1a4.cafeOn.user.enums.UserProvider;
 import com.b1a4.cafeOn.user.enums.UserRole;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.config.security.TokenProvider;
-import com.b1a4.cafeOn.user.service.UserService;
+import com.b1a4.cafeOn.user.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
@@ -32,8 +32,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Auth", description = "인증/회원가입/로그인 API")
-public class UserController {
-    @Autowired private UserService userService;
+public class AuthController {
+    @Autowired private AuthService authService;
     @Autowired private TokenProvider tokenProvider;
     @Autowired private PasswordEncoder passwordEncoder;
 
@@ -157,7 +157,7 @@ public class UserController {
                     .build();
 
 //            1-2. 서비스계층 메서드를 이용해 repo에 사용자 저장
-            UserEntity registeredUser = userService.create(user);
+            UserEntity registeredUser = authService.create(user);
 
 //            1-3. 사용자 생성 완료 후, 프론트로 보낼 응답DTO들 세팅
             UserDTO responseUserDTO = UserDTO.builder()
@@ -270,7 +270,7 @@ public class UserController {
             )
             @RequestBody UserDTO userDTO)
     {
-        UserEntity user = userService.getByCredentials( // 사용자 인증하는 메서드
+        UserEntity user = authService.getByCredentials( // 사용자 인증하는 메서드
                 userDTO.getEmail(), userDTO.getPassword(),passwordEncoder
         );
 
@@ -286,7 +286,7 @@ public class UserController {
 
 //            DB에 refresh_token 저장(user update)
             user.setRefreshToken(token.get("refreshToken"));
-            userService.update(user);   // update는 결국 save() 호출하니까 컬럼 하나만 수정
+            authService.update(user);   // update는 결국 save() 호출하니까 컬럼 하나만 수정
 
             ApiResponse<UserDTO> response = ApiResponse.<UserDTO>builder()
                     .message("로그인 성공")
@@ -371,7 +371,7 @@ public class UserController {
         String refreshToken = request.get("refreshToken");
 
 //        3-1. 서비스 단의 토큰갱신 메서드로 새 토큰<Access, Refresh>들 발급
-        Map<String, String> newTokens = userService.refreshTokens(refreshToken);
+        Map<String, String> newTokens = authService.refreshTokens(refreshToken);
 
         ApiResponse<Map<String, String>> response = ApiResponse.<Map<String, String>>builder()
                 .message("토큰 재발급 성공")
@@ -380,4 +380,8 @@ public class UserController {
 
         return ResponseEntity.ok(response);
     }
+    
+//  4. 로그아웃(refresh token 무효화)
+//  DB에 저장된 refresh token을 삭제하거나 블랙리스트로 등록 -> 재발급(refresh) 시도 시 토큰이 유효하지 않아 로그인 상태가 완전히 종료
+
 }
