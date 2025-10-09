@@ -9,20 +9,19 @@ import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.config.security.TokenProvider;
 import com.b1a4.cafeOn.user.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.UUID;
@@ -380,8 +379,87 @@ public class AuthController {
 
         return ResponseEntity.ok(response);
     }
-    
+
+
 //  4. 로그아웃(refresh token 무효화)
 //  DB에 저장된 refresh token을 삭제하거나 블랙리스트로 등록 -> 재발급(refresh) 시도 시 토큰이 유효하지 않아 로그인 상태가 완전히 종료
+    @Operation(
+            summary = "로그아웃",
+            description = """
+                    클라이언트가 보유 중인 AccessToken을 Authorization 헤더에 담아 요청하면, 서버는 해당 유저의 RefreshToken을 DB에서 제거(null처리)하여 로그인 세션을 무효화합니다.
+                    - **Access Token 형식:** `"Authorization: Bearer <AccessToken>"`
+                    - RefreshToken은 DB에서 제거되므로, 이후 `/api/auth/refresh` 요청 시 거부됩니다.
+                    """
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그아웃 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "성공 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "로그아웃 성공",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 요청 (토큰 누락 또는 형식 오류)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "잘못된 토큰 형식입니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "유효하지 않은 또는 만료된 토큰",
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "에러 응답 예시",
+                                            value = """
+                                                    {
+                                                        "message": "유효하지 않은 토큰입니다.",
+                                                        "data": null
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            )
+    })
+    @SecurityRequirement(name = "Bearer Authentication")    // ✅ Authorize 버튼과 연동
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(
+            @Parameter(hidden = true)   // ✅ Swagger 문서에는 헤더파라미터 중복이므로, 안 뜨게 숨김
+            @RequestHeader(name = "Authorization") String authorizationHeader
+    ) {
+        authService.logout(authorizationHeader);
 
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .message("로그아웃 성공")
+                .data(null)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
 }
