@@ -2,7 +2,6 @@ package com.b1a4.cafeOn.qna.question.entity;
 
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionStatus;
-import com.b1a4.cafeOn.qna.question.enums.QuestionType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -2,7 +2,6 @@ package com.b1a4.cafeOn.qna.question.dto;
 
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionStatus;
-import com.b1a4.cafeOn.qna.question.enums.QuestionType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

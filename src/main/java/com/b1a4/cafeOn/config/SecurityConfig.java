@@ -55,6 +55,14 @@ public class SecurityConfig {
 //                        .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT,    "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("USER")
+                        // QnA 조회
+                        .requestMatchers(HttpMethod.GET, "/api/qna/questions", "/api/qna/questions/**").permitAll()
+                        // QnA 작성
+                        .requestMatchers(HttpMethod.POST, "/api/qna/questions").hasRole("USER")
+                        // 마이페이지
+                        .requestMatchers("/api/mypage/**").hasRole("USER")
+                        // 관리자
+                        .requestMatchers("/api/admin/qna/**").hasRole("ADMIN")
 
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
