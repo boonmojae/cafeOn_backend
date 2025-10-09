@@ -133,7 +133,6 @@ CREATE TABLE IF NOT EXISTS comment_likes (
     ON DELETE CASCADE
 );
 
-
 CREATE TABLE IF NOT EXISTS images (
     image_id BIGINT NOT NULL AUTO_INCREMENT,
     post_id BIGINT NOT NULL,
@@ -142,6 +141,88 @@ CREATE TABLE IF NOT EXISTS images (
     PRIMARY KEY (image_id),
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS chat_rooms (
+  chatroom_id   BIGINT NOT NULL AUTO_INCREMENT,
+  type          VARCHAR(10) NOT NULL,
+  user_small    CHAR(36) NULL,
+  user_big      CHAR(36) NULL,
+  cafe_id       BIGINT NULL,
+  room_name     VARCHAR(100) NULL,
+  max_capacity  INT NOT NULL DEFAULT 30,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (chatroom_id),
+  UNIQUE KEY uk_dm_unique (type, user_small, user_big),
+  UNIQUE KEY uk_cafe_one_group (type, cafe_id),
+  KEY idx_chat_rooms_type (type),
+  KEY idx_chat_rooms_cafe (cafe_id)
+);
+
+CREATE TABLE IF NOT EXISTS chat_room_members (
+  chatroom_member_id BIGINT NOT NULL AUTO_INCREMENT,
+  chatroom_id        BIGINT NOT NULL,
+  user_id            CHAR(36) NOT NULL,
+  joined_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  is_muted           TINYINT(1) NOT NULL DEFAULT 0,
+  last_read_chat_id  BIGINT NULL,
+  PRIMARY KEY (chatroom_member_id),
+  UNIQUE KEY uk_crm_room_user (chatroom_id, user_id),
+  KEY idx_crm_user (user_id),
+  KEY idx_crm_room_lastread (chatroom_id, last_read_chat_id),
+  CONSTRAINT fk_crm_room
+    FOREIGN KEY (chatroom_id) REFERENCES chat_rooms(chatroom_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT,
+  CONSTRAINT fk_crm_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS chats (
+  chat_id      BIGINT NOT NULL AUTO_INCREMENT,
+  chatroom_id  BIGINT NOT NULL,
+  sender_id    CHAR(36) NULL,
+  message      VARCHAR(1000) NULL,
+  image_url    VARCHAR(500)  NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (chat_id),
+  CONSTRAINT fk_chat_room
+    FOREIGN KEY (chatroom_id) REFERENCES chat_rooms(chatroom_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT,
+  CONSTRAINT fk_chat_sender
+    FOREIGN KEY (sender_id) REFERENCES users(user_id)
+    ON DELETE SET NULL
+    ON UPDATE RESTRICT,
+  KEY idx_chats_room_chatid (chatroom_id, chat_id)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  notification_id BIGINT NOT NULL AUTO_INCREMENT,
+  receiver_id     CHAR(36) NOT NULL,
+  chatroom_id     BIGINT NULL,
+  chat_id         BIGINT NULL,
+  content         VARCHAR(500) NOT NULL,
+  is_read         TINYINT(1) NOT NULL DEFAULT 0,
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (notification_id),
+  KEY idx_notis_receiver_unread (receiver_id, is_read, created_at),
+  CONSTRAINT fk_noti_receiver
+    FOREIGN KEY (receiver_id) REFERENCES users(user_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT,
+  CONSTRAINT fk_noti_room
+    FOREIGN KEY (chatroom_id) REFERENCES chat_rooms(chatroom_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT,
+  CONSTRAINT fk_noti_chat
+    FOREIGN KEY (chat_id) REFERENCES chats(chat_id)
+    ON DELETE CASCADE
+    ON UPDATE RESTRICT
+);
+
 
 CREATE TABLE IF NOT EXISTS questions (
   question_id BIGINT NOT NULL AUTO_INCREMENT,
