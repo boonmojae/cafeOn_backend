@@ -37,6 +37,7 @@ public class AuthController {
 
 
 //  1. 회원가입
+    @PostMapping("/signup")
     @Operation(
             summary = "회원가입",
             description = "이름/닉네임/전화번호/이메일/비밀번호로 회원 생성. 기본 상태 ACTIVE, 역할 USER, 제공자 LOCAL.",
@@ -98,7 +99,6 @@ public class AuthController {
                     )
             )
     })
-    @PostMapping("/signup")
     public ResponseEntity<?> signUp(
             // 🔹 스웨거 RequestBody는 FQN(풀패스:경로 전체 작성)로
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -151,6 +151,7 @@ public class AuthController {
 
 
 //  2. 로그인(JWT 적용)
+    @PostMapping("/login")
     @Operation(
             summary = "로그인",
             description = "이메일/비밀번호로 로그인.",
@@ -208,7 +209,6 @@ public class AuthController {
                     )
             )
     })
-    @PostMapping("/login")
     public ResponseEntity<?> login(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     required = true,
@@ -271,6 +271,7 @@ public class AuthController {
 
 //  3. 토큰 갱신(Refresh Access Token)
 //    프론트가 /refresh API 호출 시, 헤더에 Refresh Token 넣어서 보내야함
+    @PostMapping("/refresh")
     @Operation(
             summary = "토큰들 갱신",
             description = "만료된 Access Token 대신, Refresh Token으로 새 Access/Refresh Token을 발급합니다. ",
@@ -328,7 +329,6 @@ public class AuthController {
                     )
             )
     })
-    @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@RequestBody RefreshTokenRequestDTO request) {
         String refreshToken = request.getRefreshToken();
 
@@ -346,6 +346,7 @@ public class AuthController {
 
 //  4. 로그아웃(refresh token 무효화)
 //  DB에 저장된 refresh token을 삭제하거나 블랙리스트로 등록 -> 재발급(refresh) 시도 시 토큰이 유효하지 않아 로그인 상태가 완전히 종료
+    @PostMapping("/logout")
     @Operation(
             summary = "로그아웃",
             description = """
@@ -411,7 +412,6 @@ public class AuthController {
             )
     })
     @SecurityRequirement(name = "Bearer Authentication")    // ✅ Authorize 버튼과 연동
-    @PostMapping("/logout")
     public ResponseEntity<?> logout(
             @Parameter(hidden = true)   // ✅ Swagger 문서에는 헤더파라미터 중복이므로, 안 뜨게 숨김
             @RequestHeader(name = "Authorization") String authorizationHeader
