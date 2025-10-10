@@ -8,7 +8,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 @Schema(description = "Refresh Token 갱신 요청 DTO")
-public class RefreshTokenRequest {
+public class RefreshTokenRequestDTO {
     @Schema(description = "발급받은 Refresh Token", example = "eyJhbGciOiJIUzUxMiJ9...")
     private String refreshToken;
 }
