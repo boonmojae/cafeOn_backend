@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 public class QuestionListResponseDTO {
-    private Long questionId;
+    private Long id;
     private String title;
     private String authorNickname;
     private LocalDateTime createdAt;
@@ -23,7 +23,7 @@ public class QuestionListResponseDTO {
     // 유저용 목록
     public static QuestionListResponseDTO fromUser(QuestionEntity question) {
         return QuestionListResponseDTO.builder()
-                .questionId(question.getQuestionId())
+                .id(question.getQuestionId())
                 .title(question.getVisibility() == QuestionVisibility.PRIVATE ? "비공개 문의" : question.getTitle())
                 .authorNickname(question.getUser().getNickname())
                 .createdAt(question.getCreatedAt())
@@ -34,7 +34,7 @@ public class QuestionListResponseDTO {
     // 관리자용 목록 (status 포함)
     public static QuestionListResponseDTO fromAdmin(QuestionEntity question) {
         return QuestionListResponseDTO.builder()
-                .questionId(question.getQuestionId())
+                .id(question.getQuestionId())
                 .title(question.getTitle())
                 .authorNickname(question.getUser().getNickname())
                 .createdAt(question.getCreatedAt())

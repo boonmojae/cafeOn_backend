@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 public class QuestionDetailResponseDTO {
-    private Long questionId;
+    private Long id;
     private String title;
     private String content;
     private String authorNickname;
@@ -24,7 +24,7 @@ public class QuestionDetailResponseDTO {
 
     public static QuestionDetailResponseDTO from(QuestionEntity question) {
         return QuestionDetailResponseDTO.builder()
-                .questionId(question.getQuestionId())
+                .id(question.getQuestionId())
                 .title(question.getTitle())
                 .content(question.getContent())
                 .authorNickname(question.getUser().getNickname())
@@ -34,4 +34,17 @@ public class QuestionDetailResponseDTO {
                 .visibility(question.getVisibility())
                 .build();
     }
+
+    public static QuestionDetailResponseDTO fromMy(QuestionEntity q) {
+        return QuestionDetailResponseDTO.builder()
+                .id(q.getQuestionId())
+                .title(q.getTitle())
+                .content(q.getContent())
+                .authorNickname(q.getUser() != null ? q.getUser().getNickname() : null)
+                .createdAt(q.getCreatedAt())
+                .updatedAt(q.getUpdatedAt())
+                .visibility(q.getVisibility())
+                .build();
+    }
+
 }

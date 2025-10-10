@@ -1,5 +1,7 @@
 package com.b1a4.cafeOn.qna.question.service;
 
+import com.b1a4.cafeOn.qna.question.dto.QuestionDetailResponseDTO;
+import com.b1a4.cafeOn.qna.question.dto.QuestionListResponseDTO;
 import com.b1a4.cafeOn.qna.question.dto.QuestionRequestDTO;
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
@@ -13,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.Nullable;
+import com.b1a4.cafeOn.user.enums.UserStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -90,5 +94,104 @@ public class QuestionService {
                 .build();
 
         return questionRepository.save(entity);
+    }
+
+    // 마이페이지
+    // 내가 작성한 문의
+    // GET /api/my/questions
+    @Transactional(readOnly = true)
+    public Page<QuestionListResponseDTO> getMyQuestions(String userId, Pageable pageable) {
+        userStatus(userId);
+
+        Page<QuestionEntity> page = questionRepository
+                .findByUserUserIdOrderByCreatedAtDesc(userId, pageable);
+
+        return page.map(q -> QuestionListResponseDTO.builder()
+                .id(q.getQuestionId())
+                .title(q.getTitle())
+                .status(q.getStatus())                 // PENDING | ANSWERED
+                .visibility(q.getVisibility())         // PUBLIC | PRIVATE
+                .authorNickname(q.getUser() != null ? q.getUser().getNickname() : null)
+                .createdAt(q.getCreatedAt())
+                .build());
+    }
+    // 내가 작성한 문의 상세
+    /** GET /api/my/questions/{id} */
+    @Transactional(readOnly = true)
+    public QuestionDetailResponseDTO getMyQuestion(String userId, Long id) {
+        userStatus(userId);
+
+        //
+        QuestionEntity q = questionRepository
+                .findByQuestionIdAndUserUserId(id, userId)
+                .orElseThrow(() -> new EntityNotFoundException("문의가 존재하지 않습니다. ID=" + id));
+
+        return toDetailDTO(q);
+    }
+
+    // PUT /api/my/questions/{id}
+    @Transactional
+    public void updateMyQuestion(String userId, Long id, String title, String content, QuestionVisibility visibility) {
+        userStatus(userId);
+
+        QuestionEntity q = questionRepository
+                .findByQuestionIdAndUserUserId(id, userId)
+                .orElseThrow(() -> new EntityNotFoundException("문의가 존재하지 않습니다. ID=" + id));
+
+        // 답변 등록 후 수정 불가
+        if (q.getStatus() == QuestionStatus.ANSWERED) {
+            throw new IllegalStateException("답변이 등록된 문의는 수정할 수 없습니다.");
+        }
+
+        // null 아닌 값만 반영 (PUT이지만 부분 수정 허용)
+        if (title != null)   q.setTitle(title);
+        if (content != null) q.setContent(content);
+        if (visibility != null) q.setVisibility(visibility);
+        // JPA dirty checking으로 자동 반영
+    }
+
+    // DELETE /api/my/questions/{id}
+    @Transactional
+    public void deleteMyQuestion(String userId, Long id) {
+        userStatus(userId);
+
+        QuestionEntity q = questionRepository
+                .findByQuestionIdAndUserUserId(id, userId)
+                .orElseThrow(() -> new EntityNotFoundException("문의가 존재하지 않습니다. ID=" + id));
+
+        // 답변 등록 후 삭제 불가
+        if (q.getStatus() == QuestionStatus.ANSWERED) {
+            throw new IllegalStateException("답변이 등록된 문의는 삭제할 수 없습니다.");
+        }
+
+        questionRepository.delete(q);
+    }
+
+    private QuestionDetailResponseDTO toDetailDTO(QuestionEntity q) {
+        return QuestionDetailResponseDTO.builder()
+                .id(q.getQuestionId())
+                .title(q.getTitle())
+                .content(q.getContent())
+                .authorNickname(q.getUser() != null ? q.getUser().getNickname() : null)
+                .createdAt(q.getCreatedAt())
+                .updatedAt(q.getUpdatedAt())
+                .status(q.getStatus())
+                .visibility(q.getVisibility())
+                // .answer(null)
+                .build();
+    }
+
+    // 사용자 검증
+    public UserEntity findByUserId(String userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("해당 사용자를 찾을 수 없습니다. ID: " + userId));
+    }
+
+    public UserEntity userStatus(String userId) {
+        UserEntity author = findByUserId(userId);
+        if (author.getStatus() == null || author.getStatus() == UserStatus.DELETED) {
+            throw new RuntimeException("탈퇴한 사용자는 접근 권한이 없습니다.");
+        }
+        return author;
     }
 }

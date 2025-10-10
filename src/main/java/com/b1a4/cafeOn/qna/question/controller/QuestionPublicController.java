@@ -34,6 +34,7 @@ public class QuestionPublicController {
     @GetMapping
     public ResponseEntity<Page<QuestionListResponseDTO>> getAllQuestions(
             @AuthenticationPrincipal String userId,
+            @ParameterObject  // 추가하면 page/size/sort가 개별 칸으로 나옴
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable
     ) {
@@ -50,7 +51,7 @@ public class QuestionPublicController {
                         : question.getTitle();
 
                 return QuestionListResponseDTO.builder()
-                        .questionId(question.getQuestionId())
+                        .id(question.getQuestionId())
                         .title(title)
                         .authorNickname(question.getUser().getNickname())
                         .createdAt(question.getCreatedAt())
@@ -81,7 +82,7 @@ public class QuestionPublicController {
                 dto = QuestionDetailResponseDTO.from(q);
             } else {
                 dto = QuestionDetailResponseDTO.builder()
-                        .questionId(q.getQuestionId())
+                        .id(q.getQuestionId())
                         .title("비공개 문의")
                         .content(null)
                         .authorNickname(q.getUser().getNickname())
