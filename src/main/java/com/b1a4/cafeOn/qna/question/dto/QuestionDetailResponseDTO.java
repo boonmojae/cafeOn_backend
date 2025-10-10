@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.qna.question.dto;
 
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionStatus;
+import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -18,9 +19,8 @@ public class QuestionDetailResponseDTO {
     private String authorNickname;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private QuestionType type;
     private QuestionStatus status;
-    private Boolean isPrivate;
+    private QuestionVisibility visibility;
 
     public static QuestionDetailResponseDTO from(QuestionEntity question) {
         return QuestionDetailResponseDTO.builder()
@@ -30,9 +30,8 @@ public class QuestionDetailResponseDTO {
                 .authorNickname(question.getUser().getNickname())
                 .createdAt(question.getCreatedAt())
                 .updatedAt(question.getUpdatedAt())
-                .type(question.getType())
                 .status(question.getStatus())
-                .isPrivate(question.getIsPrivate())
+                .visibility(question.getVisibility())
                 .build();
     }
 }

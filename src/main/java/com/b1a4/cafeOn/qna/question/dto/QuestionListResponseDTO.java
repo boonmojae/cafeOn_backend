@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.qna.question.dto;
 
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionStatus;
+import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,29 +17,29 @@ public class QuestionListResponseDTO {
     private String title;
     private String authorNickname;
     private LocalDateTime createdAt;
-    private QuestionStatus status;
-    private Boolean isPrivate;
+    private QuestionStatus status; // 관리자 전용
+    private QuestionVisibility visibility;
 
-    // 유저 리스트
-    public static QuestionListResponseDTO fromPublic(QuestionEntity question) {
+    // 유저용 목록
+    public static QuestionListResponseDTO fromUser(QuestionEntity question) {
         return QuestionListResponseDTO.builder()
                 .questionId(question.getQuestionId())
-                .title(Boolean.TRUE.equals(question.getIsPrivate()) ? "비공개 문의" : question.getTitle())
+                .title(question.getVisibility() == QuestionVisibility.PRIVATE ? "비공개 문의" : question.getTitle())
                 .authorNickname(question.getUser().getNickname())
                 .createdAt(question.getCreatedAt())
-                .isPrivate(question.getIsPrivate())
-                .build(); // status 미설정 → null → 응답에서 숨김
+                .visibility(question.getVisibility())
+                .build();
     }
 
-    // 관리자 리스트
-    public static QuestionListResponseDTO from(QuestionEntity question) {
+    // 관리자용 목록 (status 포함)
+    public static QuestionListResponseDTO fromAdmin(QuestionEntity question) {
         return QuestionListResponseDTO.builder()
                 .questionId(question.getQuestionId())
-                .title(question.getIsPrivate() ? "비공개 문의" : question.getTitle()) // isPrivate == true → "비공개 문의"
+                .title(question.getTitle())
                 .authorNickname(question.getUser().getNickname())
                 .createdAt(question.getCreatedAt())
                 .status(question.getStatus())
-                .isPrivate(question.getIsPrivate())
+                .visibility(question.getVisibility())
                 .build();
     }
 }
