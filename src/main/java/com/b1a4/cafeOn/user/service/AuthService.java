@@ -1,42 +1,81 @@
 package com.b1a4.cafeOn.user.service;
 
 import com.b1a4.cafeOn.config.security.TokenProvider;
+import com.b1a4.cafeOn.user.dto.UserDTO;
 import com.b1a4.cafeOn.user.entity.UserEntity;
+import com.b1a4.cafeOn.user.enums.UserProvider;
+import com.b1a4.cafeOn.user.enums.UserRole;
+import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.user.repository.UserRepository;
+import jakarta.mail.MessagingException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
+import java.util.UUID;
 
 @Slf4j
 @Service
 // /api/user/**
 // 내정보 조회/수정/탈퇴, 위시리스트 관리, 마이페이지 관련 API (reviews, bookmarks, posts, comments, questions 등)
 public class AuthService {
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private TokenProvider tokenProvider;
+    @Autowired private UserRepository userRepository;
+    @Autowired private TokenProvider tokenProvider;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private EmailService emailService;
 
     //    1. 회원가입
-    public UserEntity create(final UserEntity userEntity) {
+    public UserDTO signUp(UserDTO userDTO) {
 //        1-1. 유효성 검사: userEntity 혹은 email이 null인 경우 예외 던짐
-        if (userEntity == null || userEntity.getEmail() == null) {
+        if (userDTO == null || userDTO.getEmail() == null) {
             throw new RuntimeException("UserEntity 혹은 email이 null임");
         }
-        final String email = userEntity.getEmail();
 
-//        1-2. 유효성 검사: 이메일이 이미 존재하는 경우 예외를 던짐 (email필드는 unique해야 하므로)
-        if (userRepository.existsByEmail(email)) {
-            log.warn("Email already exists {}", email);
-            throw new RuntimeException("이메일이 이미 존재함");
+//        1-1-1. 이메일 중복 검사
+        if (userRepository.existsByEmail(userDTO.getEmail())) {
+            throw new RuntimeException("이미 등록된 이메일입니다.");
         }
 
-        return userRepository.save(userEntity); // UserEntity를 DB에 저장
+//        1-2. userId가 될 UUID 생성
+        String userId = UUID.randomUUID().toString();
+        System.out.println("생성된 UUID: " + userId);   // UUID 확인용 출력
+
+//        1-3. 비밀번호 암호화
+        System.out.println("입력받은 비밀번호: " + userDTO.getPassword());
+        String encodedPassword = passwordEncoder.encode(userDTO.getPassword()); // 암호화된 비밀번호 생성
+        System.out.println("암호화된 비밀번호: " + encodedPassword);
+
+//        1-4. 요청 본문과 생성한 UUID를 이용해 저장할 사용자 만들기
+        UserEntity user = UserEntity.builder()
+//                유저의 입력으로 DTO를 통해 전달받은 값들로 부여
+                .name(userDTO.getName())
+                .nickname(userDTO.getNickname())
+                .phone(userDTO.getPhone())
+                .email(userDTO.getEmail())
+                .password(encodedPassword)  // 1-3에서 암호화된 비밀번호
+//                여기부턴 서버에서 자동으로 처리해야 할 값들로 부여
+                .userId(userId)
+                .status(UserStatus.ACTIVE)  // 기본 ACTIVE
+                .role(UserRole.USER)    // 기본 USER
+                .provider(UserProvider.LOCAL)   // 기본 LOCAL
+//                .profileImage(userDTO.getProfileImage())
+//                .preferenceKeywords(userDTO.getPreferenceKeywords())
+                .build();
+
+//        1-5. 서비스계층 메서드를 이용해 repo에 사용자 저장
+        UserEntity registeredUser = userRepository.save(user);
+
+        return UserDTO.builder()
+                .userId(registeredUser.getUserId())
+                .email(registeredUser.getEmail())
+                .nickname(registeredUser.getNickname())
+                .build();
     }
 
 
@@ -141,5 +180,56 @@ public class AuthService {
             user.setRefreshToken(null);
             userRepository.save(user);
         });
+    }
+
+
+//    7. 비밀번호 변경
+    public void changePassword(String userId, String oldPassword, String newPassword) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("해당 사용자를 찾을 수 없습니다."));
+
+//        기존 비밀번호 일치 확인
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new RuntimeException("현재 비밀번호가 일치하지 않습니다.");
+        }
+
+//        새 비밀번호로 변경
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedNewPassword);
+        userRepository.save(user);
+
+        log.info("비밀번호 변경 완료 - email: {}, NewPassword(plain): {}", user.getEmail(), newPassword);
+    }
+
+
+//    8. 임시 비밀번호 발급
+    public void resetPassword(String email) {
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("해당 이메일로 가입된 사용자가 없습니다."));
+
+//        8-1. 임시 비밀번호 생성
+        String tempPassword = generateTempPassword();
+
+//        8-2. 임시 비밀번호 암호화 후 저장
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        userRepository.save(user);
+
+//        8-3. 이메일 전송
+        try {
+            emailService.sendTempPasswordEmail(user.getEmail(), tempPassword);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new RuntimeException("임시 비밀번호 발송 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private String generateTempPassword() {
+        int length = 10;
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i=0; i<length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 }
