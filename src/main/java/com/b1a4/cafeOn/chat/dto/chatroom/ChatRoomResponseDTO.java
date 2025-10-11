@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.chat.dto.chatroom;
 
 import com.b1a4.cafeOn.chat.dto.member.ChatMemberSummaryDTO;
+import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.enums.RoomType;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
@@ -38,5 +39,22 @@ public class ChatRoomResponseDTO {
 
     // 안읽은 알림 개수
     private Long unreadCount;
+
+    public static ChatRoomResponseDTO ofPrivate(ChatRoomEntity chatRoom, String counterpartDisplay) {
+        return ChatRoomResponseDTO.builder()
+                .roomId(chatRoom.getChatRoomId())
+                .type(chatRoom.getType())
+                .displayName(counterpartDisplay)
+                .build();
+    }
+
+    public static ChatRoomResponseDTO ofGroup(ChatRoomEntity chatRoom) {
+        return ChatRoomResponseDTO.builder()
+                .type(chatRoom.getType())
+                .cafeId(chatRoom.getCafeId())
+                .roomName(chatRoom.getRoomName())
+                .roomId(chatRoom.getChatRoomId())
+                .build();
+    }
 
 }
