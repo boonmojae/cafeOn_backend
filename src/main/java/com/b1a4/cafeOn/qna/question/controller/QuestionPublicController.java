@@ -1,12 +1,12 @@
 package com.b1a4.cafeOn.qna.question.controller;
 
+import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.qna.question.dto.QuestionDetailResponseDTO;
 import com.b1a4.cafeOn.qna.question.dto.QuestionListResponseDTO;
 import com.b1a4.cafeOn.qna.question.dto.QuestionRequestDTO;
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
 import com.b1a4.cafeOn.qna.question.service.QuestionService;
-import io.swagger.v3.oas.annotations.Operation;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,46 +30,34 @@ public class QuestionPublicController {
     private final QuestionService questionService;
 
     // 전체 문의 목록 조회 (비공개 제목은 "비공개 문의"로 표시)
-//    @Operation(summary = "전체 문의 목록 조회", description = "비공개 글은 제목을 '비공개 문의'로 표시", security = {}) // 공개면 security 비우기
     @GetMapping
-    public ResponseEntity<Page<QuestionListResponseDTO>> getAllQuestions(
+    public ResponseEntity<ApiResponse<Page<QuestionListResponseDTO>>> getAllQuestions(
             @AuthenticationPrincipal String userId,
-            @ParameterObject  // 추가하면 page/size/sort가 개별 칸으로 나옴
+            @ParameterObject
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable
+            Pageable pageable,
+            @RequestParam(required = false) String keyword
     ) {
         try {
-            Page<QuestionEntity> entities = questionService.getAllQuestionsForPublic(pageable);
-
-            Page<QuestionListResponseDTO> dtos = entities.map(question -> {
-                // 본인 여부 체크
-                boolean isOwner = userId != null && userId.equals(question.getUser().getUserId());
-
-                // 비공개 문의일 때 본인만 원제목, 나머지는 '비공개 문의'
-                String title = (question.getVisibility() == QuestionVisibility.PRIVATE && !isOwner)
-                        ? "비공개 문의"
-                        : question.getTitle();
-
-                return QuestionListResponseDTO.builder()
-                        .id(question.getQuestionId())
-                        .title(title)
-                        .authorNickname(question.getUser().getNickname())
-                        .createdAt(question.getCreatedAt())
-                        .visibility(question.getVisibility())
-                        .build();
-            });
-
-            return ResponseEntity.ok(dtos);
+            Page<QuestionListResponseDTO> page = questionService.getQnaList(userId, keyword, pageable);
+            return ResponseEntity.ok(
+                    ApiResponse.<Page<QuestionListResponseDTO>>builder()
+                            .message("문의 목록 조회 성공")
+                            .data(page)
+                            .build()
+            );
         } catch (Exception e) {
             log.error("문의 목록 조회 중 오류 발생", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<Page<QuestionListResponseDTO>>builder()
+                            .message("문의 목록을 조회할 수 없습니다.")
+                            .build());
         }
     }
 
-
     // 문의 상세 조회 (비공개는 작성자/관리자만 확인 가능)
     @GetMapping("/{id}")
-    public ResponseEntity<QuestionDetailResponseDTO> getQuestionDetail(
+    public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> getQuestionDetail(
             @PathVariable("id") Long id,
             @AuthenticationPrincipal String userId
     ) {
@@ -93,31 +81,51 @@ public class QuestionPublicController {
                         .build();
             }
 
-            return ResponseEntity.ok(dto);
+            return ResponseEntity.ok(
+                    ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message("문의 상세 조회 성공")
+                            .data(dto)
+                            .build()
+            );
 
         } catch (EntityNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message("존재하지 않거나 삭제된 문의입니다.")
+                            .build());
         } catch (Exception e) {
             log.error("문의 상세 조회 중 오류 발생", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message("문의 상세 조회 중 오류가 발생했습니다.")
+                            .build());
         }
     }
 
     // 새 문의 작성
     @PostMapping
-    public ResponseEntity<QuestionDetailResponseDTO> createQuestion(
+    public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> createQuestion(
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody QuestionRequestDTO dto
     ) {
         try {
             QuestionEntity saved = questionService.createQuestion(userId, dto);
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(QuestionDetailResponseDTO.from(saved));
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message("문의가 등록되었습니다.")
+                            .data(QuestionDetailResponseDTO.from(saved))
+                            .build());
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message(e.getMessage() != null ? e.getMessage() : "요청이 올바르지 않습니다.")
+                            .build());
         } catch (Exception e) {
             log.error("문의 등록 실패", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message("문의 등록 중 오류가 발생했습니다.")
+                            .build());
         }
     }
 }

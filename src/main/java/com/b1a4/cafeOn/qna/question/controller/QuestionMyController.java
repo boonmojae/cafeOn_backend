@@ -4,8 +4,6 @@ import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.qna.question.dto.QuestionDetailResponseDTO;
 import com.b1a4.cafeOn.qna.question.dto.QuestionListResponseDTO;
 import com.b1a4.cafeOn.qna.question.dto.QuestionRequestDTO;
-import com.b1a4.cafeOn.qna.question.dto.MyQuestionResponseDTO;
-import com.b1a4.cafeOn.qna.question.dto.MyQuestionsResponseDTO;
 import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
 import com.b1a4.cafeOn.qna.question.service.QuestionService;
 import jakarta.persistence.EntityNotFoundException;
@@ -32,105 +30,108 @@ public class QuestionMyController {
 
     // GET /api/my/questions 내가 작성한 문의 목록
     @GetMapping
-    public ResponseEntity<?> getMyQuestions(
+    public ResponseEntity<ApiResponse<Page<QuestionListResponseDTO>>> getMyQuestions(
             @AuthenticationPrincipal String userId,
             @ParameterObject
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
-            Pageable pageable
+            Pageable pageable,
+            @RequestParam(required = false) String keyword
     ) {
         try {
-            Page<QuestionListResponseDTO> page = questionService.getMyQuestions(userId, pageable);
-
+            Page<QuestionListResponseDTO> page = questionService.getMyQuestions(userId, pageable, keyword);
             return ResponseEntity.ok(
-                    ApiResponse.builder()
+                    ApiResponse.<Page<QuestionListResponseDTO>>builder()
                             .message("내가 작성한 문의 목록 조회 성공")
-                            .data(new MyQuestionsResponseDTO("내가 작성한 문의 목록 조회 성공", page.getContent()))
+                            .data(page)
                             .build()
             );
         } catch (Exception e) {
             log.error("내 문의 목록 조회 중 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.builder().message("문의 목록을 조회할 수 없습니다.").build());
+                    .body(ApiResponse.<Page<QuestionListResponseDTO>>builder()
+                            .message("문의 목록을 조회할 수 없습니다.")
+                            .build());
         }
     }
 
     // GET /api/my/questions/{id} 내가 작성한 문의 상세
     @GetMapping("/{id}")
-    public ResponseEntity<?> getMyQuestion(
+    public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> getMyQuestion(
             @AuthenticationPrincipal String userId,
             @PathVariable("id") Long id
     ) {
         try {
             QuestionDetailResponseDTO detail = questionService.getMyQuestion(userId, id);
-
             return ResponseEntity.ok(
-                    ApiResponse.builder()
+                    ApiResponse.<QuestionDetailResponseDTO>builder()
                             .message("문의 상세 조회 성공")
-                            .data(new MyQuestionResponseDTO("문의 상세 조회 성공", detail))
+                            .data(detail) // ⚠️ 중첩 message 제거: 순수 상세 DTO만 data에 담음
                             .build()
             );
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.builder().message(e.getMessage()).build());
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message(e.getMessage() != null ? e.getMessage() : "존재하지 않는 문의입니다.")
+                            .build());
         } catch (Exception e) {
             log.error("내 문의 상세 조회 중 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.builder().message("문의 상세를 조회할 수 없습니다.").build());
+                    .body(ApiResponse.<QuestionDetailResponseDTO>builder()
+                            .message("문의 상세를 조회할 수 없습니다.")
+                            .build());
         }
     }
 
     // PUT /api/my/questions/{id} 문의 수정 (답변 전만 가능)
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> updateMyQuestion(
+    public ResponseEntity<ApiResponse<Void>> updateMyQuestion(
             @AuthenticationPrincipal String userId,
             @PathVariable("id") Long id,
             @RequestBody QuestionRequestDTO req   // title, content, visibility(optional)
     ) {
         try {
-            // visibility는 enum(QuestionVisibility)로 처리
             final String title = req.getTitle();
             final String content = req.getContent();
             final QuestionVisibility visibility = req.getVisibility();
-
             questionService.updateMyQuestion(userId, id, title, content, visibility);
 
             return ResponseEntity.ok(
-                    ApiResponse.builder().message("문의가 수정되었습니다.").build()
+                    ApiResponse.<Void>builder().message("문의가 수정되었습니다.").build()
             );
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.builder().message(e.getMessage()).build());
-        } catch (IllegalStateException e) { // 답변 등록된 후 수정 시도
+                    .body(ApiResponse.<Void>builder().message(e.getMessage()).build());
+        } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(ApiResponse.builder().message(e.getMessage()).build());
+                    .body(ApiResponse.<Void>builder().message(e.getMessage()).build());
         } catch (Exception e) {
             log.error("내 문의 수정 중 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.builder().message("문의 수정 중 오류가 발생했습니다.").build());
+                    .body(ApiResponse.<Void>builder().message("문의 수정 중 오류가 발생했습니다.").build());
         }
     }
 
     // DELETE /api/my/questions/{id} - 문의 삭제 (답변 전만 가능)
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteMyQuestion(
+    public ResponseEntity<ApiResponse<Void>> deleteMyQuestion(
             @AuthenticationPrincipal String userId,
             @PathVariable("id") Long id
     ) {
         try {
             questionService.deleteMyQuestion(userId, id);
             return ResponseEntity.ok(
-                    ApiResponse.builder().message("문의가 삭제되었습니다.").build()
+                    ApiResponse.<Void>builder().message("문의가 삭제되었습니다.").build()
             );
         } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.builder().message(e.getMessage()).build());
-        } catch (IllegalStateException e) { // 답변 등록된 후 삭제 시도
+                    .body(ApiResponse.<Void>builder().message(e.getMessage()).build());
+        } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(ApiResponse.builder().message(e.getMessage()).build());
+                    .body(ApiResponse.<Void>builder().message(e.getMessage()).build());
         } catch (Exception e) {
             log.error("내 문의 삭제 중 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.builder().message("문의 삭제 중 오류가 발생했습니다.").build());
+                    .body(ApiResponse.<Void>builder().message("문의 삭제 중 오류가 발생했습니다.").build());
         }
     }
 }
