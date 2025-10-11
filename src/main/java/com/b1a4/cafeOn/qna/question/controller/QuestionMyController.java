@@ -28,7 +28,7 @@ public class QuestionMyController {
 
     private final QuestionService questionService;
 
-    // GET /api/my/questions 내가 작성한 문의 목록
+    // 내가 작성한 문의 목록
     @GetMapping
     public ResponseEntity<ApiResponse<Page<QuestionListResponseDTO>>> getMyQuestions(
             @AuthenticationPrincipal String userId,
@@ -54,7 +54,7 @@ public class QuestionMyController {
         }
     }
 
-    // GET /api/my/questions/{id} 내가 작성한 문의 상세
+    // 내가 작성한 문의 상세
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> getMyQuestion(
             @AuthenticationPrincipal String userId,
@@ -65,7 +65,7 @@ public class QuestionMyController {
             return ResponseEntity.ok(
                     ApiResponse.<QuestionDetailResponseDTO>builder()
                             .message("문의 상세 조회 성공")
-                            .data(detail) // ⚠️ 중첩 message 제거: 순수 상세 DTO만 data에 담음
+                            .data(detail) //
                             .build()
             );
         } catch (EntityNotFoundException e) {
@@ -82,7 +82,7 @@ public class QuestionMyController {
         }
     }
 
-    // PUT /api/my/questions/{id} 문의 수정 (답변 전만 가능)
+    // 문의 수정 (답변 전만 가능)
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<Void>> updateMyQuestion(
             @AuthenticationPrincipal String userId,
@@ -111,7 +111,7 @@ public class QuestionMyController {
         }
     }
 
-    // DELETE /api/my/questions/{id} - 문의 삭제 (답변 전만 가능)
+    // 문의 삭제 (답변 전만 가능)
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteMyQuestion(
             @AuthenticationPrincipal String userId,
