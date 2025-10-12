@@ -11,6 +11,7 @@ import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ChatRoomMemberService {
 
-    private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomService chatRoomService;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
@@ -96,6 +96,18 @@ public class ChatRoomMemberService {
 
         return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, alreadyIn);
 
+    }
+    
+    // 방-유저 멤버 여부 단순 확인
+    public boolean isMember(Long roomId, String userId) {
+        return chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, userId);
+    }
+    
+    // 멤버 아니면 예외
+    public void assertMember(Long roomId, String userId) {
+        if (!isMember(roomId, userId)) {
+            throw new AccessDeniedException("채팅방 멤버가 아닙니다.");
+        }
     }
 
 }
