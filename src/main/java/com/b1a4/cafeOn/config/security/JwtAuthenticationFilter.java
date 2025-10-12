@@ -69,9 +69,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { // Servlet F
 //                - "ROLE_USER", "ROLE_ADMIN" 형태여야 Security에서 인식됨
                     AbstractAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             // username이랑 password로 인증토큰객체 만드는 spring security 메소드
-                            userId,
-                            null,
+                            userId, // 1. principal : 누가 로그인 했는가 -> 사용자 식별자(보통 email 또는 userId)
+                            null,   // 2. credentials : 비밀번호 (여기서는 JWT 인증이라 null)
                             AuthorityUtils.createAuthorityList("ROLE_" + role.toUpperCase())    // role 부여
+//                            3. authorities : 권한 리스트 (ex. ROLE_USER, ROLE_ADMIN)
                     );
 
 //                SecurityContextHolder: Spring Security에서 인증된 사용자 정보를 저장하는 곳
