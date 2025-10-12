@@ -58,6 +58,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/comments").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/comments/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/comments/**").hasRole("USER")
+                        // 관리자
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // 마이페이지 (USER)
+                        .requestMatchers("/api/mypage/**").hasRole("USER")
+                        // QnA 작성 (USER)
+                        .requestMatchers(HttpMethod.POST, "/api/qna/questions").hasRole("USER")
+                        // QnA 조회 (공개)
+                        .requestMatchers(HttpMethod.GET, "/api/qna/questions", "/api/qna/questions/**").permitAll()
+
                         .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
 
 //        filter 등록: 매 요청마다 (1)CorsFilter를 실행한 후에 -> (2)JwtAuthenticationFilter{}를 실행되게 순서 세팅

@@ -225,14 +225,18 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 
 CREATE TABLE IF NOT EXISTS questions (
-  question_id BIGINT NOT NULL AUTO_INCREMENT,
-  user_id CHAR(36) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  content TEXT NOT NULL,
-  is_private TINYINT(1) NOT NULL,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NULL,
-  type ENUM('QUESTION','REPORT') NOT NULL,
-  status ENUM('PENDING','ANSWERED') NOT NULL,
-  PRIMARY KEY (question_id)
+  question_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,       -- PK (Java Long)
+  user_id     CHAR(36) NOT NULL,                             -- 작성자(`user`.user_id)
+  title       VARCHAR(150) NOT NULL,                         -- 질문 제목
+  content     TEXT NOT NULL,                                 -- 질문 내용
+  visibility  ENUM('PUBLIC','PRIVATE') NOT NULL DEFAULT 'PUBLIC', // 기본값 공개
+  status      ENUM('PENDING','ANSWERED') NOT NULL DEFAULT 'PENDING', // 기본값 답변전
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (question_id),
+
+  CONSTRAINT fk_q_user
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
 );
