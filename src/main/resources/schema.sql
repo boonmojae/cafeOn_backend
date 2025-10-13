@@ -240,3 +240,20 @@ CREATE TABLE IF NOT EXISTS questions (
   CONSTRAINT fk_q_user
     FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS answers (
+  answer_id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  question_id BIGINT UNSIGNED NOT NULL,
+  admin_id    CHAR(36)        NOT NULL,
+  content     TEXT            NOT NULL,
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME        NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (answer_id),
+  KEY idx_answers_question (question_id),  -- 문의 상세에서 답변 조회용
+
+  CONSTRAINT fk_ans_question
+    FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE,
+  CONSTRAINT fk_ans_admin
+    FOREIGN KEY (admin_id)   REFERENCES user(user_id) ON DELETE CASCADE
+);
