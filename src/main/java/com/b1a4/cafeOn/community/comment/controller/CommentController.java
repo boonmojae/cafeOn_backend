@@ -101,54 +101,6 @@ public class CommentController {
     }
 
 
-    // 내가 작성한 댓글 목록
-    // fixme: mypage
-    @GetMapping("/my/comments")
-    public ResponseEntity<?> findCommentByUserId(@AuthenticationPrincipal String userId,
-                                                 @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
-    ) {
-        try {
-            Page<CommentResponseDTO> page = commentService.getCommentByUserId(userId, pageable);
-            ApiResponse<Page<CommentResponseDTO>> response = ApiResponse.<Page<CommentResponseDTO>>builder()
-                    .data(page)
-                    .message("내가 작성한 댓글 목록 조회 성공")
-                    .build();
-            return ResponseEntity.ok().body(response);
-        } catch (Exception e) {
-            log.error("내 댓글 목록 조회 실패", e);
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
-    
-    // 내가 좋아요한 댓글 목록
-    // fixme: mypage
-    @GetMapping("/my/comments/likes")
-    public ResponseEntity<?> findLikeCommentByUserId(@AuthenticationPrincipal String userId,
-                                                     @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        try {
-
-            Page<CommentResponseDTO> page = commentService.getLikeCommentByUserId(userId, pageable);
-            ApiResponse<Page<CommentResponseDTO>> response = ApiResponse.<Page<CommentResponseDTO>>builder()
-                    .data(page)
-                    .message("내 좋아요 댓글 목록 조회 성공")
-                    .build();
-
-            return ResponseEntity.ok().body(response);
-
-        } catch (Exception e) {
-            log.error("내 좋아요 댓글 목록 조회 실패", e);
-            ApiResponse<?> errorRepsonse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorRepsonse);
-        }
-    }
-
-
     // 댓글 수정
     @PutMapping("/posts/{postId}/comments/{commentId}")
     public ResponseEntity<?> updateComment(@AuthenticationPrincipal String userId,
