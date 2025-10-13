@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS cafes (
     avg_rating DECIMAL(3,2), -- 카카오맵과 네이버지도의 별점을 평균낸 최종별점(ex. 3.44)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     kakao_url VARCHAR(255), -- 카카오맵 URL
+    reviewsSummary TEXT,    -- 네이버블로그에 카페이름 검색해 나온 내용들을 ai로 한줄요약함
     source ENUM('KAKAO', 'USER') DEFAULT 'KAKAO' -- 데이터 출처
 );
 
