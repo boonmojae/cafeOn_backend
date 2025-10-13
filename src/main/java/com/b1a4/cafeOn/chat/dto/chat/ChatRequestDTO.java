@@ -12,9 +12,6 @@ import lombok.*;
 @Builder
 public class ChatRequestDTO {
 
-    @NotNull
-    private Long roomId;
-
     @Size(max = 1000)
     private String message;
 

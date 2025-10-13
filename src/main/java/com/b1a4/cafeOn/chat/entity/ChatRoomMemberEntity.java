@@ -50,10 +50,11 @@ public class ChatRoomMemberEntity {
     private boolean muted = false;
 
     @Column(name = "last_read_chat_id")
-    private  Long lastReadChatId;
+    private Long lastReadChatId;
 
     @PrePersist
     private void onCreate() {
         this.joinedAt = LocalDateTime.now();
     }
+
 }

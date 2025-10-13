@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ChatMemberDetailDTO {
+public class ChatRoomMemberDetailDTO {
 
     private String userId;
     private  String nickname;

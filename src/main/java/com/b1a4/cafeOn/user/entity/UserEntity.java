@@ -91,7 +91,4 @@ public class UserEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
-    @Singular
-    private List<PostEntity> posts;
 }
