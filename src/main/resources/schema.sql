@@ -24,8 +24,6 @@ CREATE TABLE IF NOT EXISTS users(
     deleted_at TIMESTAMP NULL
 );
 
-DESC user;
-
 CREATE TABLE IF NOT EXISTS cafes (
     cafe_id BIGINT AUTO_INCREMENT PRIMARY KEY, -- 내부 서비스 PK
     kakao_id VARCHAR(50) UNIQUE, -- 카카오 API ID (없으면 NULL)
@@ -35,7 +33,9 @@ CREATE TABLE IF NOT EXISTS cafes (
     longitude DECIMAL(20, 15) NOT NULL, -- 경도
     phone VARCHAR(50), -- 전화번호
     open_hours TEXT, -- 오픈 시간
-    avg_rating DECIMAL(3,2), -- 평균 별점(ex. 3.44)
+    kakao_rating DECIMAL(3,2), -- 카카오맵 내 후기별점
+    naver_rating DECIMAL(3,2), -- 네이버지도 내 후기별점
+    avg_rating DECIMAL(3,2), -- 카카오맵과 네이버지도의 별점을 평균낸 최종별점(ex. 3.44)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     kakao_url VARCHAR(255), -- 카카오맵 URL
     source ENUM('KAKAO', 'USER') DEFAULT 'KAKAO' -- 데이터 출처
