@@ -4,6 +4,7 @@ import com.b1a4.cafeOn.qna.answer.dto.AnswerResponseDTO;
 import com.b1a4.cafeOn.qna.answer.entity.AnswerEntity;
 import com.b1a4.cafeOn.qna.answer.repository.AnswerRepository;
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
+import com.b1a4.cafeOn.qna.question.enums.QuestionStatus;
 import com.b1a4.cafeOn.qna.question.repository.QuestionRepository;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
@@ -40,6 +41,10 @@ public class AnswerService {
                 .build();
 
         answerRepository.save(answer);
+        if (question.getStatus() != QuestionStatus.ANSWERED) {
+            question.setStatus(QuestionStatus.ANSWERED);
+            questionRepository.save(question);
+        }
         return AnswerResponseDTO.fromEntity(answer);
     }
 
