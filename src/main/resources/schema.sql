@@ -224,6 +224,29 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 
+CREATE TABLE IF NOT EXISTS reports (
+  report_id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  reporter_id      CHAR(36) NOT NULL,
+  reported_user_id CHAR(36) NULL,
+
+  target_type      ENUM('POST','COMMENT','CHAT_ROOM','REVIEW') NOT NULL,
+  target_id        BIGINT UNSIGNED NOT NULL,
+
+  content          TEXT NOT NULL,
+  status           ENUM('PENDING','RESOLVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (report_id),
+
+  CONSTRAINT fk_reports_reporter
+    FOREIGN KEY (reporter_id)      REFERENCES users(user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_reports_reported_user
+    FOREIGN KEY (reported_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+
+  UNIQUE KEY uk_reports_once (reporter_id, target_type, target_id)
+)
+
+
 CREATE TABLE IF NOT EXISTS questions (
   question_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,       -- PK (Java Long)
   user_id     CHAR(36) NOT NULL,                             -- 작성자(`user`.user_id)
