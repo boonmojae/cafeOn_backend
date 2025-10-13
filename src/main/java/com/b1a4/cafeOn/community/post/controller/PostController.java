@@ -121,55 +121,6 @@ public class PostController {
     }
 
 
-    // 내가 작성한 게시글
-    // fixme: mypage 브랜치로 이동
-    @GetMapping("/my")
-    public ResponseEntity<?> findPostByUserId(@AuthenticationPrincipal String userId,
-                                              @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        try {
-
-            Page<PostListResponseDTO> responseDTOS = postService.getPostsById(userId, pageable);
-
-            ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
-                    .data(responseDTOS)
-                    .message("내가 작성한 게시글 조회 성공")
-                    .build();
-
-            return ResponseEntity.ok().body(response);
-
-        } catch (Exception e) {
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("게시글을 찾을 수 없습니다.")
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
-
-    // 내가 좋아요한 게시글
-    // fixme: mypage
-    @GetMapping("/my/likes")
-    public ResponseEntity<?> findLikePostByUserId(@AuthenticationPrincipal String userId,
-                                                  @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        try {
-
-            Page<PostListResponseDTO> page = postService.getLikePostById(userId, pageable);
-            ApiResponse<Page<PostListResponseDTO>> response = ApiResponse.<Page<PostListResponseDTO>>builder()
-                    .data(page)
-                    .message("내가 좋아요한 게시글 목록 조회 성공")
-                    .build();
-
-            return ResponseEntity.ok().body(response);
-        } catch (Exception e) {
-            log.error("내 좋아요 게시글 목록 조회 실패");
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
-
 
     // 게시글 생성
     // JSON + 파일 (멀티파트)
