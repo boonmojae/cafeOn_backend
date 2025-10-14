@@ -30,7 +30,7 @@ public class ReportController {
 
             ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
                     .data(responseDTO)
-                    .message("게시글 신고 성공")
+                    .message("신고가 접수되었습니다.")
                     .build();
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -55,7 +55,7 @@ public class ReportController {
 
             ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
                     .data(responseDTO)
-                    .message("댓글 신고 성공")
+                    .message("신고가 접수되었습니다.")
                     .build();
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
