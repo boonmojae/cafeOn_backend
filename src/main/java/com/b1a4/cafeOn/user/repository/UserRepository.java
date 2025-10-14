@@ -19,4 +19,7 @@ public interface UserRepository extends JpaRepository<UserEntity, String> {
     Optional<UserEntity> findByEmail(String email);
     Optional<UserEntity> findByEmailAndPassword(String email, String password);
     Optional<UserEntity> findByRefreshToken(String refreshToken);
+
+    @Query("select u.nickname from UserEntity u where u.userId = :userId")
+    Optional<String> findNicknameById(String userId);
 }

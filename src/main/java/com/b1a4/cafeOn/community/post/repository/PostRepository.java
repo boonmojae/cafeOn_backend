@@ -29,7 +29,8 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
                   :kw IS NULL OR :kw = '' OR
                   LOWER(p.title)   LIKE LOWER(CONCAT('%', :kw, '%')) OR
                   LOWER(p.content) LIKE LOWER(CONCAT('%', :kw, '%')) OR
-                  LOWER(u.nickname) LIKE LOWER(CONCAT('%', :kw, '%'))
+                  LOWER(u.nickname) LIKE LOWER(CONCAT('%'
+                  , :kw, '%'))
               )
             ORDER BY p.createdAt DESC
             """)
@@ -65,5 +66,9 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
         Long getCnt();
     }
+
+    // 게시글 신고 - 작성자 userId 조회
+    @Query("select p.user.userId from PostEntity p where p.postId = :postId")
+    Optional<String> findAuthorIdByPostId(@Param("postId") Long postId);
 
 }

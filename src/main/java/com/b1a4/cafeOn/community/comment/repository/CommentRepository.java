@@ -36,7 +36,11 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     @EntityGraph(attributePaths = {"user", "parent"})
     List<CommentEntity> findByParent_CommentIdIn(Collection<Long> parentIds);
 
-
     // 상세용 댓글 단건 카운트
     long countByPost_PostId(Long postId);
+
+    // 댓글 신고 - 작성자 userId
+    @Query("select c.user.userId from CommentEntity c where c.commentId = :commentId")
+    Optional<String> findAuthorIdByCommentId(@Param("commentId") Long commentId);
+
 }
