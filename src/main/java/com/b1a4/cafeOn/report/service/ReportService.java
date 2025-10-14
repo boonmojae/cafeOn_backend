@@ -24,6 +24,7 @@ public class ReportService {
     private final CommentRepository commentRepository;
     private final UserRepository userRepository;
 
+    // 게시글 신고
     @Transactional
     public ReportResponseDTO reportPost(String reporterId, Long postId, ReportRequestDTO req) {
         String reportedUserId = postRepository.findAuthorIdByPostId(postId)
@@ -31,6 +32,7 @@ public class ReportService {
         return createReport(reporterId, TargetType.POST, postId, reportedUserId, req.content());
     }
 
+    // 댓글 신고
     @Transactional
     public ReportResponseDTO reportComment(String reporterId, Long commentId, ReportRequestDTO req) {
         String reportedUserId = commentRepository.findAuthorIdByCommentId(commentId)
