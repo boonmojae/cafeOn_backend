@@ -30,8 +30,8 @@ public class ChatEntity {
     @Column(name = "message", length = 1000)
     private String message;
 
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
+//    @Column(name = "image_url", length = 500)
+//    private String imageUrl;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "chatroom_id", nullable = false)
@@ -57,12 +57,12 @@ public class ChatEntity {
                 .build();
     }
 
-    public static ChatEntity image(ChatRoomEntity room, UserEntity sender, String imageUrl) {
-        return ChatEntity.builder()
-                .chatRoom(room)
-                .sender(sender)
-                .imageUrl(imageUrl)
-                .build();
-    }
+//    public static ChatEntity image(ChatRoomEntity room, UserEntity sender, String imageUrl) {
+//        return ChatEntity.builder()
+//                .chatRoom(room)
+//                .sender(sender)
+//                .imageUrl(imageUrl)
+//                .build();
+//    }
 
 }

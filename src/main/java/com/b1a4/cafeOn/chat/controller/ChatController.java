@@ -32,8 +32,8 @@ public class ChatController {
         if (principal == null) throw new AccessDeniedException("NO_PRINCIPAL");
         final String userId = principal.getName();
 
-        log.info("[WS] SEND called: roomId={}, userId={}, msg='{}', img='{}'",
-                roomId, userId, req.getMessage(), req.getImageUrl());
+        log.info("[WS] SEND called: roomId={}, userId={}, msg='{}'",
+                roomId, userId, req.getMessage());
 
         chatRoomMemberService.assertMember(roomId, userId);
 
@@ -42,9 +42,6 @@ public class ChatController {
         payload.put("senderId", userId);
         if (req.getMessage() != null && !req.getMessage().isBlank()) {
             payload.put("message", req.getMessage());
-        }
-        if (req.getImageUrl() != null && !req.getImageUrl().isBlank()) {
-            payload.put("imageUrl", req.getImageUrl());
         }
 
         template.convertAndSend("/sub/rooms/" + roomId, payload);

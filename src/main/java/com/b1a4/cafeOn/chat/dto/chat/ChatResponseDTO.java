@@ -19,7 +19,7 @@ public class ChatResponseDTO {
     private Long roomId;
     private String senderId;
     private String message;
-    private String imageUrl;
+//    private String imageUrl;
     private LocalDateTime createdAt;
     private String timeLabel;
 
