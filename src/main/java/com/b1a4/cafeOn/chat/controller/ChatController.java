@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Controller;
 import java.security.Principal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 @Controller
 @RequiredArgsConstructor
@@ -27,22 +29,30 @@ public class ChatController {
     @MessageMapping("/rooms/{roomId}")
     public void send(@DestinationVariable Long roomId,
                      @Valid @Payload ChatRequestDTO req,
-                     Principal principal) {
+                     Principal principal,
+                     SimpMessageHeaderAccessor headerAccessor) {
 
         if (principal == null) throw new AccessDeniedException("NO_PRINCIPAL");
         final String userId = principal.getName();
 
-        log.info("[WS] SEND called: roomId={}, userId={}, msg='{}'",
-                roomId, userId, req.getMessage());
+        // 세션에 구독 성공했던 roomId가 있으면 DB 재조회 생략
+        @SuppressWarnings("unchecked")
+        Set<Long> rooms = (Set<Long>) headerAccessor.getSessionAttributes().get("rooms");
+        if (rooms == null || !rooms.contains(roomId)) {
+            chatRoomMemberService.assertMember(roomId, userId);
+        }
 
-        chatRoomMemberService.assertMember(roomId, userId);
+        final String msg = req.getMessage();
+        if (msg == null || msg.isBlank()) {
+            throw new IllegalArgumentException("EMPTY_MESSAGE");
+        }
+
+        log.info("[WS] SEND: roomId={}, userId={}, msg='{}'", roomId, userId, msg);
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("roomId", roomId);
         payload.put("senderId", userId);
-        if (req.getMessage() != null && !req.getMessage().isBlank()) {
-            payload.put("message", req.getMessage());
-        }
+        payload.put("message", msg);
 
         template.convertAndSend("/sub/rooms/" + roomId, payload);
     }

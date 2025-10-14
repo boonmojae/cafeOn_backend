@@ -7,22 +7,45 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
 
 @EnableWebSocketMessageBroker
 @Configuration
 public class WebSocketBrokerConfig implements WebSocketMessageBrokerConfigurer {
 
+    // 기본 messageBrokerTaskScheduler 과 겹치지 않도록 커스텀 이름 사용
+    @Bean(name = "customBrokerTaskScheduler")
+    public ThreadPoolTaskScheduler customBrokerTaskScheduler() {
+        ThreadPoolTaskScheduler ts = new ThreadPoolTaskScheduler();
+        ts.setPoolSize(4); // 컴퓨터를 방치해서 화면 꺼짐 절전으로 됐더니 하트비트 1을 추가해도 에러가 났었다 그래서 2~4로 권장한다는데 4로 설정
+        ts.setThreadNamePrefix("ws-heartbeat-");
+        ts.initialize();
+        return ts;
+    }
+
+    @Bean
+    public ServletServerContainerFactoryBean webSocketContainer() {
+        var c = new ServletServerContainerFactoryBean();
+        c.setMaxTextMessageBufferSize(512 * 1024);
+        c.setMaxBinaryMessageBufferSize(512 * 1024);
+        c.setAsyncSendTimeout(30_000L);
+        c.setMaxSessionIdleTimeout(30 * 60_000L);
+        return c;
+    }
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/stomp/chats") // 브라우저가 처음 WebSocket 연결을 시도하는 HTTP URL /예) 클라이언트에서 new SockJS('/stomp/chats')
-                .setAllowedOriginPatterns("*"); // CORS 유래의 오리진 허용. 개발중에는 *, 운영중에선 정확한 도메인만 열어두기
+        registry.addEndpoint("/stomp/chats").setAllowedOriginPatterns("*");
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.setApplicationDestinationPrefixes("/pub"); // 클라이언트 -> 서버 (메시지 발행)
-        registry.enableSimpleBroker("/sub"); // 서버 -> 클라이언트 (단체)
-        registry.setUserDestinationPrefix("/user"); // 서버 -> 특정 클라이언트 1명 (1:1 메시지)
-    }
+        registry.setApplicationDestinationPrefixes("/pub");
+        registry.setUserDestinationPrefix("/user");
 
+        registry.enableSimpleBroker("/sub")
+                .setTaskScheduler(customBrokerTaskScheduler())
+                // .setHeartbeatValue(new long[]{10_000, 10_000}); 엄격한 설정
+                .setHeartbeatValue(new long[]{10_000, 0}); // 서버 -> 클라만 보내고, 크라 -> 서버 기대는 해제
+    }
 }

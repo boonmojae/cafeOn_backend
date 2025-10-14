@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>STOMP Chat Test (Native WebSocket)</title>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+    <style>
+        body{font-family:system-ui,Arial;margin:20px}
+        pre{background:#111;color:#0f0;padding:12px;height:300px;overflow:auto}
+    </style>
+</head>
+<body>
+<h3>STOMP Chat Test (Native WebSocket)</h3>
+<div>
+    <label>Server (ws/wss): </label>
+    <input id="serverUrl" value="ws://localhost:8080/stomp/chats" size="40"><br>
+    <label>Token: </label>
+    <input id="token" value="REPLACE_WITH_YOUR_JWT"><br>
+    <label>Room ID: </label>
+    <input id="roomId" value="1"><br>
+    <button onclick="connect()">Connect</button>
+    <button onclick="subscribeRoom()">Subscribe</button>
+    <button onclick="manualDisconnect()">Disconnect</button>
+</div>
+<hr>
+<div>
+    <label>Message: </label>
+    <input id="msgInput" size="50">
+    <button onclick="sendMsg()">Send</button>
+</div>
+<pre id="log"></pre>
+
+<script>
+    let client, socket;
+    let myUserId = null;
+
+    // 재연결 제어
+    let connecting = false;
+    let reconnectTimer = null;
+    let backoffMs = 2000;           // 2s 시작
+    const backoffMax = 30000;       // 최대 30s
+    const subscriptions = new Set();// 구독한 roomId 기억
+
+    function log(...args){
+      const pre = document.getElementById('log');
+      pre.textContent += args.join(' ') + "\n";
+      pre.scrollTop = pre.scrollHeight;
+    }
+
+    function validJwtOrAlert(token){
+      const dots = (token.match(/\./g) || []).length;
+      if (dots !== 2){
+        alert('잘못된 JWT 형식입니다.');
+        return false;
+      }
+      return true;
+    }
+
+    function buildClient(serverUrl){
+      socket = new WebSocket(serverUrl);
+      client = Stomp.over(socket);
+
+      // 필요 시 STOMP 디버그 끄기
+      client.debug = () => {};
+
+      // 하트비트 (서버 10s/10s와 맞춤)
+      client.heartbeat.outgoing = 10000; // client -> server
+      client.heartbeat.incoming = 0; // server -> client
+      // WebSocketBrokerConfig에서도 느슨하게 변경 후 10000 -> 0
+
+      // 소켓이 닫히면 재연결 스케줄
+      socket.onclose = (e) => {
+        log('WS CLOSED:', e.code, e.reason || '');
+        scheduleReconnect();
+      };
+    }
+
+    function connect(){
+      if (connecting || (client && client.connected)) {
+        log('ALREADY CONNECTED or CONNECTING');
+        return;
+      }
+
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      const token     = document.getElementById('token').value.trim();
+      if (!token || !validJwtOrAlert(token)) return;
+
+      buildClient(serverUrl);
+
+      const headers = { Authorization: 'Bearer ' + token };
+      connecting = true;
+
+      client.connect(headers,
+        frame => {
+          connecting = false;
+          if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+          backoffMs = 2000;
+
+          myUserId = frame.headers['user-name'] || null;
+          log('CONNECTED:', JSON.stringify(frame.headers));
+          if (!myUserId) log('WARN: user-name header not found!');
+
+          // 끊겼다 붙으면 기존 구독 복원
+          if (subscriptions.size > 0) {
+            const rooms = [...subscriptions];
+            subscriptions.clear();
+            rooms.forEach(r => doSubscribe(r));
+            log('RESUBSCRIBED:', rooms.join(', '));
+          }
+        },
+        err => {
+          connecting = false;
+          log('CONNECT ERROR:', (err && err.body) ? err.body : String(err));
+          scheduleReconnect();
+        }
+      );
+    }
+
+    function scheduleReconnect(){
+      if (reconnectTimer || (client && client.connected)) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        log(`RECONNECTING... (delay=${backoffMs}ms)`);
+        connect();
+        backoffMs = Math.min(backoffMax, backoffMs * 2);
+      }, backoffMs);
+    }
+
+    function subscribeRoom(){
+      if (!client || !client.connected) return log('NOT_CONNECTED');
+      const roomId = document.getElementById('roomId').value.trim();
+      if (!roomId) return log('ROOM_ID_REQUIRED');
+
+      if (subscriptions.has(roomId)) return log('ALREADY SUBSCRIBED:', roomId);
+      doSubscribe(roomId);
+    }
+
+    function doSubscribe(roomId){
+      client.subscribe(`/sub/rooms/${roomId}`, msg => {
+        try {
+          const data = JSON.parse(msg.body);
+          // 내가 보낸 건 생략
+          if (data.senderId === myUserId) return;
+          log('RECV(other):', msg.body);
+        } catch(e) {
+          log('PARSE_ERROR:', e.message);
+        }
+      });
+      subscriptions.add(roomId);
+      log('SUBSCRIBED to /sub/rooms/' + roomId);
+    }
+
+    function sendMsg(){
+      if (!client || !client.connected) return log('NOT_CONNECTED');
+      const roomId  = document.getElementById('roomId').value.trim();
+      const content = document.getElementById('msgInput').value;
+      if (!roomId) return log('ROOM_ID_REQUIRED');
+      if (!content || !content.trim()) return;
+
+      client.send(`/pub/rooms/${roomId}`, {}, JSON.stringify({ message: content }));
+      log('SENT:', content);
+    }
+
+    function manualDisconnect(){
+      // 구독 해제
+      if (client && client.connected) {
+        client.disconnect(() => log('DISCONNECTED'));
+      }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close(1000, 'manual');
+      }
+      subscriptions.clear();
+      myUserId = null;
+      connecting = false;
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    }
+
+    // 페이지 닫힘 정리
+    window.addEventListener('beforeunload', manualDisconnect);
+</script>
+</body>
+</html>
