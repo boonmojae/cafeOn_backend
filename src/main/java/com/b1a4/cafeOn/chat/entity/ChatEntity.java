@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.chat.entity;
 
+import com.b1a4.cafeOn.chat.enums.ChatMessageType;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -27,7 +28,11 @@ public class ChatEntity {
     @Column(name = "chat_id")
     private Long chatId;
 
-    @Column(name = "message", length = 1000)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 20)
+    private ChatMessageType messageType;
+
+    @Column(name = "message", length = 1000, nullable = false)
     private String message;
 
 //    @Column(name = "image_url", length = 500)
@@ -37,8 +42,8 @@ public class ChatEntity {
     @JoinColumn(name = "chatroom_id", nullable = false)
     private ChatRoomEntity chatRoom;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "sender_id", nullable = true, columnDefinition = "CHAR(36)")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "sender_id", nullable = false, columnDefinition = "CHAR(36)")
     private UserEntity sender;
 
     @Column(name = "created_at", nullable = false)
@@ -53,7 +58,28 @@ public class ChatEntity {
         return ChatEntity.builder()
                 .chatRoom(room)
                 .sender(sender)
+                .messageType(ChatMessageType.TEXT)
                 .message(message)
+                .build();
+    }
+
+    // 단체 채팅방 새로운 유저 입장시 시스템 메시지
+    public static ChatEntity systemJoin(ChatRoomEntity room, UserEntity user) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(user)
+                .messageType(ChatMessageType.SYSTEM_JOIN)
+                .message(user.getNickname() + "님이 입장했습니다.")
+                .build();
+    }
+
+    // 퇴장 시스템 메시지
+    public static ChatEntity systemLeave(ChatRoomEntity room, UserEntity user) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(user)
+                .messageType(ChatMessageType.SYSTEM_LEAVE)
+                .message(user.getNickname() + "님이 퇴장했습니다.")
                 .build();
     }
 

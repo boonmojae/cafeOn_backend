@@ -55,10 +55,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/posts").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/posts/*/reports").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/comments").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/comments/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/comments/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/comment/*/reports").hasRole("USER")
                         // 관리자
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 마이페이지 (USER)
