@@ -17,7 +17,7 @@ public class QuestionListResponseDTO {
     private String title;
     private String authorNickname;
     private LocalDateTime createdAt;
-    private QuestionStatus status; // 관리자 전용
+    private QuestionStatus status;
     private QuestionVisibility visibility;
 
     // 유저용 목록 (타인기준)
@@ -43,11 +43,12 @@ public class QuestionListResponseDTO {
                 .title(safeTitle)
                 .authorNickname(authorNickname)
                 .createdAt(question.getCreatedAt())
+                .status(question.getStatus())
                 .visibility(question.getVisibility())
                 .build();
     }
 
-    // 관리자용 목록 (status 포함)
+    // 관리자용 목록
     public static QuestionListResponseDTO fromAdmin(QuestionEntity question) {
         return QuestionListResponseDTO.builder()
                 .id(question.getQuestionId())

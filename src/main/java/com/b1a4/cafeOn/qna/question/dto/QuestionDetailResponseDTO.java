@@ -35,15 +35,16 @@ public class QuestionDetailResponseDTO {
                 .build();
     }
 
-    public static QuestionDetailResponseDTO fromMy(QuestionEntity q) {
+    public static QuestionDetailResponseDTO fromMy(QuestionEntity question) {
         return QuestionDetailResponseDTO.builder()
-                .id(q.getQuestionId())
-                .title(q.getTitle())
-                .content(q.getContent())
-                .authorNickname(q.getUser() != null ? q.getUser().getNickname() : null)
-                .createdAt(q.getCreatedAt())
-                .updatedAt(q.getUpdatedAt())
-                .visibility(q.getVisibility())
+                .id(question.getQuestionId())
+                .title(question.getTitle())
+                .content(question.getContent())
+                .authorNickname(question.getUser() != null ? question.getUser().getNickname() : null)
+                .createdAt(question.getCreatedAt())
+                .updatedAt(question.getUpdatedAt())
+                .status(question.getStatus())
+                .visibility(question.getVisibility())
                 .build();
     }
 
