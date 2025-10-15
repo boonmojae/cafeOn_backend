@@ -45,19 +45,22 @@ public class SecurityConfig {
                 .sessionManagement(sessionManagement ->
                         sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))   // session 기반이 아니므로 무상태(STATELESS) 설정
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/", "/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs", "/api-docs-json")  // 요청 경로가 일치하는 애들한테는
+                        .requestMatchers("/", "/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs", "/api-docs-json", "/stomp/chats/**", "/chat-test.html")  // 요청 경로가 일치하는 애들한테는
                         .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/chat/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/images/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/posts").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/posts/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/posts/*/reports").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/comments").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/comments/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/comments/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST, "/api/comment/*/reports").hasRole("USER")
                         // 관리자
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // 마이페이지 (USER)
