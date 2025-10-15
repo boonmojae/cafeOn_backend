@@ -280,3 +280,27 @@ CREATE TABLE IF NOT EXISTS answers (
   CONSTRAINT fk_ans_admin
     FOREIGN KEY (admin_id)   REFERENCES user(user_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS wishlists (
+  wishlist_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id     CHAR(36)        NOT NULL,
+  cafe_id     BIGINT          NOT NULL,
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (wishlist_id),
+  CONSTRAINT uk_wishlists_user_cafe UNIQUE (user_id, cafe_id),
+
+  INDEX idx_wishlists_user_id (user_id),
+  INDEX idx_wishlists_cafe_id (cafe_id),
+
+  CONSTRAINT fk_wishlists_user
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+
+  CONSTRAINT fk_wishlists_cafe
+    FOREIGN KEY (cafe_id) REFERENCES cafes(cafe_id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+);
+
