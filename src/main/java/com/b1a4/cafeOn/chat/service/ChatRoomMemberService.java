@@ -99,6 +99,7 @@ public class ChatRoomMemberService {
     }
     
     // 방-유저 멤버 여부 단순 확인
+    @Transactional(readOnly = true)
     public boolean isMember(Long roomId, String userId) {
         return chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, userId);
     }
