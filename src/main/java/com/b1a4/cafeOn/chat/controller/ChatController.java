@@ -1,7 +1,9 @@
 package com.b1a4.cafeOn.chat.controller;
 
 import com.b1a4.cafeOn.chat.dto.chat.ChatRequestDTO;
+import com.b1a4.cafeOn.chat.dto.chat.ChatResponseDTO;
 import com.b1a4.cafeOn.chat.service.ChatRoomMemberService;
+import com.b1a4.cafeOn.chat.service.ChatService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,36 +26,18 @@ import java.util.Set;
 public class ChatController {
 
     private final SimpMessagingTemplate template;
-    private final ChatRoomMemberService chatRoomMemberService;
+    private final ChatService chatService;
 
     @MessageMapping("/rooms/{roomId}")
     public void send(@DestinationVariable Long roomId,
-                     @Valid @Payload ChatRequestDTO req,
-                     Principal principal,
-                     SimpMessageHeaderAccessor headerAccessor) {
+                     @Valid @Payload ChatRequestDTO chatRequestDTO, Principal principal) {
 
-        if (principal == null) throw new AccessDeniedException("NO_PRINCIPAL");
-        final String userId = principal.getName();
+        String senderId = principal.getName();
 
-        // 세션에 구독 성공했던 roomId가 있으면 DB 재조회 생략
-        @SuppressWarnings("unchecked")
-        Set<Long> rooms = (Set<Long>) headerAccessor.getSessionAttributes().get("rooms");
-        if (rooms == null || !rooms.contains(roomId)) {
-            chatRoomMemberService.assertMember(roomId, userId);
-        }
+        ChatResponseDTO save = chatService.saveChat(roomId, senderId, chatRequestDTO);
 
-        final String msg = req.message();
-        if (msg == null || msg.isBlank()) {
-            throw new IllegalArgumentException("EMPTY_MESSAGE");
-        }
-
-        log.info("[WS] SEND: roomId={}, userId={}, msg='{}'", roomId, userId, msg);
-
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("roomId", roomId);
-        payload.put("senderId", userId);
-        payload.put("message", msg);
-
-        template.convertAndSend("/sub/rooms/" + roomId, payload);
+        // 구독자한테 브로드캐스트
+        template.convertAndSend("/sub/rooms/" + roomId, save);
     }
+
 }
