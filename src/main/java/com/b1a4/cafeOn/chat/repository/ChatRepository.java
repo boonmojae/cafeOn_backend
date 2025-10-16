@@ -27,5 +27,7 @@ public interface ChatRepository extends JpaRepository<ChatEntity, Long> {
     // beforeId 기준으로 이전 메시지만 이어서 로드
     Page<ChatEntity> findByChatRoom_ChatRoomIdAndMessageTypeAndChatIdLessThanOrderByChatIdDesc(Long roomId, ChatMessageType type, Long beforeChatId, Pageable pageable);
 
+    boolean existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
+            Long roomId, String userId, ChatMessageType type, java.time.LocalDateTime after);
 
 }

@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatRoomMemberService {
 
     private final ChatRoomService chatRoomService;
+    private final ChatService chatService;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
 
@@ -93,6 +94,9 @@ public class ChatRoomMemberService {
                         .muted(false)
                         .build()
         );
+
+        // 단체 채팅방 멤버십 가입 -> 최초 입장시 시스템 메시지
+        chatService.publishSystemJoin(room.getChatRoomId(), userId);
 
         return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, alreadyIn);
 

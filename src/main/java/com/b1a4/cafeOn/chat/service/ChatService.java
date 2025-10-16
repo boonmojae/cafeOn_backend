@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate template;
 
 
     // 메시지 저장
@@ -120,5 +122,39 @@ public class ChatService {
                 .messageType(e.getMessageType())
                 .build();
     }
+
+    // 시스템 입장 메시지
+    @Transactional
+    public void publishSystemJoin(Long roomId, String actorUserId) {
+        ChatRoomEntity room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
+        UserEntity actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
+
+        // 30초 내 동일 이벤트 있으면 무시(선택)
+        var cutoff = java.time.LocalDateTime.now().minusSeconds(30);
+        if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
+                roomId, actorUserId, ChatMessageType.SYSTEM_JOIN, cutoff)) {
+            return;
+        }
+
+        ChatEntity saved = chatRepository.save(ChatEntity.systemJoin(room, actor));
+
+        // DTO 만들어 브로드캐스트 (시스템 메시지는 mine=false 고정)
+        ChatResponseDTO dto = ChatResponseDTO.builder()
+                .chatId(saved.getChatId())
+                .roomId(roomId)
+                .senderId(DisplayMasking.safeUserId(saved.getSender(), true))
+                .senderNickname(DisplayMasking.nicknameOf(saved.getSender()))
+                .senderProfileImageUrl(DisplayMasking.profileUrlOf(saved.getSender()))
+                .message(saved.getMessage())
+                .createdAt(saved.getCreatedAt())
+                .mine(false)
+                .messageType(saved.getMessageType())
+                .build();
+
+        template.convertAndSend("/sub/rooms/" + roomId, dto);
+    }
+
 
 }

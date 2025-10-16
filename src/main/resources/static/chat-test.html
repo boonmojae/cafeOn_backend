@@ -1,51 +1,82 @@
 <!doctype html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="utf-8">
-    <title>STOMP Chat Test (Native WebSocket)</title>
+    <title>STOMP Chat Test (Auto Connect + Subscribe)</title>
     <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
     <style>
-        body{font-family:system-ui,Arial;margin:20px}
-        pre{background:#111;color:#0f0;padding:12px;height:300px;overflow:auto}
+        *{box-sizing:border-box}
+        body{font-family:system-ui,Arial;margin:20px;line-height:1.4}
+        .row{margin:6px 0}
+        label{display:inline-block;width:110px;color:#444}
+        input[type="text"]{width:360px;padding:6px 8px}
+        input.small{width:120px}
+        button{padding:6px 10px;margin-right:6px;cursor:pointer}
+        .muted{color:#888;font-size:12px}
+        .controls{margin:10px 0}
+        pre{background:#0f172a;color:#a7f3d0;padding:12px;height:320px;overflow:auto;border-radius:8px}
+        .flex{display:flex;gap:8px;align-items:center}
     </style>
 </head>
 <body>
-<h3>STOMP Chat Test (Native WebSocket)</h3>
-<div>
-    <label>Server (ws/wss): </label>
-    <input id="serverUrl" value="ws://localhost:8080/stomp/chats" size="40"><br>
-    <label>Token: </label>
-    <input id="token" value="REPLACE_WITH_YOUR_JWT"><br>
-    <label>Room ID: </label>
-    <input id="roomId" value="1"><br>
-    <button onclick="connect()">Connect</button>
-    <button onclick="subscribeRoom()">Subscribe</button>
-    <button onclick="manualDisconnect()">Disconnect</button>
+<h3>STOMP Chat Test (자동 연결·구독 버전)</h3>
+
+<div class="row flex">
+    <label>Server (ws/wss):</label>
+    <input id="serverUrl" type="text" value="ws://localhost:8080/stomp/chats">
 </div>
+<div class="row flex">
+    <label>JWT Token:</label>
+    <input id="token" type="text" value="REPLACE_WITH_YOUR_JWT">
+</div>
+<div class="row flex">
+    <label>Room ID:</label>
+    <input id="roomId" class="small" type="text" value="1">
+    <label>그룹방?</label>
+    <input id="isGroup" type="checkbox" checked>
+    <span class="muted">체크 시 입장 전 REST join 수행(※컨트롤러가 cafeId를 받으면 입력값=카페ID여야 함)</span>
+</div>
+
+<div class="controls">
+    <button id="enterBtn">Enter (Auto Connect + Subscribe)</button>
+    <button id="leaveBtn">Leave Room</button>
+    <button id="disconnectBtn">Disconnect</button>
+</div>
+
 <hr>
-<div>
-    <label>Message: </label>
-    <input id="msgInput" size="50">
-    <button onclick="sendMsg()">Send</button>
+
+<div class="row flex">
+    <label>Message:</label>
+    <input id="msgInput" type="text" placeholder="메시지를 입력하세요">
+    <button id="sendBtn">Send</button>
 </div>
+
 <pre id="log"></pre>
 
 <script>
+    // ======= 상태 =======
     let client, socket;
-    let myUserId = null;
-
-    // 재연결 제어
     let connecting = false;
     let reconnectTimer = null;
-    let backoffMs = 2000;           // 2s 시작
-    const backoffMax = 30000;       // 최대 30s
-    const subscriptions = new Set();// 구독한 roomId 기억
+    let backoffMs = 2000;
+    const backoffMax = 30000;
 
+    let myUserId = null;              // 서버에서 user-name 헤더를 세팅하지 않으면 null일 수 있음
+    const subscriptions = new Map();  // roomId -> {sub}
+    const seenChatIds = new Set();    // 히스토리/라이브 중복 제거
+
+    // ======= 유틸 =======
     function log(...args){
       const pre = document.getElementById('log');
       pre.textContent += args.join(' ') + "\n";
       pre.scrollTop = pre.scrollHeight;
     }
+
+    function setSendUI(enabled){
+      document.getElementById('msgInput').disabled = !enabled;
+      document.getElementById('sendBtn').disabled = !enabled;
+    }
+    setSendUI(false);
 
     function validJwtOrAlert(token){
       const dots = (token.match(/\./g) || []).length;
@@ -59,123 +90,231 @@
     function buildClient(serverUrl){
       socket = new WebSocket(serverUrl);
       client = Stomp.over(socket);
+      client.debug = () => {}; // 콘솔 디버그 비활성
 
-      // 필요 시 STOMP 디버그 끄기
-      client.debug = () => {};
-
-      // 하트비트 (서버 10s/10s와 맞춤)
+      // 하트비트(서버 설정과 맞춰주세요)
       client.heartbeat.outgoing = 10000; // client -> server
-      client.heartbeat.incoming = 0; // server -> client
-      // WebSocketBrokerConfig에서도 느슨하게 변경 후 10000 -> 0
+      client.heartbeat.incoming = 0;     // server -> client
 
-      // 소켓이 닫히면 재연결 스케줄
       socket.onclose = (e) => {
         log('WS CLOSED:', e.code, e.reason || '');
-        scheduleReconnect();
+        scheduleReconnect();   // 토큰 없으면 아래 가드로 재연결 안 함
+        setSendUI(false);
       };
     }
 
-    function connect(){
-      if (connecting || (client && client.connected)) {
-        log('ALREADY CONNECTED or CONNECTING');
-        return;
-      }
-
-      const serverUrl = document.getElementById('serverUrl').value.trim();
-      const token     = document.getElementById('token').value.trim();
-      if (!token || !validJwtOrAlert(token)) return;
-
-      buildClient(serverUrl);
-
-      const headers = { Authorization: 'Bearer ' + token };
-      connecting = true;
-
-      client.connect(headers,
-        frame => {
-          connecting = false;
-          if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-          backoffMs = 2000;
-
-          myUserId = frame.headers['user-name'] || null;
-          log('CONNECTED:', JSON.stringify(frame.headers));
-          if (!myUserId) log('WARN: user-name header not found!');
-
-          // 끊겼다 붙으면 기존 구독 복원
-          if (subscriptions.size > 0) {
-            const rooms = [...subscriptions];
-            subscriptions.clear();
-            rooms.forEach(r => doSubscribe(r));
-            log('RESUBSCRIBED:', rooms.join(', '));
-          }
-        },
-        err => {
-          connecting = false;
-          log('CONNECT ERROR:', (err && err.body) ? err.body : String(err));
-          scheduleReconnect();
-        }
-      );
-    }
-
+    // 토큰 없으면 재연결 스케줄링 자체를 하지 않음(초기 INVALID_TOKEN 방지)
     function scheduleReconnect(){
       if (reconnectTimer || (client && client.connected)) return;
+
+      const token = document.getElementById('token').value.trim();
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) {
+        return; // 토큰 준비 전엔 조용히 대기
+      }
+
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
         log(`RECONNECTING... (delay=${backoffMs}ms)`);
-        connect();
+        const serverUrl = document.getElementById('serverUrl').value.trim();
+        ensureConnected(serverUrl, token).catch(() => {});
         backoffMs = Math.min(backoffMax, backoffMs * 2);
       }, backoffMs);
     }
 
-    function subscribeRoom(){
-      if (!client || !client.connected) return log('NOT_CONNECTED');
-      const roomId = document.getElementById('roomId').value.trim();
-      if (!roomId) return log('ROOM_ID_REQUIRED');
+    function ensureConnected(serverUrl, token){
+      return new Promise((resolve, reject) => {
+        if (client && client.connected) return resolve();
 
-      if (subscriptions.has(roomId)) return log('ALREADY SUBSCRIBED:', roomId);
-      doSubscribe(roomId);
+        if (connecting){
+          const t0 = Date.now();
+          const wait = setInterval(() => {
+            if (client && client.connected) {
+              clearInterval(wait);
+              return resolve();
+            }
+            if (Date.now() - t0 > 10000){
+              clearInterval(wait);
+              return reject(new Error('CONNECT TIMEOUT'));
+            }
+          }, 150);
+          return;
+        }
+
+        if (!token || !validJwtOrAlert(token)) return reject(new Error('INVALID_TOKEN'));
+
+        buildClient(serverUrl);
+        const headers = { Authorization: 'Bearer ' + token };
+        connecting = true;
+
+        client.connect(headers,
+          frame => {
+            connecting = false;
+            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+            backoffMs = 2000;
+
+            myUserId = frame.headers['user-name'] || null; // Interceptor에서 세팅 가능
+            log('CONNECTED:', JSON.stringify(frame.headers));
+            if (!myUserId) log('WARN: user-name header not found!');
+
+            // 끊겼다 붙으면 기존 구독 복원
+            if (subscriptions.size > 0) {
+              const rooms = [...subscriptions.keys()];
+              subscriptions.clear();
+              rooms.forEach(r => doSubscribe(r));
+              log('RESUBSCRIBED:', rooms.join(', '));
+            }
+            resolve();
+          },
+          err => {
+            connecting = false;
+            log('CONNECT ERROR:', (err && err.body) ? err.body : String(err));
+            scheduleReconnect();
+            reject(new Error('CONNECT FAILED'));
+          }
+        );
+      });
     }
 
     function doSubscribe(roomId){
-      client.subscribe(`/sub/rooms/${roomId}`, msg => {
+      if (!client || !client.connected) {
+        log('NOT_CONNECTED');
+        return;
+      }
+      if (subscriptions.has(roomId)) {
+        log('ALREADY SUBSCRIBED:', roomId);
+        return;
+      }
+      const sub = client.subscribe(`/sub/rooms/${roomId}`, msg => {
         try {
           const data = JSON.parse(msg.body);
-          // 내가 보낸 건 생략
-          if (data.senderId === myUserId) return;
-          log('RECV(other):', msg.body);
+
+          // 중복 제거
+          if (data.chatId && seenChatIds.has(data.chatId)) return;
+          if (data.chatId) seenChatIds.add(data.chatId);
+
+          // **내 메시지 숨김 제거** — 서버가 save를 그대로 브로드캐스트하므로 내 것도 표시
+          // (원하면 senderId === myUserId 로 스타일만 다르게 처리)
+
+          log('RECV:', msg.body);
         } catch(e) {
           log('PARSE_ERROR:', e.message);
         }
       });
-      subscriptions.add(roomId);
+      subscriptions.set(roomId, { sub });
       log('SUBSCRIBED to /sub/rooms/' + roomId);
+      setSendUI(true);
+    }
+
+    async function enterRoom(roomId, opts = { isGroup: true }){
+      const token = document.getElementById('token').value.trim();
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      if (!roomId) return log('ROOM_ID_REQUIRED');
+
+      // Enter 시 토큰 가드
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) {
+        alert('JWT를 먼저 입력하세요.');
+        return;
+      }
+
+      try {
+        // (그룹방) 멤버십 join: 컨트롤러가 cafeId를 PathVar로 받는다면
+        // 여기 입력값은 "카페 ID"여야 합니다.
+        if (opts.isGroup){
+          await fetch(`/api/chat/rooms/group/${roomId}/join`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+        }
+
+        // 연결 보장
+        await ensureConnected(serverUrl, token);
+
+        // 구독 보장
+        doSubscribe(String(roomId));
+
+        // 히스토리 로드(백: ApiResponse<Page<ChatResponseDTO>>)
+        const res = await fetch(`/api/rooms/${roomId}/messages?includeSystem=true`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const body = await res.json();          // ApiResponse wrapper
+        const page = body?.data;                // Page<ChatResponseDTO>
+        if (page && Array.isArray(page.content)) {
+          // 백엔드는 chatId DESC로 주니까, 화면엔 오래된→최신 순으로 보이게 뒤집어서 출력
+          const items = [...page.content].reverse();
+          items.forEach(m => {
+            if (m.chatId && seenChatIds.has(m.chatId)) return;
+            if (m.chatId) seenChatIds.add(m.chatId);
+            log('HISTORY:', JSON.stringify(m));
+          });
+        }
+
+        setSendUI(true);
+        log('ENTERED ROOM:', roomId);
+      } catch (e) {
+        log('ENTER ERROR:', e.message || String(e));
+        setSendUI(false);
+      }
+    }
+
+    function leaveRoom(roomId){
+      if (!roomId) return;
+      const key = String(roomId);
+      const entry = subscriptions.get(key);
+      if (entry && entry.sub) {
+        try { entry.sub.unsubscribe(); } catch(_) {}
+      }
+      subscriptions.delete(key);
+      setSendUI(false);
+      log('LEFT ROOM:', key);
     }
 
     function sendMsg(){
       if (!client || !client.connected) return log('NOT_CONNECTED');
-      const roomId  = document.getElementById('roomId').value.trim();
+      const roomId = document.getElementById('roomId').value.trim();
       const content = document.getElementById('msgInput').value;
       if (!roomId) return log('ROOM_ID_REQUIRED');
       if (!content || !content.trim()) return;
 
       client.send(`/pub/rooms/${roomId}`, {}, JSON.stringify({ message: content }));
       log('SENT:', content);
+      document.getElementById('msgInput').value = '';
     }
 
     function manualDisconnect(){
-      // 구독 해제
-      if (client && client.connected) {
-        client.disconnect(() => log('DISCONNECTED'));
-      }
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close(1000, 'manual');
+      // 모든 방 구독 해제
+      for (const [rid, entry] of subscriptions.entries()) {
+        try { entry.sub?.unsubscribe(); } catch(_) {}
       }
       subscriptions.clear();
+
+      if (client && client.connected) {
+        try { client.disconnect(() => log('DISCONNECTED')); }
+        catch(_) {}
+      }
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        try { socket.close(1000, 'manual'); } catch(_) {}
+      }
       myUserId = null;
       connecting = false;
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      setSendUI(false);
     }
 
-    // 페이지 닫힘 정리
+    // ======= 이벤트 바인딩 =======
+    document.getElementById('enterBtn').addEventListener('click', () => {
+      const roomId = document.getElementById('roomId').value.trim();
+      const isGroup = document.getElementById('isGroup').checked;
+      enterRoom(roomId, { isGroup });
+    });
+
+    document.getElementById('leaveBtn').addEventListener('click', () => {
+      const roomId = document.getElementById('roomId').value.trim();
+      leaveRoom(roomId);
+    });
+
+    document.getElementById('disconnectBtn').addEventListener('click', manualDisconnect);
+    document.getElementById('sendBtn').addEventListener('click', sendMsg);
+
     window.addEventListener('beforeunload', manualDisconnect);
 </script>
 </body>
