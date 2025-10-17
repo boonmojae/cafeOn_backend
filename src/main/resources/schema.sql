@@ -225,6 +225,29 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 
+CREATE TABLE IF NOT EXISTS reports (
+  report_id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  reporter_id      CHAR(36) NOT NULL,
+  reported_user_id CHAR(36) NULL,
+
+  target_type      ENUM('POST','COMMENT','CHAT_ROOM','REVIEW') NOT NULL,
+  target_id        BIGINT UNSIGNED NOT NULL,
+
+  content          TEXT NOT NULL,
+  status           ENUM('PENDING','RESOLVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+  created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (report_id),
+
+  CONSTRAINT fk_reports_reporter
+    FOREIGN KEY (reporter_id)      REFERENCES users(user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_reports_reported_user
+    FOREIGN KEY (reported_user_id) REFERENCES users(user_id) ON DELETE SET NULL,
+
+  UNIQUE KEY uk_reports_once (reporter_id, target_type, target_id)
+)
+
+
 CREATE TABLE IF NOT EXISTS questions (
   question_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,       -- PK (Java Long)
   user_id     CHAR(36) NOT NULL,                             -- 작성자(`user`.user_id)
@@ -240,4 +263,21 @@ CREATE TABLE IF NOT EXISTS questions (
 
   CONSTRAINT fk_q_user
     FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS answers (
+  answer_id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  question_id BIGINT UNSIGNED NOT NULL,
+  admin_id    CHAR(36)        NOT NULL,
+  content     TEXT            NOT NULL,
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  DATETIME        NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (answer_id),
+  KEY idx_answers_question (question_id),  -- 문의 상세에서 답변 조회용
+
+  CONSTRAINT fk_ans_question
+    FOREIGN KEY (question_id) REFERENCES questions(question_id) ON DELETE CASCADE,
+  CONSTRAINT fk_ans_admin
+    FOREIGN KEY (admin_id)   REFERENCES user(user_id) ON DELETE CASCADE
 );
