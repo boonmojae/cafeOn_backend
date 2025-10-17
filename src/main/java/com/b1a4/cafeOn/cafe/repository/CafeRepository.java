@@ -27,39 +27,15 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             """)
     List<CafeEntity> searchByQuery(@Param("query") String query);
 
-//    1-3. 정렬기준으로 조회
-//      1-3-1. 평점순
-    @Query("""
-            SELECT c FROM CafeEntity c
-            ORDER BY c.avgRating DESC
-            """)
-    List<CafeEntity> findAllOrderByRating();
-
-//      1-3-2. 찜 많은 순 todo: wishlist 테이블 만들고 JOIN문 검토 필요
+//    1-3. 검색어 + 태그 조회 (필요 시)
     @Query(value = """
-            SELECT * FROM cafes
-            ORDER BY wish_count DESC
+            SELECT c.* FROM cafes c
+            JOIN cafe_tags ct ON c.cafe_id = ct.cafe_id
+            JOIN tags t ON ct.tag_id = t.tag_id
+            WHERE (c.name LIKE %:query% OR c.address LIKE %:query%)
+            AND t.name = :tag
             """, nativeQuery = true)
-    List<CafeEntity> findAllOrderByWishCount();
-
-//      1-3-3. 랜덤순
-    @Query(value = """
-            SELECT * FROM cafes
-            ORDER BY RAND()
-            """, nativeQuery = true)
-    List<CafeEntity> findRandom();
-
-//    1-4. 검색어 + 정렬 조회
-    @Query("""
-            SELECT c FROM CafeEntity c
-            WHERE c.name LIKE %:query% OR c.address LIKE %:query%
-            ORDER BY
-                CASE WHEN :sort = 'rating' THEN c.avgRating END DESC
-            """)
-    List<CafeEntity> searchByQueryAndSort(@Param("query") String query, @Param("sort") String sort);
-
-
-
+    List<CafeEntity> searchByQueryAndTag(@Param("query") String query, @Param("tag") String tag);
 
 //    랜덤10개
     @Query(value = "SELECT * FROM cafes ORDER BY RAND() LIMIT 10", nativeQuery = true)

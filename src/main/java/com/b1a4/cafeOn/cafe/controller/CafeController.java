@@ -22,18 +22,17 @@ import java.util.List;
 public class CafeController {
     @Autowired private CafeService cafeService;
 
-//    1. 카페 검색 및 목록 조회 (query/sort/tags 요청바디 기반 검색)
+//    1. 카페 검색 및 목록 조회 (query/tags 요청바디 기반 검색 + query는 KAKAO REST API 키워드로 장소검색)
     @GetMapping("/search")
     @Operation(
             summary = "카페 검색 및 목록 조회",
-            description = "query, sort, tag(옵션)으로 카페 목록 조회. query 없으면 전체 목록 반환."
+            description = "query, tag(옵션)으로 카페 목록 조회. query는 KAKAO REST API 키워드로 장소 검색 결과 반환, query 없으면 전체 목록 반환."
     )
     public ResponseEntity<?> searchCafes(
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) String sort,
             @RequestParam(required = false) String tag
     ) {
-        List<CafeDTO> cafes = cafeService.searchCafes(query, sort, tag);    // required=false로 해당 파라미터가 아예 안 넘어와도 null로 처리해서 들어감
+        List<CafeDTO> cafes = cafeService.searchCafes(query, tag);    // required=false로 해당 파라미터가 아예 안 넘어와도 null로 처리해서 들어감
         return ResponseEntity.ok(cafes);
         
     }
