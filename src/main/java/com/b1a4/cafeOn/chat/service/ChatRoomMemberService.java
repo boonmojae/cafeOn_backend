@@ -101,6 +101,13 @@ public class ChatRoomMemberService {
         return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, alreadyIn);
 
     }
+
+
+    // 채팅방 나가기
+
+
+
+
     
     // 방-유저 멤버 여부 단순 확인
     @Transactional(readOnly = true)

@@ -1,25 +1,93 @@
 <!doctype html>
 <html lang="ko">
 <head>
-    <meta charset="utf-8">
-    <title>STOMP Chat Test (Auto Connect + Subscribe)</title>
+    <meta charset="utf-8" />
+    <title>STOMP Chat Test (좌/우 + 시스템 UI)</title>
     <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
     <style>
-        *{box-sizing:border-box}
-        body{font-family:system-ui,Arial;margin:20px;line-height:1.4}
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, Arial; margin: 20px; line-height: 1.4; background:#f7f8fa; }
+        h3 { margin: 0 0 12px; }
         .row{margin:6px 0}
         label{display:inline-block;width:110px;color:#444}
         input[type="text"]{width:360px;padding:6px 8px}
         input.small{width:120px}
-        button{padding:6px 10px;margin-right:6px;cursor:pointer}
+        button{padding:6px 10px;margin-right:6px;cursor:pointer;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+        button:disabled{opacity:.6; cursor:not-allowed}
         .muted{color:#888;font-size:12px}
         .controls{margin:10px 0}
-        pre{background:#0f172a;color:#a7f3d0;padding:12px;height:320px;overflow:auto;border-radius:8px}
-        .flex{display:flex;gap:8px;align-items:center}
+
+        /* Chat area */
+        .chat-wrap {
+          border: 1px solid #e5e7eb;
+          background: #fff;
+          border-radius: 12px;
+          padding: 12px;
+          height: 420px;
+          overflow: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .msg {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          max-width: 80%;
+        }
+        .msg.left { justify-content: flex-start; }
+        .msg.right { margin-left: auto; justify-content: flex-end; }
+
+        .avatar {
+          width: 36px; height: 36px; border-radius: 50%;
+          background: #e5e7eb; color:#374151; display:flex; align-items:center; justify-content:center;
+          font-weight: 700; flex: 0 0 36px; overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        .bubble {
+          border-radius: 14px;
+          padding: 10px 12px;
+          line-height: 1.45;
+          word-break: break-word;
+          position: relative;
+          background: #f3f4f6; color:#111827;
+        }
+        .right .bubble { background: #2563eb; color: #fff; }
+        .nick { font-size: 12px; color: #6b7280; margin: 0 0 4px 2px; }
+        .right .nick { text-align: right; color:#93c5fd; }
+        .meta {
+          font-size: 11px; color: #9ca3af; margin-top: 4px; text-align: right;
+        }
+        .right .meta { color: #dbeafe; }
+
+        .input-row { display:flex; gap:8px; align-items:center; }
+        .input-row input[type="text"] { flex:1; }
+        .flex { display: flex; gap: 8px; align-items: center; }
+
+        /* System message (centered pill) */
+        .system {
+          display:flex; justify-content:center;
+          margin: 6px 0;
+        }
+        .system > span {
+          max-width: 80%;
+          font-size: 12px;
+          color: #475569;
+          background: #e5e7eb;
+          padding: 6px 10px;
+          border-radius: 999px;
+        }
+
+        /* debug log (optional) */
+        pre#log {
+          background:#0f172a;color:#a7f3d0;padding:12px;height:160px;overflow:auto;border-radius:8px; margin-top:10px;
+        }
     </style>
 </head>
 <body>
-<h3>STOMP Chat Test (자동 연결·구독 버전)</h3>
+<h3>STOMP Chat Test (자동 연결·구독 · 말풍선 · 시스템 UI)</h3>
 
 <div class="row flex">
     <label>Server (ws/wss):</label>
@@ -34,7 +102,7 @@
     <input id="roomId" class="small" type="text" value="1">
     <label>그룹방?</label>
     <input id="isGroup" type="checkbox" checked>
-    <span class="muted">체크 시 입장 전 REST join 수행(※컨트롤러가 cafeId를 받으면 입력값=카페ID여야 함)</span>
+    <span class="muted">체크 시 입장 전 REST join 수행(※컨트롤러가 cafeId를 받으면 입력값=카페ID)</span>
 </div>
 
 <div class="controls">
@@ -43,14 +111,16 @@
     <button id="disconnectBtn">Disconnect</button>
 </div>
 
-<hr>
+<!-- CHAT LIST -->
+<div id="chat" class="chat-wrap"></div>
 
-<div class="row flex">
-    <label>Message:</label>
-    <input id="msgInput" type="text" placeholder="메시지를 입력하세요">
-    <button id="sendBtn">Send</button>
+<!-- SEND -->
+<div class="row input-row" style="margin-top:10px;">
+    <input id="msgInput" type="text" placeholder="메시지를 입력하세요" disabled />
+    <button id="sendBtn" disabled>Send</button>
 </div>
 
+<!-- optional debug -->
 <pre id="log"></pre>
 
 <script>
@@ -61,7 +131,7 @@
     let backoffMs = 2000;
     const backoffMax = 30000;
 
-    let myUserId = null;              // 서버에서 user-name 헤더를 세팅하지 않으면 null일 수 있음
+    let myUserId = null;              // CONNECT 헤더(user-name) 또는 JWT payload에서 보강
     const subscriptions = new Map();  // roomId -> {sub}
     const seenChatIds = new Set();    // 히스토리/라이브 중복 제거
 
@@ -70,8 +140,8 @@
       const pre = document.getElementById('log');
       pre.textContent += args.join(' ') + "\n";
       pre.scrollTop = pre.scrollHeight;
+      console.log(...args);
     }
-
     function setSendUI(enabled){
       document.getElementById('msgInput').disabled = !enabled;
       document.getElementById('sendBtn').disabled = !enabled;
@@ -87,31 +157,109 @@
       return true;
     }
 
+    // JWT에서 userId(또는 sub) 보강 파싱
+    function parseJwtUserId(token) {
+      try {
+        const payload = token.split('.')[1];
+        const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        return json.userId || json.sub || json.uid || null;
+      } catch { return null; }
+    }
+
+    // ======= 렌더러 =======
+    function renderSystem(m) {
+      const chat = document.getElementById('chat');
+      const row = document.createElement('div');
+      row.className = 'system';
+      const span = document.createElement('span');
+      span.textContent = m.message || m.content || '';
+      row.appendChild(span);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function isSystemType(t){
+      const type = (t || '').toString().toUpperCase();
+      return type === 'SYSTEM' || type.startsWith('SYSTEM_');
+    }
+
+    function renderChatBubble(m) {
+      // SYSTEM이 들어오면 강제로 시스템 렌더로 보냄(안전장치)
+      if (isSystemType(m.messageType)) { renderSystem(m); return; }
+
+      const mine = (typeof m.mine === 'boolean')
+        ? m.mine
+        : (m.senderId && myUserId && String(m.senderId).trim() === String(myUserId).trim());
+
+      const nick = mine ? '나' : (m.senderNickname || '상대');
+      const avatarUrl = m.senderProfileImageUrl || null;
+
+      const chat = document.getElementById('chat');
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + (mine ? 'right' : 'left');
+
+      // 왼쪽(상대)만 아바타
+      if (!mine) {
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        if (avatarUrl) {
+          const img = document.createElement('img');
+          img.src = avatarUrl; img.alt = nick;
+          avatar.appendChild(img);
+        } else {
+          avatar.textContent = (nick || '상').slice(0,2);
+        }
+        wrap.appendChild(avatar);
+      }
+
+      const body = document.createElement('div');
+      body.style.maxWidth = '100%';
+
+      const nickEl = document.createElement('div');
+      nickEl.className = 'nick';
+      nickEl.textContent = mine ? '나' : nick;
+      if (mine) nickEl.style.visibility = 'hidden'; // 필요 시 표시로 변경 가능
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = m.message || '';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = m.timeLabel || '';
+
+      body.appendChild(nickEl);
+      body.appendChild(bubble);
+      body.appendChild(meta);
+      wrap.appendChild(body);
+
+      chat.appendChild(wrap);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function renderMessage(m) {
+      if (isSystemType(m.messageType)) renderSystem(m);
+      else renderChatBubble(m);
+    }
+
+    // ======= STOMP 연결 =======
     function buildClient(serverUrl){
       socket = new WebSocket(serverUrl);
       client = Stomp.over(socket);
-      client.debug = () => {}; // 콘솔 디버그 비활성
-
-      // 하트비트(서버 설정과 맞춰주세요)
-      client.heartbeat.outgoing = 10000; // client -> server
-      client.heartbeat.incoming = 0;     // server -> client
-
+      client.debug = () => {};
+      client.heartbeat.outgoing = 10000;
+      client.heartbeat.incoming = 0;
       socket.onclose = (e) => {
         log('WS CLOSED:', e.code, e.reason || '');
-        scheduleReconnect();   // 토큰 없으면 아래 가드로 재연결 안 함
+        scheduleReconnect();
         setSendUI(false);
       };
     }
 
-    // 토큰 없으면 재연결 스케줄링 자체를 하지 않음(초기 INVALID_TOKEN 방지)
     function scheduleReconnect(){
       if (reconnectTimer || (client && client.connected)) return;
-
       const token = document.getElementById('token').value.trim();
-      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) {
-        return; // 토큰 준비 전엔 조용히 대기
-      }
-
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) return;
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
         log(`RECONNECTING... (delay=${backoffMs}ms)`);
@@ -152,9 +300,9 @@
             if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
             backoffMs = 2000;
 
-            myUserId = frame.headers['user-name'] || null; // Interceptor에서 세팅 가능
-            log('CONNECTED:', JSON.stringify(frame.headers));
-            if (!myUserId) log('WARN: user-name header not found!');
+            myUserId = frame.headers['user-name'] || parseJwtUserId(token) || null;
+            log('CONNECTED headers:', JSON.stringify(frame.headers));
+            if (!myUserId) log('WARN: user-name header not found & JWT parse failed!');
 
             // 끊겼다 붙으면 기존 구독 복원
             if (subscriptions.size > 0) {
@@ -175,27 +323,21 @@
       });
     }
 
+    // ======= 구독 & 입장 =======
     function doSubscribe(roomId){
-      if (!client || !client.connected) {
-        log('NOT_CONNECTED');
-        return;
-      }
-      if (subscriptions.has(roomId)) {
-        log('ALREADY SUBSCRIBED:', roomId);
-        return;
-      }
+      if (!client || !client.connected) { log('NOT_CONNECTED'); return; }
+      if (subscriptions.has(roomId)) { log('ALREADY SUBSCRIBED:', roomId); return; }
+
       const sub = client.subscribe(`/sub/rooms/${roomId}`, msg => {
         try {
           const data = JSON.parse(msg.body);
 
-          // 중복 제거
+          // 중복 제거 (히스토리/라이브 공통)
           if (data.chatId && seenChatIds.has(data.chatId)) return;
           if (data.chatId) seenChatIds.add(data.chatId);
 
-          // **내 메시지 숨김 제거** — 서버가 save를 그대로 브로드캐스트하므로 내 것도 표시
-          // (원하면 senderId === myUserId 로 스타일만 다르게 처리)
-
-          log('RECV:', msg.body);
+          // RECV만 렌더링
+          renderMessage(data);
         } catch(e) {
           log('PARSE_ERROR:', e.message);
         }
@@ -210,15 +352,13 @@
       const serverUrl = document.getElementById('serverUrl').value.trim();
       if (!roomId) return log('ROOM_ID_REQUIRED');
 
-      // Enter 시 토큰 가드
       if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) {
         alert('JWT를 먼저 입력하세요.');
         return;
       }
 
       try {
-        // (그룹방) 멤버십 join: 컨트롤러가 cafeId를 PathVar로 받는다면
-        // 여기 입력값은 "카페 ID"여야 합니다.
+        // 그룹방이면 선-가입
         if (opts.isGroup){
           await fetch(`/api/chat/rooms/group/${roomId}/join`, {
             method: 'POST',
@@ -232,22 +372,20 @@
         // 구독 보장
         doSubscribe(String(roomId));
 
-        // 히스토리 로드(백: ApiResponse<Page<ChatResponseDTO>>)
+        // 히스토리 로드 (서버: ApiResponse<Page<ChatResponseDTO>> 가정)
         const res = await fetch(`/api/rooms/${roomId}/messages?includeSystem=true`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
-        const body = await res.json();          // ApiResponse wrapper
-        const page = body?.data;                // Page<ChatResponseDTO>
+        const body = await res.json();
+        const page = body?.data;
         if (page && Array.isArray(page.content)) {
-          // 백엔드는 chatId DESC로 주니까, 화면엔 오래된→최신 순으로 보이게 뒤집어서 출력
-          const items = [...page.content].reverse();
+          const items = [...page.content].reverse(); // 오래된→최신 순
           items.forEach(m => {
             if (m.chatId && seenChatIds.has(m.chatId)) return;
             if (m.chatId) seenChatIds.add(m.chatId);
-            log('HISTORY:', JSON.stringify(m));
+            renderMessage(m);
           });
         }
-
         setSendUI(true);
         log('ENTERED ROOM:', roomId);
       } catch (e) {
@@ -268,6 +406,7 @@
       log('LEFT ROOM:', key);
     }
 
+    // ======= 전송 =======
     function sendMsg(){
       if (!client || !client.connected) return log('NOT_CONNECTED');
       const roomId = document.getElementById('roomId').value.trim();
@@ -275,8 +414,9 @@
       if (!roomId) return log('ROOM_ID_REQUIRED');
       if (!content || !content.trim()) return;
 
+      // 화면에는 즉시 추가하지 않고 RECV만 렌더링 (중복 방지)
       client.send(`/pub/rooms/${roomId}`, {}, JSON.stringify({ message: content }));
-      log('SENT:', content);
+      log('SENT (await RECV):', content);
       document.getElementById('msgInput').value = '';
     }
 

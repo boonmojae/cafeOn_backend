@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.chat.service;
 
 import com.b1a4.cafeOn.chat.dto.chat.ChatRequestDTO;
 import com.b1a4.cafeOn.chat.dto.chat.ChatResponseDTO;
+import com.b1a4.cafeOn.chat.dto.chat.CursorPage;
 import com.b1a4.cafeOn.chat.entity.ChatEntity;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.enums.ChatMessageType;
@@ -16,11 +17,12 @@ import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @Slf4j
@@ -60,14 +62,17 @@ public class ChatService {
         // 메시지 저장
         ChatEntity saveChat = chatRepository.save(ChatEntity.text(room, sender, chatRequestDTO.message()));
 
+        log.info("[SVC][SAVE] roomId={}, chatId={}, senderId={}, type={}",
+                roomId, saveChat.getChatId(), saveChat.getSender().getUserId(), saveChat.getMessageType());
+
         // DTO 반환
-        return toDto(saveChat, senderId, null);
+        return toDto(saveChat, null, null);
 
     }
 
     // 메시지 조회
     @Transactional(readOnly = true)
-    public Page<ChatResponseDTO> getHistory(Long roomId, Long beforeId, Pageable pageable, String viewerId, boolean includeSystem) {
+    public CursorPage<ChatResponseDTO> getHistory(Long roomId, Long beforeId, int size, String viewerId, boolean includeSystem) {
 
         // 채팅방 검증
         ChatRoomEntity room = chatRoomRepository.findById(roomId)
@@ -79,40 +84,53 @@ public class ChatService {
             throw new NotChatRoomMemberException();
         }
 
-        Page<ChatEntity> page;
+        Pageable pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "chatId"));
 
+        Slice<ChatEntity> slice;
 
         // 시스템 메세지 포함/미포함
         if (includeSystem) {
-            page = (beforeId == null)
+            slice = (beforeId == null)
                     ? chatRepository.findByChatRoom_ChatRoomIdOrderByChatIdDesc(roomId, pageable)
                     : chatRepository.findByChatRoom_ChatRoomIdAndChatIdLessThanOrderByChatIdDesc(roomId, beforeId, pageable);
         } else {
-            page = (beforeId == null)
+            slice = (beforeId == null)
                     ? chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeOrderByChatIdDesc(roomId, ChatMessageType.TEXT, pageable)
                     : chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeAndChatIdLessThanOrderByChatIdDesc(roomId, ChatMessageType.TEXT, beforeId, pageable);
         }
-        return page.map(e -> toDto(e, viewerId, null));
+
+        List<ChatResponseDTO> items = slice.getContent().stream()
+                .map(e -> toDto(e, viewerId, null))
+                .toList();
+
+        Long nextCursor = null;
+        if (slice.hasNext() && !items.isEmpty()) {
+            nextCursor = items.get(items.size() - 1).getChatId();
+        }
+
+        return new CursorPage<>(items, nextCursor, slice.hasNext());
 
     }
 
     // 시스템 메세지 mine=false, 탈퇴자는 알수없음
+    // ResponseDTO에서 b -> B로 수정(b상태이면 false/true중 하나가 나가서 브로드캐스트 시 문제가 재발)
     private ChatResponseDTO toDto(ChatEntity e, String viewerId, String timeLabel) {
         boolean isSystem = e.getMessageType() != ChatMessageType.TEXT;
 
-        String senderId = DisplayMasking.safeUserId(e.getSender(), true);
-        String nickname = DisplayMasking.nicknameOf(e.getSender());
+        String senderIdReal = (e.getSender() != null ? e.getSender().getUserId() : null);
+
+        String nickname   = DisplayMasking.nicknameOf(e.getSender());
         String profileUrl = DisplayMasking.profileUrlOf(e.getSender());
 
-        boolean mine = !isSystem
-                && e.getSender() != null
-                && viewerId != null
-                && viewerId.equals(e.getSender().getUserId());
+        Boolean mine = null;
+        if (!isSystem && e.getSender() != null && viewerId != null) {
+            mine = viewerId.equals(e.getSender().getUserId());
+        }
 
         return ChatResponseDTO.builder()
                 .chatId(e.getChatId())
                 .roomId(e.getChatRoom().getChatRoomId())
-                .senderId(senderId)
+                .senderId(senderIdReal)
                 .message(e.getMessage())
                 .createdAt(e.getCreatedAt())
                 .timeLabel(timeLabel)
@@ -144,12 +162,12 @@ public class ChatService {
         ChatResponseDTO dto = ChatResponseDTO.builder()
                 .chatId(saved.getChatId())
                 .roomId(roomId)
-                .senderId(DisplayMasking.safeUserId(saved.getSender(), true))
-                .senderNickname(DisplayMasking.nicknameOf(saved.getSender()))
-                .senderProfileImageUrl(DisplayMasking.profileUrlOf(saved.getSender()))
+                .senderId(null) // 시스템은 발신자 없음
+                .senderNickname(null)
+                .senderProfileImageUrl(null)
                 .message(saved.getMessage())
                 .createdAt(saved.getCreatedAt())
-                .mine(false)
+                .mine(null) // false -> 브로드캐스트에서는 mine 세팅 X
                 .messageType(saved.getMessageType())
                 .build();
 
