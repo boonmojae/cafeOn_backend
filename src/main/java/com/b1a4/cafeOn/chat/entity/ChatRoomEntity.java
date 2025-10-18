@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -60,6 +62,14 @@ public class ChatRoomEntity {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<ChatRoomMemberEntity> chatRoomMembers = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<ChatEntity> chats = new ArrayList<>();
 
 
     @PrePersist

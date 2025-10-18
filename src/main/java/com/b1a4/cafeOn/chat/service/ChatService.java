@@ -22,7 +22,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @Slf4j
@@ -35,11 +38,29 @@ public class ChatService {
     private final UserRepository userRepository;
     private final SimpMessagingTemplate template;
 
+    // 시간 포맷(Asia/Seoul 기준)
+    private static final ZoneId Z_SEOUL = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter FMT_TODAY   = DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN);
+    private static final DateTimeFormatter FMT_THISYR  = DateTimeFormatter.ofPattern("M월 d일 a h:mm", Locale.KOREAN);
+    private static final DateTimeFormatter FMT_OTHERYR = DateTimeFormatter.ofPattern("yyyy.MM.dd a h:mm", Locale.KOREAN);
+
+    private String buildTimeLabel(LocalDateTime createdAt) {
+        ZonedDateTime zdt = createdAt.atZone(Z_SEOUL);
+        LocalDate today = LocalDate.now(Z_SEOUL);
+        LocalDate d = zdt.toLocalDate();
+
+        if (d.isEqual(today)) {
+            return zdt.format(FMT_TODAY);      // "오전 9:05"
+        }
+        if (d.getYear() == today.getYear()) {
+            return zdt.format(FMT_THISYR);     // "10월 18일 오후 3:21"
+        }
+        return zdt.format(FMT_OTHERYR);        // "2024.12.31 오후 11:40"
+    }
 
     // 메시지 저장
     @Transactional
     public ChatResponseDTO saveChat(Long roomId, String senderId, ChatRequestDTO chatRequestDTO) {
-
         // 메시지 공백 예외
         if (chatRequestDTO == null || chatRequestDTO.message() == null || chatRequestDTO.message().isBlank()) {
             throw new EmptyMessageException();
@@ -60,22 +81,21 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자"));
 
         // 메시지 저장
-        ChatEntity saveChat = chatRepository.save(ChatEntity.text(room, sender, chatRequestDTO.message()));
+        ChatEntity saved = chatRepository.save(ChatEntity.text(room, sender, chatRequestDTO.message()));
 
         log.info("[SVC][SAVE] roomId={}, chatId={}, senderId={}, type={}",
-                roomId, saveChat.getChatId(), saveChat.getSender().getUserId(), saveChat.getMessageType());
+                roomId, saved.getChatId(), saved.getSender().getUserId(), saved.getMessageType());
 
-        // DTO 반환
-        return toDto(saveChat, null, null);
-
+        // DTO 반환 (viewerId 없음)
+        return toDto(saved, null);
     }
 
-    // 메시지 조회
+    // 이전 메시지 조회(커서+슬라이스)
     @Transactional(readOnly = true)
     public CursorPage<ChatResponseDTO> getHistory(Long roomId, Long beforeId, int size, String viewerId, boolean includeSystem) {
 
         // 채팅방 검증
-        ChatRoomEntity room = chatRoomRepository.findById(roomId)
+        chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
 
         // 채팅방 멤버인지 검증
@@ -85,10 +105,9 @@ public class ChatService {
         }
 
         Pageable pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "chatId"));
-
         Slice<ChatEntity> slice;
 
-        // 시스템 메세지 포함/미포함
+        // 시스템 메시지 포함/미포함
         if (includeSystem) {
             slice = (beforeId == null)
                     ? chatRepository.findByChatRoom_ChatRoomIdOrderByChatIdDesc(roomId, pageable)
@@ -100,7 +119,7 @@ public class ChatService {
         }
 
         List<ChatResponseDTO> items = slice.getContent().stream()
-                .map(e -> toDto(e, viewerId, null))
+                .map(e -> toDto(e, viewerId))
                 .toList();
 
         Long nextCursor = null;
@@ -109,16 +128,14 @@ public class ChatService {
         }
 
         return new CursorPage<>(items, nextCursor, slice.hasNext());
-
     }
 
-    // 시스템 메세지 mine=false, 탈퇴자는 알수없음
-    // ResponseDTO에서 b -> B로 수정(b상태이면 false/true중 하나가 나가서 브로드캐스트 시 문제가 재발)
-    private ChatResponseDTO toDto(ChatEntity e, String viewerId, String timeLabel) {
+    // 시스템 메시지면 timeLabel = null
+    // 일반(TEXT) 메시지만 timeLabel 표시
+    private ChatResponseDTO toDto(ChatEntity e, String viewerId) {
         boolean isSystem = e.getMessageType() != ChatMessageType.TEXT;
 
         String senderIdReal = (e.getSender() != null ? e.getSender().getUserId() : null);
-
         String nickname   = DisplayMasking.nicknameOf(e.getSender());
         String profileUrl = DisplayMasking.profileUrlOf(e.getSender());
 
@@ -126,6 +143,8 @@ public class ChatService {
         if (!isSystem && e.getSender() != null && viewerId != null) {
             mine = viewerId.equals(e.getSender().getUserId());
         }
+
+        String timeLabel = isSystem ? null : buildTimeLabel(e.getCreatedAt());
 
         return ChatResponseDTO.builder()
                 .chatId(e.getChatId())
@@ -150,7 +169,7 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
 
         // 30초 내 동일 이벤트 있으면 무시(선택)
-        var cutoff = java.time.LocalDateTime.now().minusSeconds(30);
+        var cutoff = LocalDateTime.now().minusSeconds(30);
         if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
                 roomId, actorUserId, ChatMessageType.SYSTEM_JOIN, cutoff)) {
             return;
@@ -158,7 +177,7 @@ public class ChatService {
 
         ChatEntity saved = chatRepository.save(ChatEntity.systemJoin(room, actor));
 
-        // DTO 만들어 브로드캐스트 (시스템 메시지는 mine=false 고정)
+        // 시스템 메시지는 timeLabel 없이 브로드캐스트
         ChatResponseDTO dto = ChatResponseDTO.builder()
                 .chatId(saved.getChatId())
                 .roomId(roomId)
@@ -167,12 +186,42 @@ public class ChatService {
                 .senderProfileImageUrl(null)
                 .message(saved.getMessage())
                 .createdAt(saved.getCreatedAt())
-                .mine(null) // false -> 브로드캐스트에서는 mine 세팅 X
+                .mine(null) // 브로드캐스트에서는 mine 세팅 X
                 .messageType(saved.getMessageType())
                 .build();
 
         template.convertAndSend("/sub/rooms/" + roomId, dto);
     }
 
+    // 시스템 퇴장 메시지
+    @Transactional
+    public void publishSystemLeave(Long roomId, String actorUserId) {
+        ChatRoomEntity room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
+        UserEntity actor = userRepository.findById(actorUserId)
+                .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
 
+        var cutoff = LocalDateTime.now().minusSeconds(30);
+        if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
+                roomId, actorUserId, ChatMessageType.SYSTEM_LEAVE, cutoff)) {
+            return;
+        }
+
+        ChatEntity saved = chatRepository.save(ChatEntity.systemLeave(room, actor));
+
+        // 시스템 메시지는 timeLabel 없이 브로드캐스트
+        ChatResponseDTO dto = ChatResponseDTO.builder()
+                .chatId(saved.getChatId())
+                .roomId(roomId)
+                .senderId(null)
+                .senderNickname(null)
+                .senderProfileImageUrl(null)
+                .message(saved.getMessage())
+                .createdAt(saved.getCreatedAt())
+                .mine(null)
+                .messageType(saved.getMessageType())
+                .build();
+
+        template.convertAndSend("/sub/rooms/" + roomId, dto);
+    }
 }
