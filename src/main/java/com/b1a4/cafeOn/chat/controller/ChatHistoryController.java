@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 
 @RestController
-@RequestMapping("/api/rooms")
+@RequestMapping("/api/chat/rooms")
 @RequiredArgsConstructor
 @Slf4j
 public class ChatHistoryController {
