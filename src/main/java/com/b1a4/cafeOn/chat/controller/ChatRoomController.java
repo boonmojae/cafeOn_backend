@@ -20,7 +20,7 @@ public class ChatRoomController {
     private final ChatRoomMemberService chatRoomMemberService;
 
     // 채팅방 나가기
-    @DeleteMapping("/{roomId}")
+    @DeleteMapping("/{roomId}/leave")
     public ResponseEntity<?> leaveChatRoom(@AuthenticationPrincipal String userId, @PathVariable Long roomId) {
 
         try {

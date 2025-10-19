@@ -463,7 +463,7 @@
       }
 
       try {
-        const res = await fetch(`/api/chat/rooms/${roomId}`, {
+        const res = await fetch(`/api/chat/rooms/${roomId}/leave`, {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + token }
         });
