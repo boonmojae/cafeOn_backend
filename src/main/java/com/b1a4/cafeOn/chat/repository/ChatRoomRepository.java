@@ -26,6 +26,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
     Optional<ChatRoomEntity> findByTypeAndCafeIdForUpdate(@Param("type") RoomType type,
                                                           @Param("cafeId") Long cafeId);
 
+    // fixme
     // CafeEntity 없음 JPQL -> 네이티브 쿼리로 변경
 //    @Query("""
 //            SELECT c.name
@@ -34,5 +35,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
 //            """)
     @Query(value = "SELECT c.name FROM cafes c WHERE c.cafe_id = :cafeId", nativeQuery = true)
     Optional<String> findNameById(@Param("cafeId") Long cafeId);
+
+
 
 }
