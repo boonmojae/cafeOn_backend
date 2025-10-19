@@ -29,7 +29,6 @@
           gap: 8px;
         }
 
-        /* 일반 채팅 (예전 스타일 유지) */
         .msg { display: flex; align-items: flex-end; gap: 8px; max-width: 80%; }
         .msg.left { justify-content: flex-start; }
         .msg.right { margin-left: auto; justify-content: flex-end; }
@@ -40,7 +39,6 @@
         }
         .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        /* 말풍선과 시간 배치를 같은 행으로 */
         .bubble-row { display:flex; align-items:flex-end; gap:6px; }
         .bubble {
           border-radius: 14px;
@@ -55,30 +53,20 @@
         .nick { font-size: 12px; color: #6b7280; margin: 0 0 4px 2px; }
         .right .nick { text-align: right; color:#93c5fd; }
 
-        /* 시간(메타) 배지 — 작은 회색, 줄바꿈 방지 */
         .meta {
           font-size: 11px; color: #9ca3af; white-space: nowrap; user-select: none;
           min-width: 42px; text-align: right;
         }
-        .right .meta { color: #dbeafe; } /* 내 말풍선일 때도 대비 충분 */
+        .right .meta { color: #dbeafe; }
 
         .input-row { display:flex; gap:8px; align-items:center; }
         .input-row input[type="text"] { flex:1; }
         pre#log { background:#0f172a;color:#a7f3d0;padding:12px;height:160px;overflow:auto;border-radius:8px; margin-top:10px; }
-
-        /* 시스템 메시지: 가운데·회색 필 */
-        .system {
-          display: flex;
-          justify-content: center;
-          margin: 6px 0;
-        }
+        pre#noti { background:#111827;color:#fef9c3;padding:12px;height:120px;overflow:auto;border-radius:8px; margin-top:10px; }
+        .system { display: flex; justify-content: center; margin: 6px 0; }
         .system > span {
-          max-width: 80%;
-          font-size: 12px;
-          color: #475569;
-          background: #e5e7eb;
-          padding: 6px 10px;
-          border-radius: 999px;
+          max-width: 80%; font-size: 12px; color: #475569; background: #e5e7eb;
+          padding: 6px 10px; border-radius: 999px;
         }
     </style>
 </head>
@@ -98,12 +86,12 @@
     <input id="roomId" class="small" type="text" value="1">
     <label style="min-width:auto">그룹방?</label>
     <input id="isGroup" type="checkbox" checked>
-    <span class="muted">체크 시 입장 전 REST join 수행 (컨트롤러가 cafeId를 받으면 입력값=카페ID)</span>
+    <span class="muted">체크 시 입장 전 REST join 수행 (입력값=카페ID)</span>
 </div>
 <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <label>Leave시 소켓도 끊기?</label>
     <input id="disconnectOnLeave" type="checkbox">
-    <span class="muted">여러 방을 이동한다면 체크 끄는 것을 권장</span>
+    <span class="muted">여러 방 이동 시 체크 끄는 것을 권장</span>
 </div>
 
 <div class="controls">
@@ -121,8 +109,9 @@
     <button id="sendBtn" disabled>Send</button>
 </div>
 
-<!-- optional debug -->
+<!-- logs -->
 <pre id="log"></pre>
+<pre id="noti"></pre>
 
 <script>
     // ======= 상태 =======
@@ -136,13 +125,7 @@
     const subscriptions = new Map();  // roomId -> {sub}
     const seenChatIds = new Set();    // 히스토리/라이브 중복 제거
 
-    // “같은 보낸 사람 & 같은 분” 묶음에서 마지막 버블에만 시간 표시
-    let lastMsgCtx = {
-      senderId: null,
-      minuteKey: null,
-      metaEl: null,   // 직전 버블의 .meta
-      isSystem: false
-    };
+    let lastMsgCtx = { senderId: null, minuteKey: null, metaEl: null, isSystem: false };
 
     // ======= 유틸 =======
     function log(...args){
@@ -150,6 +133,12 @@
       pre.textContent += args.join(' ') + "\n";
       pre.scrollTop = pre.scrollHeight;
       console.log(...args);
+    }
+    function noti(...args){
+      const pre = document.getElementById('noti');
+      pre.textContent += args.join(' ') + "\n";
+      pre.scrollTop = pre.scrollHeight;
+      console.log('[NOTI]', ...args);
     }
     function setSendUI(enabled){
       document.getElementById('msgInput').disabled = !enabled;
@@ -183,9 +172,7 @@
     function unsubscribeRoom(roomId){
       const key = String(roomId);
       const entry = subscriptions.get(key);
-      if (entry && entry.sub) {
-        try { entry.sub.unsubscribe(); } catch(_) {}
-      }
+      if (entry && entry.sub) { try { entry.sub.unsubscribe(); } catch(_) {} }
       subscriptions.delete(key);
     }
 
@@ -202,6 +189,11 @@
     }
 
     // ======= 렌더러 =======
+    function isSystemType(t){
+      const type = (t || '').toString().toUpperCase();
+      return type === 'SYSTEM' || type.startsWith('SYSTEM_');
+    }
+
     function renderSystem(m) {
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
@@ -212,13 +204,7 @@
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
 
-      // 시스템 메시지는 묶음을 끊는다
       lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:true };
-    }
-
-    function isSystemType(t){
-      const type = (t || '').toString().toUpperCase();
-      return type === 'SYSTEM' || type.startsWith('SYSTEM_');
     }
 
     function renderChatBubble(m) {
@@ -256,7 +242,6 @@
       nickEl.textContent = mine ? '나' : nick;
       if (mine) nickEl.style.visibility = 'hidden';
 
-      // === 말풍선 & 시간 한 줄 구성 ===
       const row = document.createElement('div');
       row.className = 'bubble-row';
 
@@ -267,26 +252,18 @@
       const meta = document.createElement('div');
       meta.className = 'meta';
 
-      // 그룹(같은 보낸 사람+같은 분) 마지막만 시간 표시
       const curMinuteKey = minuteKeyOf(m.createdAt);
       const sameSender = !!(lastMsgCtx.senderId && m.senderId && String(lastMsgCtx.senderId) === String(m.senderId));
       const sameMinute = !!(lastMsgCtx.minuteKey && curMinuteKey && lastMsgCtx.minuteKey === curMinuteKey);
       const sameRun = sameSender && sameMinute && !lastMsgCtx.isSystem;
 
       if (sameRun && lastMsgCtx.metaEl) {
-        lastMsgCtx.metaEl.textContent = ''; // 직전 버블의 시간 지움
+        lastMsgCtx.metaEl.textContent = '';
       }
       meta.textContent = m.timeLabel || '';
 
-      // 내가 보낸 메시지: [시간(meta), 말풍선(bubble)]
-      // 남이 보낸 메시지: [말풍선(bubble), 시간(meta)]
-      if (mine) {
-        row.appendChild(meta);
-        row.appendChild(bubble);
-      } else {
-        row.appendChild(bubble);
-        row.appendChild(meta);
-      }
+      if (mine) { row.appendChild(meta); row.appendChild(bubble); }
+      else { row.appendChild(bubble); row.appendChild(meta); }
 
       body.appendChild(nickEl);
       body.appendChild(row);
@@ -295,7 +272,6 @@
       chat.appendChild(wrap);
       chat.scrollTop = chat.scrollHeight;
 
-      // 컨텍스트 갱신
       lastMsgCtx = {
         senderId: m.senderId || (mine ? myUserId : null),
         minuteKey: curMinuteKey,
@@ -371,6 +347,16 @@
             log('CONNECTED headers:', JSON.stringify(frame.headers));
             if (!myUserId) log('WARN: user-name header not found & JWT parse failed!');
 
+            // ✅ 개인 알림 구독 (벨)
+            client.subscribe('/user/queue/notifications', (msg) => {
+              try {
+                const n = JSON.parse(msg.body);
+                noti('NOTI:', JSON.stringify(n));
+              } catch(e) {
+                noti('NOTI_PARSE_ERR:', e.message);
+              }
+            });
+
             // 재연결 시 기존 구독 복원
             if (subscriptions.size > 0) {
               const rooms = [...subscriptions.keys()];
@@ -438,7 +424,6 @@
         const page = body?.data;
         const arr = page?.items || page?.content || [];
         if (Array.isArray(arr)) {
-          // 오래된 → 최신 순
           [...arr].reverse().forEach(m => {
             if (m.chatId && seenChatIds.has(m.chatId)) return;
             if (m.chatId) seenChatIds.add(m.chatId);
@@ -453,7 +438,7 @@
       }
     }
 
-    // ======= 나가기(REST DELETE + 구독해제 + 선택적 소켓 해제) =======
+    // ======= 나가기 =======
     async function leaveRoom(roomId){
       if (!roomId) return log('ROOM_ID_REQUIRED');
       const token = document.getElementById('token').value.trim();
@@ -463,7 +448,7 @@
       }
 
       try {
-        const res = await fetch(`/api/chat/rooms/${roomId}/leave`, {
+        const res = await fetch(`/api/chat/rooms/${roomId}/members/me/leave`, {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + token }
         });

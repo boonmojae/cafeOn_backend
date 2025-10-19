@@ -16,13 +16,13 @@ import java.time.LocalDateTime;
 public class NotificationResponseDTO {
 
     private Long notificationId;
+    private Long roomId;
+    private Long chatId;
+
     private String content;
     private boolean read;
     private LocalDateTime createdAt;
     private String timeLabel;
-
-    private Long roomId;
-    private Long chatId;
 
     private String displayName;
     private String deeplink;

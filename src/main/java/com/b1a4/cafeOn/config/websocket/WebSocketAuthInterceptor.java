@@ -27,50 +27,62 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         StompHeaderAccessor acc = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
         if (acc == null) return message;
 
-        if (StompCommand.CONNECT.equals(acc.getCommand())) {
+        StompCommand cmd = acc.getCommand();
+        if (cmd == null) return message;
+
+        // CONNECT에서만 JWT 파싱/Principal 세팅
+        if (StompCommand.CONNECT.equals(cmd)) {
             String bearer = first(acc.getNativeHeader("Authorization"));
             if (bearer == null) bearer = first(acc.getNativeHeader("authorization"));
 
             String token = stripBearer(bearer);
             if (token == null || token.isBlank()) {
-                return null;
+                throw new AccessDeniedException("MISSING_AUTHORIZATION");
             }
-
             try {
                 Map<String, String> claims = tokenProvider.validateAndExtractClaims(token, "access");
-                if (claims == null) {
-                    return null;
-                }
+                if (claims == null) throw new AccessDeniedException("INVALID_TOKEN");
                 String userId = claims.get("userId");
-                if (userId == null || userId.isBlank()) {
-                    throw new AccessDeniedException("NO_USER_ID_IN_TOKEN");
-                }
+                if (userId == null || userId.isBlank()) throw new AccessDeniedException("NO_USER_ID_IN_TOKEN");
+
                 acc.setUser(new UsernamePasswordAuthenticationToken(
                         userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))));
             } catch (Exception e) {
-                System.out.println("[WS][CONNECT] JWT parse/validate failed: " + e);
                 throw new AccessDeniedException("INVALID_TOKEN");
             }
+            return message;
         }
 
-        if (StompCommand.SUBSCRIBE.equals(acc.getCommand())) {
+        // SUBSCRIBE 목적지 검증: 방(/sub/rooms/..), 개인큐(/user/queue/..)
+        if (StompCommand.SUBSCRIBE.equals(cmd)) {
             String dest = acc.getDestination();
-            if (dest == null || !dest.startsWith("/sub/rooms/")) {
-                throw new AccessDeniedException("INVALID_DESTINATION");
+            if (dest == null) throw new AccessDeniedException("MISSING_DESTINATION");
+
+            if (dest.startsWith("/sub/rooms/")) {
+
+                return message;
             }
+            if (dest.startsWith("/user/queue/")) {
+                return message; // 알림 구독 허용
+            }
+            throw new AccessDeniedException("INVALID_DESTINATION: " + dest);
         }
 
-        if (StompCommand.DISCONNECT.equals(acc.getCommand())) {
+        // DISCONNECT 정리(옵션)
+        if (StompCommand.DISCONNECT.equals(cmd)) {
             var attrs = acc.getSessionAttributes();
             if (attrs != null) attrs.remove("rooms");
+            return message;
+        }
+
+        // SEND/ACK 등은 기본 통과(Principal 있는지만 간단 확인)
+        if (acc.getUser() == null) {
+            throw new AccessDeniedException("UNAUTHENTICATED_FRAME");
         }
         return message;
     }
 
-    private String first(List<String> xs) {
-        return (xs != null && !xs.isEmpty()) ? xs.get(0) : null;
-    }
-
+    private String first(List<String> xs) { return (xs != null && !xs.isEmpty()) ? xs.get(0) : null; }
     private String stripBearer(String v) {
         if (v == null) return null;
         v = v.trim();
