@@ -1,9 +1,13 @@
 package com.b1a4.cafeOn.chat.service;
 
+import com.b1a4.cafeOn.chat.dto.chat.UnreadItemDTO;
+import com.b1a4.cafeOn.chat.dto.chat.UnreadSummaryDTO;
 import com.b1a4.cafeOn.chat.dto.notification.NotificationPushDTO;
 import com.b1a4.cafeOn.chat.entity.ChatEntity;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
+import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import com.b1a4.cafeOn.chat.entity.NotificationEntity;
+import com.b1a4.cafeOn.chat.repository.ChatRoomMemberRepository;
 import com.b1a4.cafeOn.chat.repository.NotificationRepository;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
@@ -23,6 +27,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate simpMessagingTemplate;
+    private final ChatRoomMemberRepository chatRoomMemberRepository;
 
     @Transactional
     public void createNewChatNotifications(List<String> targetUserIds, ChatRoomEntity room, ChatEntity chat) {
@@ -67,7 +72,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationPushDTO> listUnreadForHeader(String userId) {
         // N+1 방지: 필요시 fetch join 쿼리로 교체
-        return notificationRepository.findUnreadByUser(userId).stream()
+        return notificationRepository.findUnreadByUserExcludingMuted(userId).stream()
                 .map(n -> {
                     Long roomId = n.getChatRoom() != null ? n.getChatRoom().getChatRoomId() : null;
                     Long chatId = n.getChat() != null ? n.getChat().getChatId() : null;
@@ -93,6 +98,8 @@ public class NotificationService {
                 })
                 .toList();
     }
+
+
 
     @Transactional
     public void markRoomAsRead(String userId, Long roomId) {

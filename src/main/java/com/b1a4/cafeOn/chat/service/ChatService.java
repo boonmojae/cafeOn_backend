@@ -84,8 +84,14 @@ public class ChatService {
         ChatEntity chat = chatRepository.save(
                 ChatEntity.text(room, sender, chatRequestDTO.message().trim())
         );
+        
+        // 보낸 사람은 즉시 읽음 처리(내 unread=0, LastReadChatId 최신화)
+        chatRoomMemberRepository.markRoomRead(roomId, senderId, chat.getChatId());
 
-        // 대화형 메시지에만 unread/알림
+        // 보낸 사람의 해당 방 알림 모두 read=true
+        notificationService.markRoomAsRead(senderId, roomId);
+
+        // 메시지에만 unread/알림
         if (chat.getMessageType() == ChatMessageType.TEXT) {
             chatRoomMemberRepository.bulkIncreaseUnread(roomId, senderId);
 
@@ -105,6 +111,18 @@ public class ChatService {
 
         // 보낸 당사자에게는 mine=true로 응답
         return toDto(chat, senderId);
+    }
+
+
+    @Transactional
+    public void markRoomReadToLatest(Long roomId, String userId) {
+        if (!chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, userId)) {
+            throw new NotChatRoomMemberException();
+        }
+        Long maxId = chatRepository.findMaxChatIdByRoomId(roomId); // 없으면 0
+        chatRoomMemberRepository.markRoomRead(roomId, userId, maxId == null ? 0L : maxId);
+
+        notificationService.markRoomAsRead(userId, roomId);
     }
 
 

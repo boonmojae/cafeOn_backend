@@ -71,7 +71,7 @@
     </style>
 </head>
 <body>
-<h3>STOMP Chat Test (자동 연결·구독·히스토리·나가기)</h3>
+<h3>STOMP Chat Test (자동 연결·구독·히스토리/읽음·나가기)</h3>
 
 <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <label>Server (ws/wss):</label>
@@ -126,6 +126,15 @@
     const seenChatIds = new Set();    // 히스토리/라이브 중복 제거
 
     let lastMsgCtx = { senderId: null, minuteKey: null, metaEl: null, isSystem: false };
+    let unreadPollTimer = null;
+
+    // 현재 보고 있는 방(읽음 자동 처리용)
+    let currentRoomId = null;
+    let readLatestTimer = null;
+    function scheduleReadLatest(roomId) {
+      if (readLatestTimer) clearTimeout(readLatestTimer);
+      readLatestTimer = setTimeout(() => readLatest(roomId), 400); // 400ms 디바운스
+    }
 
     // ======= 유틸 =======
     function log(...args){
@@ -347,13 +356,13 @@
             log('CONNECTED headers:', JSON.stringify(frame.headers));
             if (!myUserId) log('WARN: user-name header not found & JWT parse failed!');
 
-            // ✅ 개인 알림 구독 (벨)
+            // ✅ 개인 알림 푸시 구독
             client.subscribe('/user/queue/notifications', (msg) => {
               try {
                 const n = JSON.parse(msg.body);
-                noti('NOTI:', JSON.stringify(n));
+                noti('PUSH: ' + JSON.stringify(n));
               } catch(e) {
-                noti('NOTI_PARSE_ERR:', e.message);
+                noti('NOTI_PARSE_ERR: ' + e.message);
               }
             });
 
@@ -362,13 +371,17 @@
               const rooms = [...subscriptions.keys()];
               subscriptions.clear();
               rooms.forEach(r => doSubscribe(r));
-              log('RESUBSCRIBED:', rooms.join(', '));
+              log('RESUBSCRIBED: ' + rooms.join(', '));
             }
+
+            // ✅ 뮤트 제외 알림 목록 폴링 시작
+            startUnreadPolling();
+
             resolve();
           },
           err => {
             connecting = false;
-            log('CONNECT ERROR:', (err && err.body) ? err.body : String(err));
+            log('CONNECT ERROR: ' + ((err && err.body) ? err.body : String(err)));
             scheduleReconnect();
             reject(new Error('CONNECT FAILED'));
           }
@@ -376,10 +389,36 @@
       });
     }
 
+    // ======= 알림 목록(뮤트 제외) 폴링 =======
+    function startUnreadPolling(){
+      stopUnreadPolling();
+      const token = document.getElementById('token').value.trim();
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) return;
+      const fn = async () => {
+        try {
+          const res = await fetch(`/api/notifications/unread`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          // ApiResponse<List<NotificationPushDTO>>
+          const items = Array.isArray(data?.data) ? data.data : [];
+          noti('UNREAD (count=' + items.length + '): ' + JSON.stringify(items));
+        } catch (e) {
+          // ignore
+        }
+      };
+      fn(); // 즉시 1회
+      unreadPollTimer = setInterval(fn, 30000); // 30초
+    }
+    function stopUnreadPolling(){
+      if (unreadPollTimer) { clearInterval(unreadPollTimer); unreadPollTimer = null; }
+    }
+
     // ======= 구독 & 입장 =======
     function doSubscribe(roomId){
       if (!client || !client.connected) { log('NOT_CONNECTED'); return; }
-      if (subscriptions.has(roomId)) { log('ALREADY SUBSCRIBED:', roomId); return; }
+      if (subscriptions.has(roomId)) { log('ALREADY SUBSCRIBED: ' + roomId); return; }
 
       const sub = client.subscribe(`/sub/rooms/${roomId}`, msg => {
         try {
@@ -387,13 +426,38 @@
           if (data.chatId && seenChatIds.has(data.chatId)) return;
           if (data.chatId) seenChatIds.add(data.chatId);
           renderMessage(data);
+
+          // ✅ 방을 실제로 보고 있는 중이고, TEXT면 최신까지 읽음 처리(디바운스)
+          if (String(currentRoomId) === String(roomId) && !isSystemType(data.messageType)) {
+            scheduleReadLatest(roomId);
+          }
         } catch(e) {
-          log('PARSE_ERROR:', e.message);
+          log('PARSE_ERROR: ' + e.message);
         }
       });
       subscriptions.set(roomId, { sub });
       log('SUBSCRIBED to /sub/rooms/' + roomId);
       setSendUI(true);
+    }
+
+    async function readLatest(roomId){
+      const token = document.getElementById('token').value.trim();
+      try {
+        const res = await fetch(`/api/chat/rooms/${roomId}/members/me/read-latest`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!res.ok && res.status !== 204) {
+          const t = await res.text().catch(()=> '');
+          log('READ-LATEST FAILED: ' + res.status + ' ' + t);
+        } else {
+          log('READ-LATEST OK');
+          // 읽음 처리 후 목록 다시 조회
+          startUnreadPolling();
+        }
+      } catch (e) {
+        log('READ-LATEST ERROR: ' + (e.message || String(e)));
+      }
     }
 
     async function enterRoom(roomId, opts = { isGroup: true }){
@@ -417,6 +481,7 @@
         await ensureConnected(serverUrl, token);
         doSubscribe(String(roomId));
 
+        // 1) 히스토리 로드 (includeSystem=true)
         const res = await fetch(`/api/chat/rooms/${roomId}/messages?includeSystem=true`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -430,10 +495,15 @@
             renderMessage(m);
           });
         }
+
+        // 2) ✅ 최신까지 읽음 처리(입장 시 1회)
+        await readLatest(roomId);
+
         setSendUI(true);
-        log('ENTERED ROOM:', roomId);
+        log('ENTERED ROOM: ' + roomId);
+        currentRoomId = String(roomId);
       } catch (e) {
-        log('ENTER ERROR:', e.message || String(e));
+        log('ENTER ERROR: ' + (e.message || String(e)));
         setSendUI(false);
       }
     }
@@ -457,7 +527,9 @@
           unsubscribeRoom(roomId);
           clearChatUI();
           setSendUI(false);
-          log('LEAVE SUCCESS:', roomId);
+          log('LEAVE SUCCESS: ' + roomId);
+
+          if (String(currentRoomId) === String(roomId)) currentRoomId = null;
 
           if (document.getElementById('disconnectOnLeave').checked) {
             manualDisconnect();
@@ -466,18 +538,18 @@
         }
 
         if (res.status === 403) {
-          log('LEAVE FORBIDDEN (멤버 아님):', roomId);
+          log('LEAVE FORBIDDEN (멤버 아님): ' + roomId);
         } else if (res.status === 404) {
-          log('LEAVE NOT FOUND (방 없음):', roomId);
+          log('LEAVE NOT FOUND (방 없음): ' + roomId);
           unsubscribeRoom(roomId);
           clearChatUI();
           setSendUI(false);
         } else {
           const text = await res.text().catch(()=> '');
-          log('LEAVE FAILED:', res.status, text);
+          log('LEAVE FAILED: ' + res.status + ' ' + text);
         }
       } catch (e) {
-        log('LEAVE ERROR:', e.message || String(e));
+        log('LEAVE ERROR: ' + (e.message || String(e)));
       }
     }
 
@@ -490,7 +562,7 @@
       if (!content || !content.trim()) return;
 
       client.send(`/pub/rooms/${roomId}`, {}, JSON.stringify({ message: content }));
-      log('SENT (await RECV):', content);
+      log('SENT (await RECV): ' + content);
       document.getElementById('msgInput').value = '';
     }
 
@@ -510,6 +582,9 @@
       myUserId = null;
       connecting = false;
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      stopUnreadPolling();
+      if (readLatestTimer) { clearTimeout(readLatestTimer); readLatestTimer = null; }
+      currentRoomId = null;
       setSendUI(false);
     }
 

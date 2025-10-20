@@ -11,7 +11,7 @@ import java.util.List;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<NotificationEntity, Long> {
-    
+
     // 사용자 미읽음 알림 목록
     @Query("""
             SELECT n
@@ -21,7 +21,7 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
             ORDER BY n.createdAt DESC
             """)
     List<NotificationEntity> findUnreadByUser(@Param("userId") String userId);
-    
+
     // 방 단위로 읽음 처리
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -41,5 +41,20 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
          WHERE n.chatRoom.chatRoomId = :roomId
     """)
     int deleteByRoomId(@Param("roomId") Long roomId);
+
+
+    // 뮤트 제외 + 미읽음 알림 목록 (개별 알림)
+    @Query("""
+        SELECT n
+        FROM NotificationEntity n
+        JOIN ChatRoomMemberEntity m
+            ON m.chatRoom = n.chatRoom
+            AND m.user = n.receiver
+        WHERE n.receiver.userId = :userId
+            AND n.read = false
+            AND m.muted = false
+        ORDER BY n.createdAt DESC
+        """)
+    List<NotificationEntity> findUnreadByUserExcludingMuted(@Param("userId") String userId);
 
 }

@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.chat.repository;
 
+import com.b1a4.cafeOn.chat.dto.chat.UnreadItemDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -59,7 +60,7 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
     List<String> findNotificationTargets(@Param("roomId") Long roomId, @Param("senderId") String senderId);
 
 
-    // 헤더 총합 알림 계산용
+    // 헤더 총합 알림 계산용(무트 포함)
     @Query("""
             SELECT COALESCE(SUM(m.unreadCount), 0)
              FROM ChatRoomMemberEntity m
@@ -67,17 +68,17 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
             """)
     int sumUnreadByUser(@Param("userId") String userId);
 
-    
+
     // mute 토글
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
-        UPDATE ChatRoomMemberEntity m
-           SET m.muted = :muted
-         WHERE m.chatRoom.chatRoomId = :roomId
-           AND m.user.userId = :userId
-        """)
-    int updateMute(@Param("roomId") Long roomId,
-                   @Param("userId") String userId,
-                   @Param("muted") boolean muted);
+            UPDATE ChatRoomMemberEntity m
+               SET m.muted = :muted
+             WHERE m.chatRoom.chatRoomId = :roomId
+               AND m.user.userId = :userId
+            """)
+    int updateMute(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("muted") boolean muted);
+
+
 
 }
