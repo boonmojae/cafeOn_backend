@@ -11,6 +11,8 @@ public class ChatRoomMemberSummaryDTO {
 
     private String userId;
     private String nickname;
-    private String profileImageUrl;
+    private String profileImage;
+
+    private boolean isMe;
 
 }

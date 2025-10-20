@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.chat.controller;
 
 import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberResponseDTO;
+import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO;
 import com.b1a4.cafeOn.chat.service.ChatRoomMemberService;
 import com.b1a4.cafeOn.common.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/chat/rooms")
@@ -41,6 +44,7 @@ public class ChatRoomMemberController {
         }
     }
 
+
     // 카페 단체 채팅 생성+가입
     @PostMapping("group/{cafeId}/join")
     public ResponseEntity<?> joinGroup(@AuthenticationPrincipal String userId, @PathVariable Long cafeId) {
@@ -64,5 +68,32 @@ public class ChatRoomMemberController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
     }
+
+
+    // 방 멤버 목록
+    @GetMapping("/{roomId}/members")
+    public ResponseEntity<?> listMembers(@AuthenticationPrincipal String userId, @PathVariable Long roomId) {
+
+        try {
+
+            List<ChatRoomMemberSummaryDTO> responseDTO = chatRoomMemberService.listMembers(roomId, userId);
+
+            ApiResponse<List<ChatRoomMemberSummaryDTO>> response = ApiResponse.<List<ChatRoomMemberSummaryDTO>>builder()
+                    .data(responseDTO)
+                    .message("채팅방 참여 목록 멤버 조회 성공")
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+
+        } catch (Exception e) {
+            log.error("채팅방 참여 목록 멤버 조회 실패 roomId:{}, userId:{}", roomId, userId, e);
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message("채팅방 참여 목록 멤버 조회 실패")
+                    .build();
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
 
 }

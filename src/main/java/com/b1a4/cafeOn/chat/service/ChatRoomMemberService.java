@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.chat.service;
 
 import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberResponseDTO;
+import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import com.b1a4.cafeOn.chat.exception.AlreadyInChatRoomException;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @Slf4j
@@ -98,6 +101,27 @@ public class ChatRoomMemberService {
 
         return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, false);
     }
+
+
+    // 방 멤버 목록 조회
+    @Transactional(readOnly = true)
+    public List<ChatRoomMemberSummaryDTO> listMembers(Long roomId, String viewerId) {
+        
+        // 채팅방과 멤버 검증
+        boolean isMember = chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, viewerId);
+        if (!isMember) {
+            throw new NotChatRoomMemberException();
+        }
+
+        List<ChatRoomMemberSummaryDTO> listMembers = chatRoomMemberRepository.findMemberSummaries(roomId);
+
+        if (viewerId != null) {
+            listMembers.forEach(m -> m.setMe(viewerId.equals(m.getUserId())));
+        }
+
+        return listMembers;
+    }
+
 
     // 채팅방 나가기 (마지막 1명일 경우 방 삭제)
     @Transactional

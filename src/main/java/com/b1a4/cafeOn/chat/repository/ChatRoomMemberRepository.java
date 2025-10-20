@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.chat.repository;
 
+import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -22,6 +23,20 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
     // 채팅방에 존재하고 있는 유저
     Optional<ChatRoomMemberEntity> findByChatRoom_ChatRoomIdAndUser_UserId(Long roomId, String userId);
 
+    // 방 멤버 목록 조회
+    @Query("""
+            SELECT new com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO(
+                u.userId,
+                u.nickname,
+                u.profileImage,
+                false
+            )
+            FROM ChatRoomMemberEntity m
+            JOIN m.user u
+            WHERE m.chatRoom.chatRoomId = :roomId
+            ORDER BY m.joinedAt ASC
+            """)
+    List<ChatRoomMemberSummaryDTO> findMemberSummaries(@Param("roomId") Long roomId);
 
     // 안읽음 메시지 증가(메시지 저장시 +1, 발신자 제외 전원)
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -77,7 +92,6 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
                AND m.user.userId = :userId
             """)
     int updateMute(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("muted") boolean muted);
-
 
 
 }
