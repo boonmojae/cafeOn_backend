@@ -1,6 +1,5 @@
 package com.b1a4.cafeOn.chat.controller;
 
-import com.b1a4.cafeOn.chat.dto.chat.UnreadSummaryDTO;
 import com.b1a4.cafeOn.chat.dto.notification.NotificationPushDTO;
 import com.b1a4.cafeOn.chat.service.NotificationService;
 import com.b1a4.cafeOn.common.api.ApiResponse;

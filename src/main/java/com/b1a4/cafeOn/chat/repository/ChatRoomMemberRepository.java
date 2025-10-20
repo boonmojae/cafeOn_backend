@@ -1,6 +1,5 @@
 package com.b1a4.cafeOn.chat.repository;
 
-import com.b1a4.cafeOn.chat.dto.chat.UnreadItemDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

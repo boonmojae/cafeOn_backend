@@ -1,11 +1,8 @@
 package com.b1a4.cafeOn.chat.service;
 
-import com.b1a4.cafeOn.chat.dto.chat.UnreadItemDTO;
-import com.b1a4.cafeOn.chat.dto.chat.UnreadSummaryDTO;
 import com.b1a4.cafeOn.chat.dto.notification.NotificationPushDTO;
 import com.b1a4.cafeOn.chat.entity.ChatEntity;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
-import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import com.b1a4.cafeOn.chat.entity.NotificationEntity;
 import com.b1a4.cafeOn.chat.repository.ChatRoomMemberRepository;
 import com.b1a4.cafeOn.chat.repository.NotificationRepository;

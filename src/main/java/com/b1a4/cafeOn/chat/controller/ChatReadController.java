@@ -24,6 +24,6 @@ public class ChatReadController {
                 com.b1a4.cafeOn.common.api.ApiResponse.<Void>builder()
                         .message("최신까지 읽음 처리 완료")
                         .build();
-        return ResponseEntity.ok(body); // 200 + ApiResponse
+        return ResponseEntity.ok(body);
     }
 }
