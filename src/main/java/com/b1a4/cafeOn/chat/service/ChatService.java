@@ -10,6 +10,7 @@ import com.b1a4.cafeOn.chat.exception.NotChatRoomMemberException;
 import com.b1a4.cafeOn.chat.repository.ChatRepository;
 import com.b1a4.cafeOn.chat.repository.ChatRoomMemberRepository;
 import com.b1a4.cafeOn.chat.repository.ChatRoomRepository;
+import com.b1a4.cafeOn.chat.repository.LastReadView;
 import com.b1a4.cafeOn.common.DisplayMasking;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
