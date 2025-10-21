@@ -1,8 +1,6 @@
 package com.b1a4.cafeOn.chat.service;
 
-import com.b1a4.cafeOn.chat.dto.chat.ChatRequestDTO;
-import com.b1a4.cafeOn.chat.dto.chat.ChatResponseDTO;
-import com.b1a4.cafeOn.chat.dto.chat.CursorPage;
+import com.b1a4.cafeOn.chat.dto.chat.*;
 import com.b1a4.cafeOn.chat.entity.ChatEntity;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.enums.ChatMessageType;
@@ -43,8 +41,8 @@ public class ChatService {
 
     // 시간 포맷(Asia/Seoul 기준)
     private static final ZoneId Z_SEOUL = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter FMT_TODAY   = DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN);
-    private static final DateTimeFormatter FMT_THISYR  = DateTimeFormatter.ofPattern("M월 d일 a h:mm", Locale.KOREAN);
+    private static final DateTimeFormatter FMT_TODAY = DateTimeFormatter.ofPattern("a h:mm", Locale.KOREAN);
+    private static final DateTimeFormatter FMT_THISYR = DateTimeFormatter.ofPattern("M월 d일 a h:mm", Locale.KOREAN);
     private static final DateTimeFormatter FMT_OTHERYR = DateTimeFormatter.ofPattern("yyyy.MM.dd a h:mm", Locale.KOREAN);
 
     private String buildTimeLabel(LocalDateTime createdAt) {
@@ -61,9 +59,21 @@ public class ChatService {
         return zdt.format(FMT_OTHERYR);
     }
 
+    // 안읽음 메시지 읽음
+    private void publishReadReceiptAfterCommit(Long roomId, String readerId, long lastReadChatId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                template.convertAndSend("/sub/rooms/" + roomId + "/read",
+                        new ReadReceiptDTO(roomId, readerId, lastReadChatId));
+            }
+        });
+    }
+
     // 메시지 저장
     @Transactional
     public ChatResponseDTO saveChat(Long roomId, String senderId, ChatRequestDTO chatRequestDTO) {
+
         // 유효성
         if (chatRequestDTO == null || chatRequestDTO.message() == null || chatRequestDTO.message().isBlank()) {
             throw new EmptyMessageException();
@@ -76,7 +86,7 @@ public class ChatService {
         boolean isMember = chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, senderId);
         if (!isMember) throw new NotChatRoomMemberException();
 
-        // 프록시 대신 실체 엔티티로 조회
+        // 유저 검증
         UserEntity sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자"));
 
@@ -84,7 +94,7 @@ public class ChatService {
         ChatEntity chat = chatRepository.save(
                 ChatEntity.text(room, sender, chatRequestDTO.message().trim())
         );
-        
+
         // 보낸 사람은 즉시 읽음 처리(내 unread=0, LastReadChatId 최신화)
         chatRoomMemberRepository.markRoomRead(roomId, senderId, chat.getChatId());
 
@@ -94,7 +104,6 @@ public class ChatService {
         // 메시지에만 unread/알림
         if (chat.getMessageType() == ChatMessageType.TEXT) {
             chatRoomMemberRepository.bulkIncreaseUnread(roomId, senderId);
-
             List<String> targets = chatRoomMemberRepository.findNotificationTargets(roomId, senderId);
             notificationService.createNewChatNotifications(targets, room, chat);
         }
@@ -102,27 +111,55 @@ public class ChatService {
         log.info("[CHAT][SAVE] roomId={}, chatId={}, senderId={}, type={}",
                 roomId, chat.getChatId(), chat.getSender().getUserId(), chat.getMessageType());
 
+        // 메시지를 안 읽은 멤버 수(보낸 사람 제외) -> 1:1, 단체 채팅 공통
+        int unreadOthers = (int) chatRoomMemberRepository
+                .countMembersNotReadThisChat(roomId, senderId, chat.getChatId());
+
+        // 브로드캐스트/응답 DTO 구성
+        ChatResponseDTO dtoForBroadcast = toDto(chat, null, unreadOthers);
+        ChatResponseDTO dtoForSender = toDto(chat, senderId, unreadOthers);
+
+        // 채팅방 입장 시 unreadCount가 떨어지는데 메시지를 전송하면 unreadCount가 또 -1된다 중복 차감을 막기위해 주석
+//        publishReadReceiptAfterCommit(roomId, senderId, chat.getChatId());
+
         // 커밋 후 방 브로드캐스트
+        ChatResponseDTO finalBroadcast = dtoForBroadcast;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
-                template.convertAndSend("/sub/rooms/" + roomId, toDto(chat, null));
+            @Override
+            public void afterCommit() {
+                template.convertAndSend("/sub/rooms/" + roomId, finalBroadcast);
             }
         });
 
-        // 보낸 당사자에게는 mine=true로 응답
-        return toDto(chat, senderId);
+        // 보낸 당사자에게는 mine=true + othersUnreadUsers 포함으로 응답
+        return dtoForSender;
     }
-
 
     @Transactional
     public void markRoomReadToLatest(Long roomId, String userId) {
         if (!chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, userId)) {
             throw new NotChatRoomMemberException();
         }
-        Long maxId = chatRepository.findMaxChatIdByRoomId(roomId); // 없으면 0
-        chatRoomMemberRepository.markRoomRead(roomId, userId, maxId == null ? 0L : maxId);
 
+        // 현재 사용자 lastRead 가져오기 (없으면 0)
+        Long cur = chatRoomMemberRepository.findLastReadChatId(roomId, userId);
+        long currentLastRead = (cur == null ? 0L : cur);
+
+        // 방의 최신 chatId
+        Long maxId = chatRepository.findMaxChatIdByRoomId(roomId); // 없으면 0
+        long newLastRead = (maxId == null ? 0L : maxId);
+
+        // 이미 최신이면 아무것도 하지 않음 (중복 브로드캐스트 방지)
+        if (newLastRead <= currentLastRead) {
+            return;
+        }
+
+        // 실제 갱신 발생
+        chatRoomMemberRepository.markRoomRead(roomId, userId, newLastRead);
         notificationService.markRoomAsRead(userId, roomId);
+
+        // 갱신된 경우에만 읽음 브로드캐스트
+        publishReadReceiptAfterCommit(roomId, userId, newLastRead);
     }
 
 
@@ -133,8 +170,9 @@ public class ChatService {
         chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
 
-        boolean isMember = chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, viewerId);
-        if (!isMember) throw new NotChatRoomMemberException();
+        if (!chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, viewerId)) {
+            throw new NotChatRoomMemberException();
+        }
 
         Pageable pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "chatId"));
         Slice<ChatEntity> slice;
@@ -149,8 +187,28 @@ public class ChatService {
                     : chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeAndChatIdLessThanOrderByChatIdDesc(roomId, ChatMessageType.TEXT, beforeId, pageable);
         }
 
+        // 방 멤버들의 lastReadChatId 한 번에
+        List<LastReadView> lastReads = chatRoomMemberRepository.findLastReads(roomId);
+
         List<ChatResponseDTO> items = slice.getContent().stream()
-                .map(e -> toDto(e, viewerId))
+                .map(e -> {
+                    Integer unread = null;
+                    if (e.getMessageType() == ChatMessageType.TEXT) {
+                        String senderId = (e.getSender() != null ? e.getSender().getUserId() : null);
+                        long chatId = e.getChatId();
+
+                        // 보낸 사람 제외lastReadChatId < chatId(또는 NULL)인 멤버 카운트
+                        int cnt = 0;
+                        for (LastReadView lr : lastReads) {
+                            // 보낸 사람 제외
+                            if (senderId != null && senderId.equals(lr.getUserId())) continue;
+                            Long lrid = lr.getLastReadChatId();
+                            if (lrid == null || lrid < chatId) cnt++;
+                        }
+                        unread = cnt;
+                    }
+                    return toDto(e, viewerId, unread);
+                })
                 .toList();
 
         Long nextCursor = null;
@@ -221,12 +279,17 @@ public class ChatService {
         template.convertAndSend("/sub/rooms/" + roomId, dto);
     }
 
-    // 시스템 메시지면 timeLabel = null / TEXT만 timeLabel 표시
+    // 시스템 메시지면 timeLabel = null / TEXT만 timeLabel
     private ChatResponseDTO toDto(ChatEntity e, String viewerId) {
+        return toDto(e, viewerId, null);
+    }
+
+    // 메시지 옆 안읽은 인원 수까지 포함해 DTO 생성
+    private ChatResponseDTO toDto(ChatEntity e, String viewerId, Integer unreadOthersCount) {
         boolean isSystem = e.getMessageType() != ChatMessageType.TEXT;
 
         String senderIdReal = (e.getSender() != null ? e.getSender().getUserId() : null);
-        String nickname   = DisplayMasking.nicknameOf(e.getSender());
+        String nickname = DisplayMasking.nicknameOf(e.getSender());
         String profileUrl = DisplayMasking.profileUrlOf(e.getSender());
 
         Boolean mine = null;
@@ -247,6 +310,7 @@ public class ChatService {
                 .senderProfileImageUrl(profileUrl)
                 .mine(mine)
                 .messageType(e.getMessageType())
+                .othersUnreadUsers(unreadOthersCount) // ← 프론트가 시간 옆에 표시
                 .build();
     }
 }

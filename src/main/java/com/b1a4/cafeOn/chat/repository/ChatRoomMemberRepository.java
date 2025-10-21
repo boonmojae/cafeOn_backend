@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.chat.repository;
 
+import com.b1a4.cafeOn.chat.dto.chat.LastReadView;
 import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -61,6 +62,34 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
                     AND m.user.userId =:userId
             """)
     int markRoomRead(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("lastRead") Long lastReadChatId);
+
+
+    // 메시지를 안 읽은 멤버 수
+    @Query("""
+            SELECT count(m)
+            FROM ChatRoomMemberEntity m
+            WHERE m.chatRoom.chatRoomId =:roomId
+            AND m.user.userId <> :excludeUserId
+            AND (m.lastReadChatId is NULL or m.lastReadChatId <:chatId)
+            """)
+    long countMembersNotReadThisChat(@Param("roomId") Long roomId, @Param("excludeUserId") String userId, @Param("chatId") Long chatId);
+
+
+    // 메시지 히스토리 안 읽음 카운트
+    @Query("""
+            SELECT m.user.userId as userId, m.lastReadChatId as lastReadChatId
+            FROM ChatRoomMemberEntity m
+            WHERE m.chatRoom.chatRoomId =:roomId
+            """)
+    List<LastReadView> findLastReads(@Param("roomId") Long roomId);
+
+
+    @Query("""
+            SELECT m.lastReadChatId
+            FROM ChatRoomMemberEntity m
+            WHERE m.chatRoom.chatRoomId = :roomId and m.user.userId = :userId
+            """)
+    Long findLastReadChatId(@Param("roomId") Long roomId, @Param("userId") String userId);
 
 
     // 알림 전송 대상 조회(mute=false, 발신자 제외)

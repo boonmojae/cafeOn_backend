@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="utf-8" />
-    <title>STOMP Chat Test (입장/전송/히스토리/나가기)</title>
+    <title>STOMP Chat (히스토리 + 실시간 읽음 카운트 최종)</title>
     <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -18,20 +18,13 @@
         .controls{margin:10px 0; display:flex; gap:8px; flex-wrap: wrap;}
 
         .chat-wrap {
-          border: 1px solid #e5e7eb;
-          background: #fff;
-          border-radius: 12px;
-          padding: 12px;
-          height: 420px;
-          overflow: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+          border: 1px solid #e5e7eb; background: #fff; border-radius: 12px;
+          padding: 12px; height: 420px; overflow: auto; display: flex; flex-direction: column; gap: 8px;
         }
-
         .msg { display: flex; align-items: flex-end; gap: 8px; max-width: 80%; }
         .msg.left { justify-content: flex-start; }
         .msg.right { margin-left: auto; justify-content: flex-end; }
+
         .avatar {
           width: 36px; height: 36px; border-radius: 50%;
           background: #e5e7eb; color:#374151; display:flex; align-items:center; justify-content:center;
@@ -41,12 +34,8 @@
 
         .bubble-row { display:flex; align-items:flex-end; gap:6px; }
         .bubble {
-          border-radius: 14px;
-          padding: 10px 12px;
-          line-height: 1.45;
-          word-break: break-word;
-          background: #f3f4f6; color:#111827;
-          max-width: 100%;
+          border-radius: 14px; padding: 10px 12px; line-height: 1.45; word-break: break-word;
+          background: #f3f4f6; color:#111827; max-width: 100%;
         }
         .right .bubble { background: #2563eb; color: #fff; }
 
@@ -54,24 +43,23 @@
         .right .nick { text-align: right; color:#93c5fd; }
 
         .meta {
-          font-size: 11px; color: #9ca3af; white-space: nowrap; user-select: none;
-          min-width: 42px; text-align: right;
+          font-size: 11px; color: #9ca3af; white-space: nowrap; user-select: none; min-width: 42px; text-align: right;
         }
+        .meta .count { margin-left: 6px; }
         .right .meta { color: #dbeafe; }
 
         .input-row { display:flex; gap:8px; align-items:center; }
         .input-row input[type="text"] { flex:1; }
+
         pre#log { background:#0f172a;color:#a7f3d0;padding:12px;height:160px;overflow:auto;border-radius:8px; margin-top:10px; }
         pre#noti { background:#111827;color:#fef9c3;padding:12px;height:120px;overflow:auto;border-radius:8px; margin-top:10px; }
+
         .system { display: flex; justify-content: center; margin: 6px 0; }
-        .system > span {
-          max-width: 80%; font-size: 12px; color: #475569; background: #e5e7eb;
-          padding: 6px 10px; border-radius: 999px;
-        }
+        .system > span { max-width: 80%; font-size: 12px; color: #475569; background: #e5e7eb; padding: 6px 10px; border-radius: 999px; }
     </style>
 </head>
 <body>
-<h3>STOMP Chat Test (자동 연결·구독·히스토리/읽음·나가기)</h3>
+<h3>STOMP Chat (히스토리 + 실시간 읽음 카운트 최종)</h3>
 
 <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <label>Server (ws/wss):</label>
@@ -100,21 +88,18 @@
     <button id="disconnectBtn">Disconnect Socket</button>
 </div>
 
-<!-- CHAT LIST -->
 <div id="chat" class="chat-wrap"></div>
 
-<!-- SEND -->
 <div class="row input-row" style="margin-top:10px;">
     <input id="msgInput" type="text" placeholder="메시지를 입력하세요" disabled />
     <button id="sendBtn" disabled>Send</button>
 </div>
 
-<!-- logs -->
 <pre id="log"></pre>
 <pre id="noti"></pre>
 
 <script>
-    // ======= 상태 =======
+    // ===== 상태 =====
     let client, socket;
     let connecting = false;
     let reconnectTimer = null;
@@ -122,21 +107,24 @@
     const backoffMax = 30000;
 
     let myUserId = null;
-    const subscriptions = new Map();  // roomId -> {sub}
-    const seenChatIds = new Set();    // 히스토리/라이브 중복 제거
+    const subscriptions = new Map(); // roomId -> { subMsg, subRead }
+    const seenChatIds = new Set();
 
     let lastMsgCtx = { senderId: null, minuteKey: null, metaEl: null, isSystem: false };
     let unreadPollTimer = null;
 
-    // 현재 보고 있는 방(읽음 자동 처리용)
     let currentRoomId = null;
     let readLatestTimer = null;
+
+    // ✅ readerId별로 마지막으로 반영한 lastReadChatId를 보관
+    const lastReadSeen = new Map(); // readerId -> lastAppliedLastReadChatId
+
     function scheduleReadLatest(roomId) {
       if (readLatestTimer) clearTimeout(readLatestTimer);
-      readLatestTimer = setTimeout(() => readLatest(roomId), 400); // 400ms 디바운스
+      readLatestTimer = setTimeout(() => readLatest(roomId), 400);
     }
 
-    // ======= 유틸 =======
+    // ===== 유틸 =====
     function log(...args){
       const pre = document.getElementById('log');
       pre.textContent += args.join(' ') + "\n";
@@ -181,7 +169,10 @@
     function unsubscribeRoom(roomId){
       const key = String(roomId);
       const entry = subscriptions.get(key);
-      if (entry && entry.sub) { try { entry.sub.unsubscribe(); } catch(_) {} }
+      if (entry) {
+        try { entry.subMsg?.unsubscribe(); } catch(_) {}
+        try { entry.subRead?.unsubscribe(); } catch(_) {}
+      }
       subscriptions.delete(key);
     }
 
@@ -197,7 +188,7 @@
       } catch { return null; }
     }
 
-    // ======= 렌더러 =======
+    // ===== 렌더 =====
     function isSystemType(t){
       const type = (t || '').toString().toUpperCase();
       return type === 'SYSTEM' || type.startsWith('SYSTEM_');
@@ -216,6 +207,31 @@
       lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:true };
     }
 
+    function setMeta(metaEl, timeLabel, countOrNull) {
+      metaEl.innerHTML = '';
+      const timeNode = document.createElement('span');
+      timeNode.className = 'time';
+      timeNode.textContent = timeLabel || '';
+      metaEl.appendChild(timeNode);
+
+      if (typeof countOrNull === 'number' && countOrNull > 0) {
+        const countNode = document.createElement('span');
+        countNode.className = 'count';
+        countNode.textContent = String(countOrNull);
+        metaEl.appendChild(countNode);
+      }
+    }
+
+    function decrementCount(metaEl) {
+      if (!metaEl) return;
+      const countNode = metaEl.querySelector('.count');
+      if (!countNode) return;
+      const cur = parseInt(countNode.textContent || '0', 10) || 0;
+      const next = Math.max(0, cur - 1);
+      if (next === 0) countNode.remove();
+      else countNode.textContent = String(next);
+    }
+
     function renderChatBubble(m) {
       if (isSystemType(m.messageType)) { renderSystem(m); return; }
 
@@ -229,6 +245,10 @@
       const chat = document.getElementById('chat');
       const wrap = document.createElement('div');
       wrap.className = 'msg ' + (mine ? 'right' : 'left');
+
+      // 항상 세팅(없으면 '')
+      if (m.chatId) wrap.dataset.chatId = String(m.chatId);
+      wrap.dataset.senderId = (m.senderId != null) ? String(m.senderId) : '';
 
       if (!mine) {
         const avatar = document.createElement('div');
@@ -266,10 +286,12 @@
       const sameMinute = !!(lastMsgCtx.minuteKey && curMinuteKey && lastMsgCtx.minuteKey === curMinuteKey);
       const sameRun = sameSender && sameMinute && !lastMsgCtx.isSystem;
 
-      if (sameRun && lastMsgCtx.metaEl) {
-        lastMsgCtx.metaEl.textContent = '';
-      }
-      meta.textContent = m.timeLabel || '';
+      // ⚠️ 이전 메타를 비우지 않는다(카운트가 사라지던 원인)
+      // if (sameRun && lastMsgCtx.metaEl) lastMsgCtx.metaEl.textContent = '';
+
+      // 서버 계산값 그대로 렌더
+      const count = (typeof m.othersUnreadUsers === 'number') ? m.othersUnreadUsers : 0;
+      setMeta(meta, m.timeLabel || '', count);
 
       if (mine) { row.appendChild(meta); row.appendChild(bubble); }
       else { row.appendChild(bubble); row.appendChild(meta); }
@@ -294,7 +316,7 @@
       else renderChatBubble(m);
     }
 
-    // ======= STOMP 연결 =======
+    // ===== STOMP 연결 =====
     function buildClient(serverUrl){
       socket = new WebSocket(serverUrl);
       client = Stomp.over(socket);
@@ -329,12 +351,10 @@
           const t0 = Date.now();
           const wait = setInterval(() => {
             if (client && client.connected) {
-              clearInterval(wait);
-              return resolve();
+              clearInterval(wait); return resolve();
             }
             if (Date.now() - t0 > 10000){
-              clearInterval(wait);
-              return reject(new Error('CONNECT TIMEOUT'));
+              clearInterval(wait); return reject(new Error('CONNECT TIMEOUT'));
             }
           }, 150);
           return;
@@ -356,27 +376,20 @@
             log('CONNECTED headers:', JSON.stringify(frame.headers));
             if (!myUserId) log('WARN: user-name header not found & JWT parse failed!');
 
-            // ✅ 개인 알림 푸시 구독
             client.subscribe('/user/queue/notifications', (msg) => {
-              try {
-                const n = JSON.parse(msg.body);
-                noti('PUSH: ' + JSON.stringify(n));
-              } catch(e) {
-                noti('NOTI_PARSE_ERR: ' + e.message);
-              }
+              try { noti('PUSH: ' + JSON.stringify(JSON.parse(msg.body))); }
+              catch(e) { noti('NOTI_PARSE_ERR: ' + e.message); }
             });
 
-            // 재연결 시 기존 구독 복원
             if (subscriptions.size > 0) {
               const rooms = [...subscriptions.keys()];
+              const saved = [...subscriptions.entries()];
               subscriptions.clear();
-              rooms.forEach(r => doSubscribe(r));
+              saved.forEach(([rid]) => doSubscribe(rid));
               log('RESUBSCRIBED: ' + rooms.join(', '));
             }
 
-            // ✅ 뮤트 제외 알림 목록 폴링 시작
             startUnreadPolling();
-
             resolve();
           },
           err => {
@@ -389,7 +402,6 @@
       });
     }
 
-    // ======= 알림 목록(뮤트 제외) 폴링 =======
     function startUnreadPolling(){
       stopUnreadPolling();
       const token = document.getElementById('token').value.trim();
@@ -401,42 +413,64 @@
           });
           if (!res.ok) return;
           const data = await res.json();
-          // ApiResponse<List<NotificationPushDTO>>
           const items = Array.isArray(data?.data) ? data.data : [];
           noti('UNREAD (count=' + items.length + '): ' + JSON.stringify(items));
-        } catch (e) {
-          // ignore
-        }
+        } catch {}
       };
-      fn(); // 즉시 1회
-      unreadPollTimer = setInterval(fn, 30000); // 30초
+      fn();
+      unreadPollTimer = setInterval(fn, 30000);
     }
     function stopUnreadPolling(){
       if (unreadPollTimer) { clearInterval(unreadPollTimer); unreadPollTimer = null; }
     }
 
-    // ======= 구독 & 입장 =======
+    // ===== 구독 & 입장 =====
     function doSubscribe(roomId){
       if (!client || !client.connected) { log('NOT_CONNECTED'); return; }
       if (subscriptions.has(roomId)) { log('ALREADY SUBSCRIBED: ' + roomId); return; }
 
-      const sub = client.subscribe(`/sub/rooms/${roomId}`, msg => {
+      // 메시지 스트림
+      const subMsg = client.subscribe(`/sub/rooms/${roomId}`, msg => {
         try {
           const data = JSON.parse(msg.body);
           if (data.chatId && seenChatIds.has(data.chatId)) return;
           if (data.chatId) seenChatIds.add(data.chatId);
           renderMessage(data);
 
-          // ✅ 방을 실제로 보고 있는 중이고, TEXT면 최신까지 읽음 처리(디바운스)
-          if (String(currentRoomId) === String(roomId) && !isSystemType(data.messageType)) {
+          const isSystem = (data.messageType || '').toUpperCase().startsWith('SYSTEM');
+          if (String(currentRoomId) === String(roomId) && !isSystem) {
             scheduleReadLatest(roomId);
           }
-        } catch(e) {
-          log('PARSE_ERROR: ' + e.message);
-        }
+        } catch(e) { log('PARSE_ERROR: ' + e.message); }
       });
-      subscriptions.set(roomId, { sub });
-      log('SUBSCRIBED to /sub/rooms/' + roomId);
+
+      // 읽음 영수증 스트림 (/read)
+      const subRead = client.subscribe(`/sub/rooms/${roomId}/read`, msg => {
+        try {
+          const rr = JSON.parse(msg.body); // { roomId, readerId, lastReadChatId }
+          if (!rr || !rr.readerId || typeof rr.lastReadChatId !== 'number') return;
+
+          // ✅ 중복/과거 이벤트 가드 + 범위 계산
+          const prev = lastReadSeen.get(rr.readerId) || 0;
+          const cur  = rr.lastReadChatId;
+          if (cur <= prev) return;                 // 과거/동일 이벤트 무시
+          lastReadSeen.set(rr.readerId, cur);      // 최신 값 저장
+
+          // ✅ (prev, cur] 구간만 1씩 감소 (이미 감소한 구간 재차감 방지)
+          const nodes = document.querySelectorAll('#chat .msg[data-chat-id]');
+          nodes.forEach(node => {
+            const chatId = Number(node.dataset.chatId || '0');
+            const senderId = node.dataset.senderId || '';
+            if (chatId > prev && chatId <= cur && senderId && senderId !== rr.readerId) {
+              const metaEl = node.querySelector('.meta');
+              decrementCount(metaEl);
+            }
+          });
+        } catch(e) { log('READ_PARSE_ERROR: ' + e.message); }
+      });
+
+      subscriptions.set(roomId, { subMsg, subRead });
+      log('SUBSCRIBED to /sub/rooms/' + roomId + ' & /read');
       setSendUI(true);
     }
 
@@ -452,7 +486,6 @@
           log('READ-LATEST FAILED: ' + res.status + ' ' + t);
         } else {
           log('READ-LATEST OK');
-          // 읽음 처리 후 목록 다시 조회
           startUnreadPolling();
         }
       } catch (e) {
@@ -481,7 +514,7 @@
         await ensureConnected(serverUrl, token);
         doSubscribe(String(roomId));
 
-        // 1) 히스토리 로드 (includeSystem=true)
+        // 히스토리 로드(othersUnreadUsers 포함)
         const res = await fetch(`/api/chat/rooms/${roomId}/messages?includeSystem=true`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -496,7 +529,7 @@
           });
         }
 
-        // 2) ✅ 최신까지 읽음 처리(입장 시 1회)
+        // ✅ 입장 시 최신까지 읽음 1회
         await readLatest(roomId);
 
         setSendUI(true);
@@ -508,7 +541,6 @@
       }
     }
 
-    // ======= 나가기 =======
     async function leaveRoom(roomId){
       if (!roomId) return log('ROOM_ID_REQUIRED');
       const token = document.getElementById('token').value.trim();
@@ -553,7 +585,7 @@
       }
     }
 
-    // ======= 전송 =======
+    // ===== 전송 =====
     function sendMsg(){
       if (!client || !client.connected) return log('NOT_CONNECTED');
       const roomId = document.getElementById('roomId').value.trim();
@@ -566,10 +598,11 @@
       document.getElementById('msgInput').value = '';
     }
 
-    // ======= 수동 소켓 종료 =======
+    // ===== 수동 소켓 종료 =====
     function manualDisconnect(){
       for (const [rid, entry] of subscriptions.entries()) {
-        try { entry.sub?.unsubscribe(); } catch(_) {}
+        try { entry.subMsg?.unsubscribe(); } catch(_) {}
+        try { entry.subRead?.unsubscribe(); } catch(_) {}
       }
       subscriptions.clear();
 
@@ -586,9 +619,10 @@
       if (readLatestTimer) { clearTimeout(readLatestTimer); readLatestTimer = null; }
       currentRoomId = null;
       setSendUI(false);
+      lastReadSeen.clear();
     }
 
-    // ======= 이벤트 바인딩 =======
+    // ===== 이벤트 바인딩 =====
     document.getElementById('enterBtn').addEventListener('click', () => {
       const roomId = document.getElementById('roomId').value.trim();
       const isGroup = document.getElementById('isGroup').checked;
