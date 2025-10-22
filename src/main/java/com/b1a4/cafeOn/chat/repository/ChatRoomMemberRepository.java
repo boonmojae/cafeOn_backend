@@ -83,6 +83,7 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
     List<LastReadView> findLastReads(@Param("roomId") Long roomId);
 
 
+    // 마지막 읽음 메시지
     @Query("""
             SELECT m.lastReadChatId
             FROM ChatRoomMemberEntity m
