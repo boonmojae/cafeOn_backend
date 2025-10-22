@@ -284,15 +284,20 @@ CREATE TABLE IF NOT EXISTS answers (
 CREATE TABLE IF NOT EXISTS wishlists (
   wishlist_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id     CHAR(36)        NOT NULL,
-  cafe_id     BIGINT          NOT NULL,
+  cafe_id     BIGINT UNSIGNED NOT NULL,
+  category    ENUM('HIDEOUT','WORK','ATMOSPHERE','TASTE','PLANNED') NULL,
   created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   PRIMARY KEY (wishlist_id),
+
+  -- 한 유저가 같은 카페를 중복 위시 못 하도록
   CONSTRAINT uk_wishlists_user_cafe UNIQUE (user_id, cafe_id),
 
+  -- 조회 성능용 인덱스
   INDEX idx_wishlists_user_id (user_id),
   INDEX idx_wishlists_cafe_id (cafe_id),
 
+  -- FK 제약
   CONSTRAINT fk_wishlists_user
     FOREIGN KEY (user_id) REFERENCES users(user_id)
     ON UPDATE CASCADE
@@ -302,5 +307,6 @@ CREATE TABLE IF NOT EXISTS wishlists (
     FOREIGN KEY (cafe_id) REFERENCES cafes(cafe_id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
