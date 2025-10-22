@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/chat/**").authenticated()
+                        .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/images/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").hasRole("USER")

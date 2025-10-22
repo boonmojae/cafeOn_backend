@@ -25,7 +25,8 @@ public class ChatResponseDTO {
     private String senderNickname;
     private String senderProfileImageUrl;
     private Boolean mine; // null이 허용되게 boolean -> B로 수정
-    ChatMessageType messageType;
+    private ChatMessageType messageType;
+    private Integer othersUnreadUsers;
 
 //    private String imageUrl;
 }
