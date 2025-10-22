@@ -2,9 +2,9 @@ package com.b1a4.cafeOn.chat.service;
 
 import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberResponseDTO;
 import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO;
+import com.b1a4.cafeOn.chat.dto.room.ChatRoomListItemDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
-import com.b1a4.cafeOn.chat.exception.AlreadyInChatRoomException;
 import com.b1a4.cafeOn.chat.exception.ChatRoomFullException;
 import com.b1a4.cafeOn.chat.exception.ChatRoomNotFoundException;
 import com.b1a4.cafeOn.chat.exception.NotChatRoomMemberException;
@@ -15,7 +15,8 @@ import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -185,5 +186,12 @@ public class ChatRoomMemberService {
 
         chatRoomMemberRepository.updateMute(roomId, userId, muted);
         log.debug("[MUTE] roomId={}, userId={}, muted={}", roomId, userId, muted);
+    }
+    
+    
+    // 내가 참가한 방
+    @Transactional(readOnly = true)
+    public Page<ChatRoomListItemDTO> listMyRooms(String userId, Pageable pageable) {
+        return chatRoomMemberRepository.findMyRoomListPage(userId, pageable);
     }
 }

@@ -1,5 +1,7 @@
 package com.b1a4.cafeOn.mypage;
 
+import com.b1a4.cafeOn.chat.dto.room.ChatRoomListItemDTO;
+import com.b1a4.cafeOn.chat.service.ChatRoomMemberService;
 import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
 import com.b1a4.cafeOn.community.comment.service.CommentService;
@@ -25,6 +27,7 @@ public class MyPageController {
 
     private final PostService postService;
     private final CommentService commentService;
+    private final ChatRoomMemberService chatRoomMemberService;
 
 
     // community-post 내가 작성한 게시글
@@ -131,6 +134,30 @@ public class MyPageController {
     }
 
 
+    // chat 내가 참여한 채팅방 목록
+    @GetMapping("chat/rooms")
+    public ResponseEntity<?> myRooms(@AuthenticationPrincipal String userId, @PageableDefault(size = 10) Pageable pageable) {
+
+        try {
+
+            Page<ChatRoomListItemDTO> responseDTOS = chatRoomMemberService.listMyRooms(userId, pageable);
+
+            ApiResponse<Page<ChatRoomListItemDTO>> response = ApiResponse.<Page<ChatRoomListItemDTO>>builder()
+                    .data(responseDTOS)
+                    .message("내가 참여한 채팅방 목록 조회 성공")
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+
+        } catch (Exception e) {
+            log.error("내가 참여한 채팅방 목록 조회 실패 userId:{}", userId, e);
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message("내가 참여한 채팅방 목록 조회 실패")
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+    }
 
 
 

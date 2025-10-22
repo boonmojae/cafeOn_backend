@@ -1,7 +1,10 @@
 package com.b1a4.cafeOn.chat.repository;
 
 import com.b1a4.cafeOn.chat.dto.member.ChatRoomMemberSummaryDTO;
+import com.b1a4.cafeOn.chat.dto.room.ChatRoomListItemDTO;
 import com.b1a4.cafeOn.chat.entity.ChatRoomMemberEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,11 +20,10 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
     // 카페 채팅방 가입 첫 멤버 -> 채팅방 생성/ 가입되더있으면 채팅방 정보 응답
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-        INSERT IGNORE INTO chat_room_members (chatroom_id, user_id, is_muted, joined_at)
-        VALUES (:roomId, :userId, :muted, NOW())
-        """, nativeQuery = true)
+            INSERT IGNORE INTO chat_room_members (chatroom_id, user_id, is_muted, joined_at)
+            VALUES (:roomId, :userId, :muted, NOW())
+            """, nativeQuery = true)
     int insertIgnore(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("muted") boolean muted);
-
 
     // 현재 채팅방 인원 카운트
     long countByChatRoom_ChatRoomId(Long roomId);
@@ -85,7 +87,7 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
 
     // 메시지 히스토리 안 읽음 카운트
     @Query("""
-            SELECT m.user.userId as userId, m.lastReadChatId as lastReadChatId
+            SELECT m.user.userId AS userId, m.lastReadChatId AS lastReadChatId
             FROM ChatRoomMemberEntity m
             WHERE m.chatRoom.chatRoomId =:roomId
             """)
@@ -96,7 +98,8 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
     @Query("""
             SELECT m.lastReadChatId
             FROM ChatRoomMemberEntity m
-            WHERE m.chatRoom.chatRoomId = :roomId and m.user.userId = :userId
+            WHERE m.chatRoom.chatRoomId = :roomId 
+            AND m.user.userId = :userId
             """)
     Long findLastReadChatId(@Param("roomId") Long roomId, @Param("userId") String userId);
 
@@ -131,5 +134,36 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
             """)
     int updateMute(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("muted") boolean muted);
 
-
+    // 내가 참여한 채팅방 목록
+    @Query("""
+            SELECT NEW com.b1a4.cafeOn.chat.dto.ChatRoomListItemDTO(
+                r.chatRoomId,
+                CASE WHEN r.type = com.b1a4.cafeOn.chat.enums.RoomType.GROUP
+                     THEN r.roomName
+                     ELSE COALESCE(u2.nickname, '(알 수 없음)')
+                END,
+                r.type,
+                r.cafeId,
+                m.unreadCount,
+                lastText.message,
+                lastText.createdAt,
+                (SELECT COUNT(m3.chatRoomMemberId) FROM ChatRoomMemberEntity m3 WHERE m3.chatRoom = r)
+            )
+            FROM ChatRoomMemberEntity m
+            JOIN m.chatRoom r
+            LEFT JOIN r.chatRoomMembers m2 WITH m2.user.userId <> :userId
+            LEFT JOIN m2.user u2
+            LEFT JOIN com.b1a4.cafeOn.chat.entity.ChatEntity lastText
+                   WITH lastText.chatId = (
+                       SELECT MAX(c2.chatId) FROM com.b1a4.cafeOn.chat.entity.ChatEntity c2
+                       WHERE c2.chatRoom = r
+                         AND c2.messageType = com.b1a4.cafeOn.chat.enums.ChatMessageType.TEXT
+                   )
+            WHERE m.user.userId = :userId
+            ORDER BY CASE WHEN lastText.createdAt IS NULL THEN 1 ELSE 0 END ASC,
+                     lastText.createdAt DESC,
+                     r.chatRoomId DESC
+            """)
+    Page<ChatRoomListItemDTO>
+    findMyRoomListPage(@Param("userId") String userId, Pageable pageable);
 }
