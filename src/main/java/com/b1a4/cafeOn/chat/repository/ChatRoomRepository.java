@@ -12,9 +12,10 @@ import java.util.Optional;
 @Repository
 public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> {
 
+    // 1:1 채팅방 조회
     Optional<ChatRoomEntity> findByTypeAndUserSmallAndUserBig(RoomType type, String userSmall, String userBig);
 
-    // 일반 조회
+    // GROUP 방 조회 (잠금 없이)
     Optional<ChatRoomEntity> findByTypeAndCafeId(RoomType type, Long cafeId);
 
     // 채팅방 잠금

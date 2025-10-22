@@ -68,70 +68,42 @@ public class ChatRoomMemberService {
     // 카페 단체 채팅방 생성(or 조회) + 가입
     @Transactional
     public ChatRoomMemberResponseDTO joinGroup(Long cafeId, String userId) {
+
         // 유저 검증
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 유저입니다."));
-
-        // 방 생성 or 조회
         ChatRoomEntity room = chatRoomService.getOrCreateGroupEntity(cafeId);
 
-        // 중복 체크 없이 INSERT 먼저 시도
-        ChatRoomMemberEntity saved;
-        boolean alreadyJoined = false;
-        try {
-            saved = chatRoomMemberRepository.save(
-                    ChatRoomMemberEntity.builder()
-                            .chatRoom(room)
-                            .user(user)
-                            .muted(false)
-                            .build()
-            );
-        } catch (DataIntegrityViolationException dup) {
-            alreadyJoined = true;
+        // 멱등 삽입 (중복이어도 예외 없음)
+        int inserted = chatRoomMemberRepository.insertIgnore(room.getChatRoomId(), userId, false);
 
-            long current = chatRoomMemberRepository.countByChatRoom_ChatRoomId(room.getChatRoomId());
-            return ChatRoomMemberResponseDTO.forGroupJoin(null, current, true);
-        }
-
+        // 현재 내 멤버 행 + 인원
+        ChatRoomMemberEntity member = chatRoomMemberRepository
+                .findByChatRoom_ChatRoomIdAndUser_UserId(room.getChatRoomId(), userId)
+                .orElseThrow(() -> new IllegalStateException("가입 상태 조회 실패"));
         long current = chatRoomMemberRepository.countByChatRoom_ChatRoomId(room.getChatRoomId());
+
+        // 정원 검사
         if (current > room.getMaxCapacity()) {
-            chatRoomMemberRepository.delete(saved);
+            if (inserted == 1) { // 이번 호출로 실제 추가됐으면 되돌림
+                chatRoomMemberRepository.delete(member);
+            }
             throw new ChatRoomFullException(room.getChatRoomId(), room.getMaxCapacity());
         }
 
-        chatService.publishSystemJoin(room.getChatRoomId(), userId);
+        // 스템 메시지는 신규 가입 때만
+        if (inserted == 1) {
+            chatService.publishSystemJoin(room.getChatRoomId(), userId);
+        }
 
-        return ChatRoomMemberResponseDTO.forGroupJoin(saved, current, false);
-
+        // 멱등 응답
+        return ChatRoomMemberResponseDTO.forGroupJoin(
+                member,
+                current,
+                inserted == 0
+        );
     }
 
-
-    //        // 이미 멤버면 예외
-//        boolean alreadyIn = chatRoomMemberRepository
-//                .existsByChatRoom_ChatRoomIdAndUser_UserId(room.getChatRoomId(), userId);
-//        if (alreadyIn) {
-//            throw new AlreadyInChatRoomException();
-//        }
-//
-//        // 인원/정원 검사
-//        long current = chatRoomMemberRepository.countByChatRoom_ChatRoomId(room.getChatRoomId());
-//        if (current >= room.getMaxCapacity()) {
-//            throw new ChatRoomFullException(room.getChatRoomId(), room.getMaxCapacity());
-//        }
-//
-//        // 멤버 저장
-//        ChatRoomMemberEntity saved = chatRoomMemberRepository.save(
-//                ChatRoomMemberEntity.builder()
-//                        .chatRoom(room)
-//                        .user(user)
-//                        .muted(false)
-//                        .build()
-//        );
-//
-//        // 최초 입장 시스템 메시지(커밋 후 브로드캐스트는 ChatService 내부에서 처리 권장한다 함
-//        chatService.publishSystemJoin(room.getChatRoomId(), userId);
-//
-//        return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, false);
 
     // 방 멤버 목록 조회
     @Transactional(readOnly = true)

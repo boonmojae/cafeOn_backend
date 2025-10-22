@@ -14,6 +14,15 @@ import java.util.Optional;
 @Repository
 public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEntity, Long> {
 
+    // 카페 채팅방 가입 첫 멤버 -> 채팅방 생성/ 가입되더있으면 채팅방 정보 응답
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        INSERT IGNORE INTO chat_room_members (chatroom_id, user_id, is_muted, joined_at)
+        VALUES (:roomId, :userId, :muted, NOW())
+        """, nativeQuery = true)
+    int insertIgnore(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("muted") boolean muted);
+
+
     // 현재 채팅방 인원 카운트
     long countByChatRoom_ChatRoomId(Long roomId);
 

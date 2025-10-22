@@ -51,16 +51,16 @@ public class ChatRoomService {
     // 카페 다인원 채팅
     @Transactional
     public ChatRoomEntity getOrCreateGroupEntity(Long cafeId) {
+
+        // 먼저 조회
         return chatRoomRepository.findByTypeAndCafeId(RoomType.GROUP, cafeId)
                 .orElseGet(() -> {
-                    // 방이 없으면 생성
+                    // 없으면 생성 시도
                     String cafeName = chatRoomRepository.findNameById(cafeId)
                             .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카페입니다."));
-
                     String roomName = buildRoomName(cafeName);
 
                     try {
-
                         return chatRoomRepository.saveAndFlush(
                                 ChatRoomEntity.builder()
                                         .type(RoomType.GROUP)
@@ -69,15 +69,14 @@ public class ChatRoomService {
                                         .maxCapacity(4)
                                         .build()
                         );
-
-                    } catch (DataIntegrityViolationException e) {
-                        // 데드락
-                        // findByTypeAndCafeIdForUpdate -> findByTypeAndCafeId 수정으로 동시 생성 충돌 -> 다시 조회해서 반환으로 변경
+                    } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                        // 동시 생성 충돌(UNIQUE) → 다시 조회해서 반환 (정상 흐름)
                         return chatRoomRepository.findByTypeAndCafeId(RoomType.GROUP, cafeId)
-                                .orElseThrow(() -> new IllegalStateException("카페 단톡방 생성 중 오류"));
+                                .orElseThrow(() -> new IllegalStateException("카페 단체방 생성 중 동시성 오류"));
                     }
                 });
     }
+
 
     private String buildRoomName(String cafeName) {
         String base = (cafeName == null || cafeName.isBlank()) ? "카페" : cafeName.trim();
