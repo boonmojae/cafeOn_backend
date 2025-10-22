@@ -2,9 +2,7 @@ package com.b1a4.cafeOn.chat.repository;
 
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.enums.RoomType;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,10 +19,10 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
 
     // 채팅방 잠금
     // 정원 체크/입장
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select c from ChatRoomEntity c where c.type = :type and c.cafeId = :cafeId")
-    Optional<ChatRoomEntity> findByTypeAndCafeIdForUpdate(@Param("type") RoomType type,
-                                                          @Param("cafeId") Long cafeId);
+//    @Lock(LockModeType.PESSIMISTIC_WRITE)
+//    @Query("select c from ChatRoomEntity c where c.type = :type and c.cafeId = :cafeId")
+//    Optional<ChatRoomEntity> findByTypeAndCafeIdForUpdate(@Param("type") RoomType type,
+//                                                          @Param("cafeId") Long cafeId);
 
     // fixme
     // CafeEntity 없음 JPQL -> 네이티브 쿼리로 변경

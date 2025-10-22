@@ -15,6 +15,7 @@ import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,34 +75,63 @@ public class ChatRoomMemberService {
         // 방 생성 or 조회
         ChatRoomEntity room = chatRoomService.getOrCreateGroupEntity(cafeId);
 
-        // 이미 멤버면 예외
-        boolean alreadyIn = chatRoomMemberRepository
-                .existsByChatRoom_ChatRoomIdAndUser_UserId(room.getChatRoomId(), userId);
-        if (alreadyIn) {
-            throw new AlreadyInChatRoomException();
+        // 중복 체크 없이 INSERT 먼저 시도
+        ChatRoomMemberEntity saved;
+        boolean alreadyJoined = false;
+        try {
+            saved = chatRoomMemberRepository.save(
+                    ChatRoomMemberEntity.builder()
+                            .chatRoom(room)
+                            .user(user)
+                            .muted(false)
+                            .build()
+            );
+        } catch (DataIntegrityViolationException dup) {
+            alreadyJoined = true;
+
+            long current = chatRoomMemberRepository.countByChatRoom_ChatRoomId(room.getChatRoomId());
+            return ChatRoomMemberResponseDTO.forGroupJoin(null, current, true);
         }
 
-        // 인원/정원 검사
         long current = chatRoomMemberRepository.countByChatRoom_ChatRoomId(room.getChatRoomId());
-        if (current >= room.getMaxCapacity()) {
+        if (current > room.getMaxCapacity()) {
+            chatRoomMemberRepository.delete(saved);
             throw new ChatRoomFullException(room.getChatRoomId(), room.getMaxCapacity());
         }
 
-        // 멤버 저장
-        ChatRoomMemberEntity saved = chatRoomMemberRepository.save(
-                ChatRoomMemberEntity.builder()
-                        .chatRoom(room)
-                        .user(user)
-                        .muted(false)
-                        .build()
-        );
-
-        // 최초 입장 시스템 메시지(커밋 후 브로드캐스트는 ChatService 내부에서 처리 권장한다 함
         chatService.publishSystemJoin(room.getChatRoomId(), userId);
 
-        return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, false);
+        return ChatRoomMemberResponseDTO.forGroupJoin(saved, current, false);
+
     }
 
+
+    //        // 이미 멤버면 예외
+//        boolean alreadyIn = chatRoomMemberRepository
+//                .existsByChatRoom_ChatRoomIdAndUser_UserId(room.getChatRoomId(), userId);
+//        if (alreadyIn) {
+//            throw new AlreadyInChatRoomException();
+//        }
+//
+//        // 인원/정원 검사
+//        long current = chatRoomMemberRepository.countByChatRoom_ChatRoomId(room.getChatRoomId());
+//        if (current >= room.getMaxCapacity()) {
+//            throw new ChatRoomFullException(room.getChatRoomId(), room.getMaxCapacity());
+//        }
+//
+//        // 멤버 저장
+//        ChatRoomMemberEntity saved = chatRoomMemberRepository.save(
+//                ChatRoomMemberEntity.builder()
+//                        .chatRoom(room)
+//                        .user(user)
+//                        .muted(false)
+//                        .build()
+//        );
+//
+//        // 최초 입장 시스템 메시지(커밋 후 브로드캐스트는 ChatService 내부에서 처리 권장한다 함
+//        chatService.publishSystemJoin(room.getChatRoomId(), userId);
+//
+//        return ChatRoomMemberResponseDTO.forGroupJoin(saved, current + 1, false);
 
     // 방 멤버 목록 조회
     @Transactional(readOnly = true)

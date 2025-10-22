@@ -51,7 +51,7 @@ public class ChatRoomService {
     // 카페 다인원 채팅
     @Transactional
     public ChatRoomEntity getOrCreateGroupEntity(Long cafeId) {
-        return chatRoomRepository.findByTypeAndCafeIdForUpdate(RoomType.GROUP, cafeId)
+        return chatRoomRepository.findByTypeAndCafeId(RoomType.GROUP, cafeId)
                 .orElseGet(() -> {
                     // 방이 없으면 생성
                     String cafeName = chatRoomRepository.findNameById(cafeId)
@@ -71,8 +71,9 @@ public class ChatRoomService {
                         );
 
                     } catch (DataIntegrityViolationException e) {
-
-                        return chatRoomRepository.findByTypeAndCafeIdForUpdate(RoomType.GROUP, cafeId)
+                        // 데드락
+                        // findByTypeAndCafeIdForUpdate -> findByTypeAndCafeId 수정으로 동시 생성 충돌 -> 다시 조회해서 반환으로 변경
+                        return chatRoomRepository.findByTypeAndCafeId(RoomType.GROUP, cafeId)
                                 .orElseThrow(() -> new IllegalStateException("카페 단톡방 생성 중 오류"));
                     }
                 });
