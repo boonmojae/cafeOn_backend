@@ -129,7 +129,6 @@ public class ChatRoomMemberService {
     // 채팅방 나가기 (마지막 1명일 경우 방 삭제)
     @Transactional
     public void leaveChatRoom(Long roomId, String userId) {
-        // 멤버 검증
         ChatRoomMemberEntity member = chatRoomMemberRepository
                 .findByChatRoom_ChatRoomIdAndUser_UserId(roomId, userId)
                 .orElseThrow(NotChatRoomMemberException::new);
@@ -140,28 +139,32 @@ public class ChatRoomMemberService {
             // 퇴장 시스템 메시지
             chatService.publishSystemLeave(roomId, userId);
 
+            // 나가는 유저의 알림만 정리 -> 메시지 기록은 남김
+            notificationRepository.deleteByReceiverIdAndRoomId(userId, roomId);
+
             // 멤버 삭제
             chatRoomMemberRepository.delete(member);
 
-            // 동시 퇴장 방지: 남은 인원 0이면 방 정리(존재 체크)
+            // 동시 퇴장 방어
             long remain = chatRoomMemberRepository.countByChatRoom_ChatRoomId(roomId);
-            if (remain == 0 && chatRoomRepository.existsById(roomId)) {
+            if (remain == 0) {
                 chatRoomRepository.deleteById(roomId);
             }
             return;
         }
 
         if (count == 1) {
-            // 마지막 1명: 방 삭제(존재 체크)
-            notificationRepository.deleteByRoomId(roomId);
+            // 마지막 1명: 멤버 먼저 삭제
+            chatRoomMemberRepository.delete(member);
 
+            // 방 삭제 -> 연결된 데이터 전부 삭제
             chatRoomRepository.deleteById(roomId);
             return;
         }
 
-        // count == 0 이면 비정상 경로
         throw new ChatRoomNotFoundException(roomId);
     }
+
 
     // 읽음 처리: lastReadChatId를 최댓값으로 갱신 + unreadCount=0
     @Transactional
