@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.image.entity;
 
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
+import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,4 +25,8 @@ public class ImageEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "post_id", nullable = false)
     private PostEntity post;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_id", nullable = false)
+    private ReviewEntity review;
 }

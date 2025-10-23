@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS images (
     stored_file_name VARCHAR(255) NULL,
     PRIMARY KEY (image_id),
     FOREIGN KEY (post_id) REFERENCES posts (post_id) ON DELETE CASCADE
+    FOREIGN KEY (review_id) REFERENCES reviews (review_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS chat_rooms (
