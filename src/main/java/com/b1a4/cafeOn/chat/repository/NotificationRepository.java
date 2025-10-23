@@ -57,4 +57,13 @@ public interface NotificationRepository extends JpaRepository<NotificationEntity
         """)
     List<NotificationEntity> findUnreadByUserExcludingMuted(@Param("userId") String userId);
 
+
+    @Modifying
+    @Query("""
+        DELETE FROM NotificationEntity n
+        WHERE n.receiver.userId =:userId
+        AND n.chatRoom.chatRoomId =:roomId
+        """)
+    int deleteByReceiverIdAndRoomId(@Param("userId") String userId, @Param("roomId") Long roomId);
+
 }

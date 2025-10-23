@@ -71,6 +71,9 @@ public class ChatRoomEntity {
     @Builder.Default
     private List<ChatEntity> chats = new ArrayList<>();
 
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<NotificationEntity> notifications = new ArrayList<>();
 
     @PrePersist
     private void onCreate() {
