@@ -42,6 +42,19 @@ CREATE TABLE IF NOT EXISTS cafes (
     source ENUM('KAKAO', 'USER') DEFAULT 'KAKAO' -- 데이터 출처
 );
 
+CREATE TABLE IF NOT EXISTS tags (
+    tag_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE cafe_tags (
+    cafe_id BIGINT NOT NULL,
+    tag_id BIGINT NOT NULL,
+    PRIMARY KEY (cafe_id, tag_id),  -- 복합PK (중복 태그 등록 방지)
+    FOREIGN KEY (cafe_id) REFERENCES cafes(cafe_id) ON DELETE CASCADE,  -- 카페 삭제 시 관련 태그 자동 삭제
+    FOREIGN KEY (tag_id) REFERENCES tags(tag_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS posts (
   post_id     BIGINT AUTO_INCREMENT PRIMARY KEY,
   user_id     CHAR(36)         NOT NULL,
