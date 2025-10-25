@@ -20,7 +20,8 @@ public class ReviewController {
 
     // 리뷰 작성(JSON)
     @PostMapping("/cafes/{cafeId}/reviews")
-    public ResponseEntity<?> createReview(@AuthenticationPrincipal String userId, @PathVariable Long cafeId, @RequestBody ReviewDTO reviewDTO) {
+    public ResponseEntity<?> createReview(@AuthenticationPrincipal String userId, @PathVariable Long cafeId,
+                                          @RequestBody ReviewDTO reviewDTO) {
         try {
             ReviewDTO review = reviewService.createReview(reviewDTO, userId, cafeId);
 
@@ -34,7 +35,7 @@ public class ReviewController {
         } catch (Exception e) {
             log.error("JSON 리뷰 작성 실패 userId:{}, cafeId:{}", userId, cafeId, e);
             ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("JSON 리뷰 작성 실패")
+                    .message(e.getMessage())
                     .build();
 
             return ResponseEntity.badRequest().body(errorResponse);
@@ -62,7 +63,7 @@ public class ReviewController {
         } catch (Exception e) {
             log.error("JSON 리뷰 수정 실패 userId:{}, reviewId:{}", userId, reviewId, e);
             ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message("JSON 리뷰 수정 실패")
+                    .message(e.getMessage())
                     .build();
 
             return ResponseEntity.badRequest().body(errorResponse);
@@ -88,11 +89,6 @@ public class ReviewController {
             return ResponseEntity.noContent().build();
         }
     }
-
-
-    // 특정 카페 전체 리뷰 조회
-
-    // 특정 리뷰 조회
 
 
     // 내가 작성한 리뷰 조회 fixme: mypageController에 작성

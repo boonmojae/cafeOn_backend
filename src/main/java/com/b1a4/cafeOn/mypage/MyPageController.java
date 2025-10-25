@@ -7,6 +7,8 @@ import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
 import com.b1a4.cafeOn.community.comment.service.CommentService;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.service.PostService;
+import com.b1a4.cafeOn.review.dto.ReviewDTO;
+import com.b1a4.cafeOn.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +30,7 @@ public class MyPageController {
     private final PostService postService;
     private final CommentService commentService;
     private final ChatRoomMemberService chatRoomMemberService;
+    private final ReviewService reviewService;
 
 
     // community-post 내가 작성한 게시글
@@ -136,8 +139,8 @@ public class MyPageController {
 
     // chat 내가 참여한 채팅방 목록
     @GetMapping("chat/rooms")
-    public ResponseEntity<?> myRooms(@AuthenticationPrincipal String userId, @PageableDefault(size = 10) Pageable pageable) {
-
+    public ResponseEntity<?> myRooms(@AuthenticationPrincipal String userId,
+                                     @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)Pageable pageable) {
         try {
 
             Page<ChatRoomListItemDTO> responseDTOS = chatRoomMemberService.listMyRooms(userId, pageable);
@@ -159,8 +162,29 @@ public class MyPageController {
 
     }
 
+    // review 내가 작성한 리뷰 목록
+    @GetMapping("reviews")
+    public ResponseEntity<?> myReviews(@AuthenticationPrincipal String userId,
+                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)Pageable pageable) {
+        try {
 
+            Page<ReviewDTO> responseDTOS = reviewService.getReviewById(userId, pageable);
 
+            ApiResponse<Page<ReviewDTO>> response = ApiResponse.<Page<ReviewDTO>>builder()
+                    .data(responseDTOS)
+                    .message("내가 작성한 리뷰 목록 조회 성공")
+                    .build();
+
+            return ResponseEntity.ok().body(response);
+
+        } catch (Exception e) {
+            log.error("내가 작성한 리뷰 목록 조회 실패", e);
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message("내가 작성한 리뷰 목록 조회 실패")
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
 
 
 }
