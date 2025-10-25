@@ -80,6 +80,7 @@ public class ReportController {
             ReportResponseDTO responseDTO = reportService.reportReview(userId, reviewId, reportRequestDTO);
 
             ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
+                    .data(responseDTO)
                     .message("리뷰 신고 성공")
                     .build();
 
