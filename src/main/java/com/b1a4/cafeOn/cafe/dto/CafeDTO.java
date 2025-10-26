@@ -20,11 +20,10 @@ public class CafeDTO {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String phone;
-//    private String photos;    // todo: photos 컬럼 추가해야함
+//    private String photos;    // todo: 대표사진 크롤링해와서 이미지링크 URL로 저장할 photos 컬럼 추가해야함
     private String openHours;
     private BigDecimal avgRating;
-//    private String description; // todo: 컬럼 추가해야함
-//    private String reviewsSummary;  // todo: 컬럼 추가 후, AI API 등으로 리뷰요약 해야함
+    private String reviewsSummary;
 //    private String relatedCafes;    // todo
 
 //    Cafe API는 읽기(Read) 중심 : DB데이터를 프론트에 맞게 내려줘야 해서 Entity -> DTO 변환이 필요
@@ -37,7 +36,8 @@ public class CafeDTO {
                 .phone(entity.getPhone())
                 .latitude(entity.getLatitude())
                 .longitude(entity.getLongitude())
-                .openHours(entity.getOpen_hours())
+                .openHours(entity.getOpenHours())
+                .reviewsSummary(entity.getReviewsSummary())
                 .build();
     }
 }
