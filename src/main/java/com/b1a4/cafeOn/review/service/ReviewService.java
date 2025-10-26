@@ -41,8 +41,6 @@ public class ReviewService {
 
     }
 
-    // todo
-    // 리뷰 작성(JSON+멀티파트)
 
     // 리뷰 수정(JSON)
     @Transactional
@@ -61,8 +59,6 @@ public class ReviewService {
         return ReviewDTO.fromEntity(review);
     }
 
-    // todo
-    // 리뷰 수정(JSON+멀티파트)
 
     // 리뷰 삭제
     @Transactional
