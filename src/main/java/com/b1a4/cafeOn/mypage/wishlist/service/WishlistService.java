@@ -68,6 +68,19 @@ public class WishlistService {
                 .build();
     }
 
+    // 위시리스트 제거
+    @Transactional
+    public ApiResponse<WishlistResponseDTO> unwish(String userId, Long cafeId, WishlistCategory category) {
+
+        int deleted = wishlistRepository
+                .deleteByUserUserIdAndCafeCafeIdAndCategory(userId, cafeId, category);
+
+        return ApiResponse.<WishlistResponseDTO>builder()
+                .message(deleted > 0 ? "위시리스트에서 제거되었습니다." : "이미 제거된 상태입니다.")
+                .data(new WishlistResponseDTO(cafeId, false))
+                .build();
+    }
+
     @Transactional(readOnly = true)
     public ApiResponse<Page<WishlistListResponseDTO>> list(
             String userId,
