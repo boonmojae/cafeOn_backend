@@ -43,7 +43,7 @@ public class WebSocketBrokerConfig implements WebSocketMessageBrokerConfigurer {
         registry.setApplicationDestinationPrefixes("/pub");
         registry.setUserDestinationPrefix("/user");
 
-        registry.enableSimpleBroker("/sub")
+        registry.enableSimpleBroker("/sub", "/queue") // 방 브로드캐스트, 개인 큐
                 .setTaskScheduler(customBrokerTaskScheduler())
                 // .setHeartbeatValue(new long[]{10_000, 10_000}); 엄격한 설정
                 .setHeartbeatValue(new long[]{10_000, 0}); // 서버 -> 클라만 보내고, 크라 -> 서버 기대는 해제

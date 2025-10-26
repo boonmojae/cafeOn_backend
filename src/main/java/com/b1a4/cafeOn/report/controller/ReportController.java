@@ -71,4 +71,29 @@ public class ReportController {
     }
 
 
+    // 리뷰 신고
+    @PostMapping("/reviews/{reviewId}/reports")
+    public ResponseEntity<?> reportReview(@AuthenticationPrincipal String userId, @PathVariable Long reviewId,
+                                          @Valid @RequestBody ReportRequestDTO reportRequestDTO) {
+        try {
+
+            ReportResponseDTO responseDTO = reportService.reportReview(userId, reviewId, reportRequestDTO);
+
+            ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
+                    .data(responseDTO)
+                    .message("리뷰 신고 성공")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (Exception e) {
+            log.error("리뷰 신고 실패 userId:{}, reviewId:{}", userId, reviewId);
+            ApiResponse<?> errorResponse = ApiResponse.builder()
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+
 }

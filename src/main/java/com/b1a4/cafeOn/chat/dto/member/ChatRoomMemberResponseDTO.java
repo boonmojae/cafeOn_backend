@@ -27,7 +27,7 @@ public class ChatRoomMemberResponseDTO {
     private boolean muted;
     private Long lastReadChatId;
     private Integer maxCapacity;
-    private Integer currentMembers;
+    private Long currentMembers;
     private LocalDateTime joinedAt;
     private boolean alreadyJoined;
 
@@ -45,7 +45,7 @@ public class ChatRoomMemberResponseDTO {
     }
 
     // 단체
-    public static ChatRoomMemberResponseDTO forGroupJoin(ChatRoomMemberEntity m, int currentMembersAfterJoin, boolean alreadyJoined) {
+    public static ChatRoomMemberResponseDTO forGroupJoin(ChatRoomMemberEntity m, long currentMembersAfterJoin, boolean alreadyJoined) {
         return ChatRoomMemberResponseDTO.builder()
                 .userId(m.getUser().getUserId())
                 .memberId(m.getChatRoomMemberId())

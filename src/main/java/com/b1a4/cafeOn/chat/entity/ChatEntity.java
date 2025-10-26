@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.chat.entity;
 
 import com.b1a4.cafeOn.chat.enums.ChatMessageType;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -35,8 +38,9 @@ public class ChatEntity {
     @Column(name = "message", length = 1000, nullable = false)
     private String message;
 
-//    @Column(name = "image_url", length = 500)
-//    private String imageUrl;
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ImageEntity> images = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "chatroom_id", nullable = false)
@@ -45,6 +49,10 @@ public class ChatEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false, columnDefinition = "CHAR(36)")
     private UserEntity sender;
+
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<NotificationEntity> notifications = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

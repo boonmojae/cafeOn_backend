@@ -52,6 +52,10 @@ public class ChatRoomMemberEntity {
     @Column(name = "last_read_chat_id")
     private Long lastReadChatId;
 
+    @Column(name = "unread_count", nullable = false)
+    @Builder.Default
+    private int unreadCount = 0;
+
     @PrePersist
     private void onCreate() {
         this.joinedAt = LocalDateTime.now();
