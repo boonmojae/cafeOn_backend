@@ -6,16 +6,18 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class ImageResponseDTO {
+public class ImageUploadResponseDTO {
 
     private Long imageId;
     private String originalFileName;
     private String imageUrl;
-    public static ImageResponseDTO from(ImageEntity image) {
-        return ImageResponseDTO.builder()
+
+    public static ImageUploadResponseDTO of(ImageEntity image, String publicUrl) {
+        return ImageUploadResponseDTO.builder()
                 .imageId(image.getImageId())
                 .originalFileName(image.getOriginalFileName())
-                .imageUrl(image.getPublicUrl())
+                .imageUrl(publicUrl)
                 .build();
     }
+
 }

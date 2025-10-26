@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.review.entity;
 
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
@@ -8,6 +9,8 @@ import jakarta.validation.constraints.Min;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "reviews")
@@ -43,6 +46,10 @@ public class ReviewEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cafe_id", nullable = false)
     private CafeEntity cafe;
+
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ImageEntity> images = new ArrayList<>();
 
     @PrePersist
     private void onCreate() {

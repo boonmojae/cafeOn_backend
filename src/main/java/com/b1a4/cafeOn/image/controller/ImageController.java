@@ -1,44 +1,40 @@
 package com.b1a4.cafeOn.image.controller;
 
+import com.b1a4.cafeOn.image.dto.ImageUploadSimpleResponseDTO;
+import com.b1a4.cafeOn.image.enums.ImageCategory;
+import com.b1a4.cafeOn.image.service.S3Service;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.MediaType;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
+@Slf4j
 @RestController
+@RequestMapping("/api/images")
 @RequiredArgsConstructor
 public class ImageController {
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    private final S3Service s3Service;
 
-    @GetMapping("/api/posts/images/{filename}")
-    public ResponseEntity<Resource> getImage(@PathVariable String filename) throws IOException {
 
-        Path filePath = Paths.get(uploadDir).resolve(filename);
-        Resource resource = new UrlResource(filePath.toUri());
+    @PostMapping("/upload")
+    public ResponseEntity<ImageUploadSimpleResponseDTO> uploadImage(@RequestParam("file") MultipartFile file) {
+        try {
+            S3Service.UploadedImageInfo uploaded =
+                    s3Service.uploadImage(file, ImageCategory.POST);
 
-        if (!resource.exists() || !resource.isReadable()) {
-            return ResponseEntity.notFound().build();
+            ImageUploadSimpleResponseDTO body = new ImageUploadSimpleResponseDTO(
+                    uploaded.getS3Key(),
+                    uploaded.getOriginalFileName(),
+                    uploaded.getPublicUrl()
+            );
+
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            log.error("S3 버킷에 이미지 업로드 실패", e);
+            return ResponseEntity.badRequest().build();
         }
-
-        String contentType = Files.probeContentType(filePath);
-        if (contentType == null) {
-            contentType = "application/octet-stream";
-        }
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(resource);
     }
 }
