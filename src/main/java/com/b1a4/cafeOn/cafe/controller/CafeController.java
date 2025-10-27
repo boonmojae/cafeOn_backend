@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.cafe.controller;
 
 import com.b1a4.cafeOn.cafe.dto.CafeDTO;
 import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
+import com.b1a4.cafeOn.cafe.dto.CafeNearbyResponse;
 import com.b1a4.cafeOn.cafe.service.CafeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -153,6 +154,39 @@ public class CafeController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * 3. 사용자 위치 기반 근처 카페 조회
+     */
+    @GetMapping("/nearby")
+    @Operation(
+            summary = "📍 사용자 위치 기반 근처 카페 조회",
+            description = """
+                사용자의 현재 위치(latitude, longitude)를 기반으로
+                지정 반경(radius, 단위: m) 내의 카페 목록을 DB에서 조회합니다.
+                만약 결과가 적으면 Kakao Map API를 통해 추가 카페를 보강합니다.
+                """,
+            parameters = {
+                    @Parameter(name = "latitude", example = "37.4979"),
+                    @Parameter(name = "longitude", example = "127.0276"),
+                    @Parameter(name = "radius", example = "1000")
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공: 근처 카페 목록 조회 완료",
+                            content = @Content(schema = @Schema(implementation = CafeNearbyResponse.class))
+                    )
+            }
+    )
+    public ResponseEntity<CafeNearbyResponse> getNearbyCafes(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "20000") int radius
+    ) {
+        CafeNearbyResponse response = cafeService.getNearbyCafes(latitude, longitude, radius);
+        return ResponseEntity.ok(response);
+    }
+
 //    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
 //    최근 찜 + 리뷰 수 통계 SQL집계 (30일 기준)
 
@@ -162,9 +196,7 @@ public class CafeController {
 
 //    5. 사용자 맞춤 카페 순위별 조회 (related10) todo: 임시로 랜덤/지역기반 -> ai
 
-//    6. 사용자 위치 기반 근처 카페 목록 조회 (latitude+longitude + Haversine 공식)
-//    @GetMapping("/nearby")
-//    public ResponseEntity<?> getNearbyCafes() {}
+
 
 
 //    8. 서울시 카페 전체 목록 조회
