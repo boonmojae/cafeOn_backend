@@ -62,6 +62,16 @@ public class ChatEntity {
         this.createdAt = LocalDateTime.now();
     }
 
+    public void addImage(ImageEntity image) {
+        images.add(image);
+        image.setChat(this);
+    }
+
+    public void removeImage(ImageEntity image) {
+        images.remove(image);
+        image.setChat(null);
+    }
+
     public static ChatEntity text(ChatRoomEntity room, UserEntity sender, String message) {
         return ChatEntity.builder()
                 .chatRoom(room)

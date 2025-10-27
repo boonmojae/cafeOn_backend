@@ -61,4 +61,14 @@ public class ReviewEntity {
         this.content = content;
     }
 
+    public void addImage(ImageEntity image) {
+        images.add(image);
+        image.setReview(this);
+    }
+
+    public void removeImage(ImageEntity image) {
+        images.remove(image);
+        image.setReview(null);
+    }
+
 }

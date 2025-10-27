@@ -22,13 +22,15 @@ public class S3Service {
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucket;
 
-    // 업로드 후 컨트롤러/서비스로 돌려줄 정보
+    @Value("${cafeon.cdn-base-url}")
+    private String cdnBaseUrl;
+
     public static class UploadedImageInfo {
-        private final String s3Key;             // S3에 실제로 저장된 key
-        private final String originalFileName;  // 사용자가 업로드한 원본 파일명
+        private final String s3Key;             // S3에 실제로 저장된 key (ex. "reviews/uuid_original.jpg")
+        private final String originalFileName;  // 원본 파일명
         private final String contentType;       // MIME type
         private final long sizeBytes;           // 파일 크기
-        private final String publicUrl;         // 접근 URL (버킷 공개 정책 따라 다름)
+        private final String publicUrl;         // 최종 접근 URL (cdnBaseUrl + key)
 
         public UploadedImageInfo(String s3Key,
                                  String originalFileName,
@@ -49,30 +51,27 @@ public class S3Service {
         public String getPublicUrl() { return publicUrl; }
     }
 
-    // category: POST / REVIEW / CHAT 중 어디에 쓰는 이미지인지
+    // category: POST / REVIEW / CHAT
     public UploadedImageInfo uploadImage(MultipartFile file, ImageCategory category) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("빈 파일은 업로드할 수 없습니다.");
         }
 
-        // 원본 파일명 확보
         String originalName = file.getOriginalFilename();
         if (originalName == null || originalName.isBlank()) {
             originalName = "unnamed";
         }
 
-        // 용도별 prefix 결정 (S3 내에서 '폴더'처럼 쓰임)
         String prefix = switch (category) {
             case POST -> "posts/";
             case REVIEW -> "reviews/";
             case CHAT -> "chats/";
         };
 
-        // 중복 방지 UUID
+        // key 생성 (폴더/prefix + uuid + "_" + 원본명)
         String uuid = UUID.randomUUID().toString();
         String key = prefix + uuid + "_" + originalName;
 
-        // S3 메타데이터
         ObjectMetadata metadata = new ObjectMetadata();
         metadata.setContentLength(file.getSize());
         metadata.setContentType(file.getContentType());
@@ -83,9 +82,12 @@ public class S3Service {
             throw new RuntimeException("S3 업로드 중 오류가 발생했습니다.", e);
         }
 
-        // 퍼블릭 URL (버킷 퍼블릭일 경우 바로 접근 가능)
+        // 퍼블릭 URL 생성
         String encodedKey = URLEncoder.encode(key, StandardCharsets.UTF_8);
-        String url = "https://" + bucket + ".s3.amazonaws.com/" + encodedKey;
+
+        String base = cdnBaseUrl.endsWith("/") ? cdnBaseUrl : cdnBaseUrl + "/";
+
+        String url = base + encodedKey;
 
         return new UploadedImageInfo(
                 key,
@@ -95,6 +97,7 @@ public class S3Service {
                 url
         );
     }
+
 
     // 삭제
     public void deleteImageByKey(String s3Key) {

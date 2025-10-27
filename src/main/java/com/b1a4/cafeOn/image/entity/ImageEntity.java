@@ -11,7 +11,8 @@ import lombok.*;
         name = "images",
         indexes = {
                 @Index(name = "idx_images_post", columnList = "post_id"),
-                @Index(name = "idx_images_review", columnList = "review_id")
+                @Index(name = "idx_images_review", columnList = "review_id"),
+                @Index(name = "idx_images_chat", columnList = "chat_id")
         }
 )
 @Getter
