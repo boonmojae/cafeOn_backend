@@ -36,6 +36,9 @@ public class ReviewDTO {
 
     private List<ImageResponseDTO> images;
 
+    @Builder.Default
+    private List<Long> existingImageIds = new ArrayList<>();
+
     public static ReviewEntity toEntity(ReviewDTO reviewDTO, UserEntity user, CafeEntity cafe) {
         return ReviewEntity.builder()
                 .rating(reviewDTO.getRating())

@@ -178,10 +178,10 @@ public class PostService {
     // 게시글 생성(글, 글+이미지)
     @Transactional
     public PostDetailResponseDTO createPost(String userId, PostRequestDTO postRequestDTO, List<S3Service.UploadedImageInfo> uploadedImages) {
-        UserEntity user = userStatus(userId);
+        UserEntity author = userStatus(userId);
 
         if (postRequestDTO == null) {
-            throw new IllegalArgumentException("게시글 정보가 필요합니다.");
+            throw new IllegalArgumentException("게시글 정보(post)가 필요합니다.");
         }
         if (postRequestDTO.getTitle() == null || postRequestDTO.getTitle().isBlank()) {
             throw new IllegalArgumentException("게시글 제목은 필수입니다.");
@@ -191,7 +191,7 @@ public class PostService {
                 .title(postRequestDTO.getTitle())
                 .content(postRequestDTO.getContent())
                 .type(postRequestDTO.getType())
-                .user(user)
+                .user(author)
                 .build();
 
         PostEntity savedPost = postRepository.save(post);
@@ -225,11 +225,7 @@ public class PostService {
             throw new IllegalArgumentException("수정할 게시글 정보가 없습니다.");
         }
 
-        post.update(
-                postRequestDTO.getTitle(),
-                postRequestDTO.getContent(),
-                postRequestDTO.getType()
-        );
+        post.update(postRequestDTO.getTitle(), postRequestDTO.getContent(), postRequestDTO.getType());
 
         // 유지 이미지 id 목록
         List<Long> imagesToKeepIds = postRequestDTO.getExistingImageIds();
@@ -288,12 +284,12 @@ public class PostService {
     }
 
     public UserEntity userStatus(String userId) {
-        UserEntity user = findByUserId(userId);
+        UserEntity author = findByUserId(userId);
 
-        if (user.getStatus() == null || user.getStatus() == UserStatus.DELETED) {
+        if (author.getStatus() == null || author.getStatus() == UserStatus.DELETED) {
             throw new RuntimeException("탈퇴한 사용자는 게시글 접근 권한이 없습니다.");
         }
 
-        return user;
+        return author;
     }
 }

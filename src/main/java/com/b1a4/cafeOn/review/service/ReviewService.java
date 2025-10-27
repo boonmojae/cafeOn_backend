@@ -4,6 +4,7 @@ import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
 import com.b1a4.cafeOn.common.exception.ReviewRatingMinMaxException;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
+import com.b1a4.cafeOn.image.repository.ImageRepository;
 import com.b1a4.cafeOn.image.service.ImageService;
 import com.b1a4.cafeOn.image.service.S3Service;
 import com.b1a4.cafeOn.review.dto.ReviewDTO;
@@ -17,9 +18,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -30,6 +33,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final CafeRepository cafeRepository;
+    private final ImageRepository imageRepository;
     private final ImageService imageService;
 
 
@@ -67,61 +71,68 @@ public class ReviewService {
     }
 
 
-//    // 리뷰 수정(JSON)
-//    @Transactional
-//    public ReviewDTO updateReview(ReviewDTO reviewDTO, String userId, Long reviewId) {
-//
-//        validateRating(reviewDTO.getRating());
-//
-//        UserEntity user = findByUserId(userId);
-//
-//        ReviewEntity review = reviewRepository.findById(reviewId)
-//                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
-//
-//        assertOwner(user, review);
-//
-//        review.update(reviewDTO.getRating(), reviewDTO.getContent());
-//        return ReviewDTO.fromEntity(review);
-//    }
-//
-//
-//    // 리뷰 삭제
-//    @Transactional
-//    public void deleteReview(String userId, Long reviewId) {
-//        UserEntity user = findByUserId(userId);
-//        ReviewEntity review = reviewRepository.findById(reviewId)
-//                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
-//
-//        assertOwner(user, review);
-//
-//        reviewRepository.delete(review);
-//
-//    }
-//
-//
-//    // 특정 리뷰 조회(단건 조회가 아닌 목록기능으로 서비스 코드만 작성한 상태)
-//    @Transactional(readOnly = true)
-//    public ReviewDTO getReview(Long cafeId, Long reviewId) {
-//        ReviewEntity review = reviewRepository.findById(reviewId)
-//                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
-//
-//        if(!review.getCafe().getCafeId().equals(cafeId)) {
-//            throw new AccessDeniedException("해당 카페의 리뷰가 아닙니다.");
-//        }
-//
-//        return ReviewDTO.fromEntity(review);
-//    }
-//
-//
-//    // 내가 작성한 리뷰 조회
-//    @Transactional(readOnly = true)
-//    public Page<ReviewDTO> getReviewById(String userId, Pageable pageable) {
-//
-//        Page<ReviewEntity> entities = reviewRepository.findByUser_UserId(userId, pageable);
-//
-//        return entities.map(ReviewDTO::fromEntity);
-//    }
+    // 리뷰 수정
+    public ReviewDTO updateReview(String userId, Long cafeId, Long reviewId,
+                                  ReviewDTO reviewDTO, List<S3Service.UploadedImageInfo> newlyUploadedImages) {
 
+        UserEntity user = findByUserId(userId);
+        CafeEntity cafe = findByCafeId(cafeId);
+        ReviewEntity review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
+
+        if (!review.getCafe().getCafeId().equals(cafe.getCafeId())) {
+            throw new IllegalArgumentException("요청한 카페와 리뷰의 소속 카페가 일치하지 않습니다.");
+        }
+
+        boolean isOwner = review.getUser() != null
+                && review.getUser().getUserId().equals(user.getUserId());
+        boolean isAdmin = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getAuthorities()
+                .stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!(isOwner || isAdmin)) {
+            throw new AccessDeniedException("리뷰를 수정할 권한이 없습니다.");
+        }
+
+        if (reviewDTO == null) {
+            throw new IllegalArgumentException("리뷰 정보가 필요합니다.");
+        }
+        if (reviewDTO.getContent() == null || reviewDTO.getContent().isBlank()) {
+            throw new IllegalArgumentException("리뷰 내용은 필수입니다.");
+        }
+        int rating = reviewDTO.getRating();
+        if (rating < 1 || rating > 5) {
+            throw new IllegalArgumentException("평점은 1~5 사이여야 합니다.");
+        }
+
+        review.update(reviewDTO.getRating(), reviewDTO.getContent());
+
+        List<Long> imagesToKeepIds =
+                (reviewDTO.getExistingImageIds() != null) ? reviewDTO.getExistingImageIds() : Collections.emptyList();
+
+        imageService.updateReviewImages(
+                review,
+                imagesToKeepIds,
+                newlyUploadedImages != null ? newlyUploadedImages : Collections.emptyList()
+        );
+
+        return ReviewDTO.fromEntity(review);
+
+    }
+
+
+    // 리뷰 삭제
+
+
+    // 내가 작성한 리뷰 조회
+    @Transactional(readOnly = true)
+    public Page<ReviewDTO> getReviewById(String userId, Pageable pageable) {
+
+        Page<ReviewEntity> entities = reviewRepository.findByUser_UserId(userId, pageable);
+
+        return entities.map(ReviewDTO::fromEntity);
+    }
 
 
     // 검증

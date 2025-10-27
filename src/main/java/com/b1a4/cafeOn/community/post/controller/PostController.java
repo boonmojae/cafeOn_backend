@@ -155,27 +155,39 @@ public class PostController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.builder()
-                                .data(saved)
-                                .message("게시글이 생성되었습니다.")
-                                .build());
+                        .data(saved)
+                        .message("게시글이 생성되었습니다.")
+                        .build());
     }
 
     // 게시글 수정
-    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PutMapping(value = "/{id}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> updatePost(@AuthenticationPrincipal String userId, @PathVariable("id") Long postId,
-                                        @RequestPart("post") PostRequestDTO postRequestDTO,
+                                        @RequestPart(value = "post", required = true) String postJson,
                                         @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+        PostRequestDTO postRequestDTO;
         try {
-            List<S3Service.UploadedImageInfo> newlyUploadedInfos = new ArrayList<>();
-            if (images != null && !images.isEmpty()) {
-                for (MultipartFile file : images) {
-                    S3Service.UploadedImageInfo info =
-                            s3Service.uploadImage(file, ImageCategory.POST);
-                    newlyUploadedInfos.add(info);
-                }
-            }
+            postRequestDTO = objectMapper.readValue(postJson, PostRequestDTO.class);
+        } catch (Exception e) {
+            log.warn("post 파트(JSON) 파싱 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.builder()
+                            .message("post 파트(JSON) 파싱 실패")
+                            .build()
+            );
+        }
 
+        List<S3Service.UploadedImageInfo> newlyUploadedInfos = new ArrayList<>();
+        if (images != null && !images.isEmpty()) {
+            for (MultipartFile file : images) {
+                S3Service.UploadedImageInfo info =
+                        s3Service.uploadImage(file, ImageCategory.POST);
+                newlyUploadedInfos.add(info);
+            }
+        }
+
+        try {
             PostDetailResponseDTO updated = postService.updatePost(
                     userId,
                     postId,
@@ -195,6 +207,7 @@ public class PostController {
                     .body(ApiResponse.builder()
                             .message("이 게시글을 수정할 권한이 없습니다.")
                             .build());
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.builder()
