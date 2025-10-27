@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -68,7 +69,16 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
     }
 
     // 게시글 신고 - 작성자 userId 조회
-    @Query("select p.user.userId from PostEntity p where p.postId = :postId")
+    @Query("SELECT p.user.userId FROM PostEntity p WHERE p.postId = :postId")
     Optional<String> findAuthorIdByPostId(@Param("postId") Long postId);
+    
+    
+    // 유저 탈퇴시 커뮤니티 데이터 삭제
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            DELETE FROM PostEntity p
+            WHERE p.user.userId =:userId
+            """)
+    int deleteByUserId(@Param("userId") String userId);
 
 }

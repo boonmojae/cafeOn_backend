@@ -45,6 +45,8 @@ dependencies {
 	
 	implementation 'me.paulschwarz:spring-dotenv:3.0.0'	// dotenv 라이브러리
 	implementation 'org.springframework.boot:spring-boot-starter-mail'	// JavaMailSender 클래스 이용하기 위해
+
+    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.767' // S3 SDK 추가
 }
 
 tasks.named('test') {
