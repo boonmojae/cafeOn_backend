@@ -336,7 +336,7 @@ CREATE TABLE IF NOT EXISTS penalties (
   )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE INDEX idx_penalty_user_created ON penalty(user_id, created_at);
-CREATE INDEX idx_penalty_user_status_ends ON penalty(user_id, status, ends_at);
+CREATE INDEX idx_penalty_user_created ON penalties(user_id, created_at);
+CREATE INDEX idx_penalty_user_status_ends ON penalties(user_id, status, ends_at);
 
 

@@ -56,6 +56,31 @@ public class ReportEntity {
     @Column(name = "created_at", nullable = false)
     public LocalDateTime createdAt;
 
+    @Column(name = "admin_note")
+    private String adminNote;
+
+    @Column(name = "handled_by", length = 36)
+    private String handledBy;
+
+    @Column(name = "handled_at")
+    private LocalDateTime handledAt;
+
+    // 신고 처리(수락)
+    public void resolve(String adminId, String note) {
+        this.status = ReportStatus.RESOLVED;
+        this.adminNote = note;
+        this.handledBy = adminId;
+        this.handledAt = LocalDateTime.now();
+    }
+
+    // 신고 기각
+    public void reject(String adminId, String note) {
+        this.status = ReportStatus.REJECTED;
+        this.adminNote = note;
+        this.handledBy = adminId;
+        this.handledAt = LocalDateTime.now();
+    }
+
     @PrePersist
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
