@@ -177,21 +177,21 @@ public class PostService {
 
     // 게시글 생성(글, 글+이미지)
     @Transactional
-    public PostDetailResponseDTO createPost(String userId, PostRequestDTO requestDTO, List<S3Service.UploadedImageInfo> uploadedImages) {
-        UserEntity author = userStatus(userId);
+    public PostDetailResponseDTO createPost(String userId, PostRequestDTO postRequestDTO, List<S3Service.UploadedImageInfo> uploadedImages) {
+        UserEntity user = userStatus(userId);
 
-        if (requestDTO == null) {
-            throw new IllegalArgumentException("게시글 정보(post)가 필요합니다.");
+        if (postRequestDTO == null) {
+            throw new IllegalArgumentException("게시글 정보가 필요합니다.");
         }
-        if (requestDTO.getTitle() == null || requestDTO.getTitle().isBlank()) {
+        if (postRequestDTO.getTitle() == null || postRequestDTO.getTitle().isBlank()) {
             throw new IllegalArgumentException("게시글 제목은 필수입니다.");
         }
 
         PostEntity post = PostEntity.builder()
-                .title(requestDTO.getTitle())
-                .content(requestDTO.getContent())
-                .type(requestDTO.getType())
-                .user(author)
+                .title(postRequestDTO.getTitle())
+                .content(postRequestDTO.getContent())
+                .type(postRequestDTO.getType())
+                .user(user)
                 .build();
 
         PostEntity savedPost = postRepository.save(post);
@@ -210,7 +210,7 @@ public class PostService {
 
     // 게시글 수정
     @Transactional
-    public PostDetailResponseDTO updatePost(String userId, Long postId, PostRequestDTO requestDTO,
+    public PostDetailResponseDTO updatePost(String userId, Long postId, PostRequestDTO postRequestDTO,
                                             List<S3Service.UploadedImageInfo> newlyUploadedImages) {
         userStatus(userId);
 
@@ -221,18 +221,18 @@ public class PostService {
             throw new PostForbiddenException();
         }
 
-        if (requestDTO == null) {
+        if (postRequestDTO == null) {
             throw new IllegalArgumentException("수정할 게시글 정보가 없습니다.");
         }
 
         post.update(
-                requestDTO.getTitle(),
-                requestDTO.getContent(),
-                requestDTO.getType()
+                postRequestDTO.getTitle(),
+                postRequestDTO.getContent(),
+                postRequestDTO.getType()
         );
 
         // 유지 이미지 id 목록
-        List<Long> imagesToKeepIds = requestDTO.getExistingImageIds();
+        List<Long> imagesToKeepIds = postRequestDTO.getExistingImageIds();
         if (imagesToKeepIds == null) {
             imagesToKeepIds = Collections.emptyList();
         }
@@ -288,12 +288,12 @@ public class PostService {
     }
 
     public UserEntity userStatus(String userId) {
-        UserEntity author = findByUserId(userId);
+        UserEntity user = findByUserId(userId);
 
-        if (author.getStatus() == null || author.getStatus() == UserStatus.DELETED) {
+        if (user.getStatus() == null || user.getStatus() == UserStatus.DELETED) {
             throw new RuntimeException("탈퇴한 사용자는 게시글 접근 권한이 없습니다.");
         }
 
-        return author;
+        return user;
     }
 }

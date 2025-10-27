@@ -165,28 +165,28 @@ public class MyPageController {
 
 
     // 내가 작성한 리뷰 목록
-    @GetMapping("/reviews")
-    public ResponseEntity<?> myReviews(@AuthenticationPrincipal String userId,
-                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        try {
-            Page<ReviewDTO> pageResult = reviewService.getReviewById(userId, pageable);
-
-            ApiResponse<Page<ReviewDTO>> body = ApiResponse.<Page<ReviewDTO>>builder()
-                    .message("내가 작성한 리뷰 목록 조회 성공")
-                    .data(pageResult)
-                    .build();
-
-            return ResponseEntity.ok(body);
-
-        } catch (Exception e) {
-            log.error("내가 작성한 리뷰 목록 조회 실패 userId:{}", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
-                    .message("내가 작성한 리뷰 목록 조회 실패")
-                    .build();
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-        }
-    }
+//    @GetMapping("/reviews")
+//    public ResponseEntity<?> myReviews(@AuthenticationPrincipal String userId,
+//                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+//        try {
+//            Page<ReviewDTO> pageResult = reviewService.getReviewById(userId, pageable);
+//
+//            ApiResponse<Page<ReviewDTO>> body = ApiResponse.<Page<ReviewDTO>>builder()
+//                    .message("내가 작성한 리뷰 목록 조회 성공")
+//                    .data(pageResult)
+//                    .build();
+//
+//            return ResponseEntity.ok(body);
+//
+//        } catch (Exception e) {
+//            log.error("내가 작성한 리뷰 목록 조회 실패 userId:{}", userId, e);
+//
+//            ApiResponse<?> error = ApiResponse.builder()
+//                    .message("내가 작성한 리뷰 목록 조회 실패")
+//                    .build();
+//
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+//        }
+//    }
 
 }
