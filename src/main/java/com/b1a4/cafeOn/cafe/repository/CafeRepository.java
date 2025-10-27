@@ -4,11 +4,16 @@ import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.List;
 import java.util.Optional;
 
 public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
+  @Query("SELECT c.name FROM CafeEntity c WHERE c.cafeId =:cafeId")
+    Optional<String> findNameById(@Param("cafeId") Long cafeId);
+  
     /**
      * 1. 전체 목록 조회
      */

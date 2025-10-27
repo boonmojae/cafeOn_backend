@@ -10,6 +10,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.b1a4.cafeOn.common.DisplayMasking.nicknameOf;
+
 @Getter
 @Builder
 @NoArgsConstructor
@@ -19,7 +21,7 @@ public class CommentResponseDTO {
     private Long commentId;
     private Long parentId;
     private Long postId;
-    private String authorName;
+    private String authorNickname;
     private String content;
     private LocalDateTime createdAt;
 
@@ -36,12 +38,15 @@ public class CommentResponseDTO {
 
     // 좋아요 정보 포함(목록/트리에서 사용)
     public static CommentResponseDTO from(CommentEntity comment, long likeCount, boolean likedByMe) {
+
+        String nicknameToDisplay = nicknameOf(comment.getUser());
+
         return CommentResponseDTO.builder()
                 .commentId(comment.getCommentId())
                 .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
                 .postId(comment.getPost().getPostId())
                 .content(comment.getContent())
-                .authorName(comment.getUser().getNickname())
+                .authorNickname(nicknameToDisplay)
                 .createdAt(comment.getCreatedAt())
                 .likeCount(likeCount)
                 .likedByMe(likedByMe)

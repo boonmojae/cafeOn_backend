@@ -1,5 +1,7 @@
 package com.b1a4.cafeOn.chat.entity;
 
+import com.b1a4.cafeOn.chat.enums.ChatMessageType;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -8,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -27,19 +31,28 @@ public class ChatEntity {
     @Column(name = "chat_id")
     private Long chatId;
 
-    @Column(name = "message", length = 1000)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false, length = 20)
+    private ChatMessageType messageType;
+
+    @Column(name = "message", length = 1000, nullable = false)
     private String message;
 
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ImageEntity> images = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "chatroom_id", nullable = false)
     private ChatRoomEntity chatRoom;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "sender_id", nullable = true, columnDefinition = "CHAR(36)")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "sender_id", nullable = false, columnDefinition = "CHAR(36)")
     private UserEntity sender;
+
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<NotificationEntity> notifications = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -53,16 +66,37 @@ public class ChatEntity {
         return ChatEntity.builder()
                 .chatRoom(room)
                 .sender(sender)
+                .messageType(ChatMessageType.TEXT)
                 .message(message)
                 .build();
     }
 
-    public static ChatEntity image(ChatRoomEntity room, UserEntity sender, String imageUrl) {
+    // 단체 채팅방 새로운 유저 입장시 시스템 메시지
+    public static ChatEntity systemJoin(ChatRoomEntity room, UserEntity user) {
         return ChatEntity.builder()
                 .chatRoom(room)
-                .sender(sender)
-                .imageUrl(imageUrl)
+                .sender(user)
+                .messageType(ChatMessageType.SYSTEM_JOIN)
+                .message(user.getNickname() + "님이 입장했습니다.")
                 .build();
     }
+
+    // 퇴장 시스템 메시지
+    public static ChatEntity systemLeave(ChatRoomEntity room, UserEntity user) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(user)
+                .messageType(ChatMessageType.SYSTEM_LEAVE)
+                .message(user.getNickname() + "님이 퇴장했습니다.")
+                .build();
+    }
+
+//    public static ChatEntity image(ChatRoomEntity room, UserEntity sender, String imageUrl) {
+//        return ChatEntity.builder()
+//                .chatRoom(room)
+//                .sender(sender)
+//                .imageUrl(imageUrl)
+//                .build();
+//    }
 
 }

@@ -1,6 +1,8 @@
 package com.b1a4.cafeOn.report.service;
 
+import com.b1a4.cafeOn.community.comment.exception.CommentNotFoundException;
 import com.b1a4.cafeOn.community.comment.repository.CommentRepository;
+import com.b1a4.cafeOn.community.post.exception.PostNotFoundException;
 import com.b1a4.cafeOn.community.post.repository.PostRepository;
 import com.b1a4.cafeOn.report.dto.ReportRequestDTO;
 import com.b1a4.cafeOn.report.dto.ReportResponseDTO;
@@ -8,6 +10,8 @@ import com.b1a4.cafeOn.report.entity.ReportEntity;
 import com.b1a4.cafeOn.report.enums.ReportStatus;
 import com.b1a4.cafeOn.report.enums.TargetType;
 import com.b1a4.cafeOn.report.repository.ReportRepository;
+import com.b1a4.cafeOn.review.exception.ReviewNotFoundException;
+import com.b1a4.cafeOn.review.repository.ReviewRepository;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,27 +26,33 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
 
     // 게시글 신고
     @Transactional
-    public ReportResponseDTO reportPost(String reporterId, Long postId, ReportRequestDTO req) {
+    public ReportResponseDTO reportPost(String reporterId, Long postId, ReportRequestDTO reportRequestDTO) {
         String reportedUserId = postRepository.findAuthorIdByPostId(postId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 게시글입니다."));
-        return createReport(reporterId, TargetType.POST, postId, reportedUserId, req.content());
+                .orElseThrow(() -> new PostNotFoundException(postId));
+        return createReport(reporterId, TargetType.POST, postId, reportedUserId, reportRequestDTO.content());
     }
 
     // 댓글 신고
     @Transactional
-    public ReportResponseDTO reportComment(String reporterId, Long commentId, ReportRequestDTO req) {
+    public ReportResponseDTO reportComment(String reporterId, Long commentId, ReportRequestDTO reportRequestDTO) {
         String reportedUserId = commentRepository.findAuthorIdByCommentId(commentId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 댓글입니다."));
-        return createReport(reporterId, TargetType.COMMENT, commentId, reportedUserId, req.content());
+                .orElseThrow(() -> new CommentNotFoundException(commentId));
+        return createReport(reporterId, TargetType.COMMENT, commentId, reportedUserId, reportRequestDTO.content());
     }
 
-    // todo
     // 카페 리뷰 신고
-    // 채팅 신고
+    @Transactional
+    public ReportResponseDTO reportReview(String reporterId, Long reviewId, ReportRequestDTO reportRequestDTO) {
+        String reportUserId = reviewRepository.findAuthorIdByReviewId(reviewId)
+                .orElseThrow(() -> new ReviewNotFoundException(reviewId));
+        return createReport(reporterId, TargetType.REVIEW, reviewId, reportUserId, reportRequestDTO.content());
+    }
+
 
     // 공통 로직
     private ReportResponseDTO createReport(

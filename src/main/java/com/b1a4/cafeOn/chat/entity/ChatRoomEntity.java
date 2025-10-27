@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -61,6 +63,17 @@ public class ChatRoomEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<ChatRoomMemberEntity> chatRoomMembers = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<ChatEntity> chats = new ArrayList<>();
+
+    @OneToMany(mappedBy = "chatRoom", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<NotificationEntity> notifications = new ArrayList<>();
 
     @PrePersist
     private void onCreate() {
@@ -76,28 +89,6 @@ public class ChatRoomEntity {
     @PreUpdate
     private void onUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-    // 1:1 채팅
-    public static ChatRoomEntity ofPrivate(String userA, String userB) {
-        String small = userA.compareTo(userB) <= 0 ? userA : userB;
-        String big = userA.compareTo(userB) <= 0 ? userB : userA;
-        return ChatRoomEntity.builder()
-                .type(RoomType.PRIVATE)
-                .maxCapacity(2)
-                .userSmall(small)
-                .userBig(big)
-                .build();
-    }
-
-    // 다인원 채팅
-    public static ChatRoomEntity ofGroup(Long cafeId, String roomName) {
-        return ChatRoomEntity.builder()
-                .type(RoomType.GROUP)
-                .maxCapacity(30)
-                .cafeId(cafeId)
-                .roomName(roomName)
-                .build();
     }
 
 }

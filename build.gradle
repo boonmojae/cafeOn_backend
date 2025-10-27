@@ -31,6 +31,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.security:spring-security-messaging'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13' // Swagger UI 띄우기 위함 (springdoc-openapi)
     compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'com.mysql:mysql-connector-j'
@@ -44,6 +45,8 @@ dependencies {
 	
 	implementation 'me.paulschwarz:spring-dotenv:3.0.0'	// dotenv 라이브러리
 	implementation 'org.springframework.boot:spring-boot-starter-mail'	// JavaMailSender 클래스 이용하기 위해
+
+    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.767' // S3 SDK 추가
 }
 
 tasks.named('test') {

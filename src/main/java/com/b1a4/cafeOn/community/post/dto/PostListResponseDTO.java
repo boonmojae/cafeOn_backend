@@ -8,6 +8,8 @@ import lombok.Getter;
 
 import java.time.LocalDateTime;
 
+import static com.b1a4.cafeOn.common.DisplayMasking.nicknameOf;
+
 @Getter
 @Builder
 public class PostListResponseDTO {
@@ -15,6 +17,7 @@ public class PostListResponseDTO {
     private PostType type;
     private String title;
     private String authorNickname;
+    private String authorProfileImageUrl;
     private LocalDateTime createdAt;
     private long viewCount;
     private long likeCount;
@@ -24,19 +27,12 @@ public class PostListResponseDTO {
     // 게시글 전체 목록 + 댓글 카운트
     public static PostListResponseDTO from(PostEntity post, long likeCount, long commentCount, boolean likedByMe) {
 
-        String nicknameToDisplay;
-
-        if (post.getUser() == null || post.getUser().getStatus() == UserStatus.DELETED) {
-            nicknameToDisplay = "(빈 자리)";
-        } else {
-            nicknameToDisplay = post.getUser().getNickname();
-        }
-
         return PostListResponseDTO.builder()
                 .id(post.getPostId())
                 .type(post.getType())
                 .title(post.getTitle())
-                .authorNickname(nicknameToDisplay)
+                .authorNickname(post.getUser().getNickname())
+                .authorProfileImageUrl(post.getUser().getProfileImage())
                 .viewCount(post.getViewCount())
                 .likeCount(likeCount)
                 .likedByMe(likedByMe)

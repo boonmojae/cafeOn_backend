@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <title>STOMP Chat (히스토리 + 실시간 읽음 카운트 최종)</title>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, Arial; margin: 20px; line-height: 1.45; background:#f7f8fa; }
+        h3 { margin: 0 0 12px; }
+        .row{margin:6px 0}
+        label{display:inline-block;min-width:120px;color:#374151}
+        input[type="text"]{width:360px;padding:6px 8px}
+        input.small{width:120px}
+        button{padding:6px 10px;margin-right:6px;cursor:pointer;border:1px solid #e5e7eb;border-radius:8px;background:#fff}
+        button:disabled{opacity:.6; cursor:not-allowed}
+        .muted{color:#6b7280;font-size:12px;margin-left:8px}
+        .controls{margin:10px 0; display:flex; gap:8px; flex-wrap: wrap;}
+
+        .chat-wrap {
+          border: 1px solid #e5e7eb; background: #fff; border-radius: 12px;
+          padding: 12px; height: 420px; overflow: auto; display: flex; flex-direction: column; gap: 8px;
+        }
+        .msg { display: flex; align-items: flex-end; gap: 8px; max-width: 80%; }
+        .msg.left { justify-content: flex-start; }
+        .msg.right { margin-left: auto; justify-content: flex-end; }
+
+        .avatar {
+          width: 36px; height: 36px; border-radius: 50%;
+          background: #e5e7eb; color:#374151; display:flex; align-items:center; justify-content:center;
+          font-weight: 700; flex: 0 0 36px; overflow: hidden;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+        .bubble-row { display:flex; align-items:flex-end; gap:6px; }
+        .bubble {
+          border-radius: 14px; padding: 10px 12px; line-height: 1.45; word-break: break-word;
+          background: #f3f4f6; color:#111827; max-width: 100%;
+        }
+        .right .bubble { background: #2563eb; color: #fff; }
+
+        .nick { font-size: 12px; color: #6b7280; margin: 0 0 4px 2px; }
+        .right .nick { text-align: right; color:#93c5fd; }
+
+        .meta {
+          font-size: 11px; color: #9ca3af; white-space: nowrap; user-select: none; min-width: 42px; text-align: right;
+        }
+        .meta .count { margin-left: 6px; }
+        .right .meta { color: #dbeafe; }
+
+        .input-row { display:flex; gap:8px; align-items:center; }
+        .input-row input[type="text"] { flex:1; }
+
+        pre#log { background:#0f172a;color:#a7f3d0;padding:12px;height:160px;overflow:auto;border-radius:8px; margin-top:10px; }
+        pre#noti { background:#111827;color:#fef9c3;padding:12px;height:120px;overflow:auto;border-radius:8px; margin-top:10px; }
+
+        .system { display: flex; justify-content: center; margin: 6px 0; }
+        .system > span { max-width: 80%; font-size: 12px; color: #475569; background: #e5e7eb; padding: 6px 10px; border-radius: 999px; }
+    </style>
+</head>
+<body>
+<h3>STOMP Chat (히스토리 + 실시간 읽음 카운트 최종)</h3>
+
+<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <label>Server (ws/wss):</label>
+    <input id="serverUrl" type="text" value="ws://localhost:8080/stomp/chats">
+</div>
+<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <label>JWT Token:</label>
+    <input id="token" type="text" value="REPLACE_WITH_YOUR_JWT">
+</div>
+<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <label>Room ID:</label>
+    <input id="roomId" class="small" type="text" value="1">
+    <label style="min-width:auto">그룹방?</label>
+    <input id="isGroup" type="checkbox" checked>
+    <span class="muted">체크 시 입장 전 REST join 수행 (입력값=카페ID)</span>
+</div>
+<div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <label>Leave시 소켓도 끊기?</label>
+    <input id="disconnectOnLeave" type="checkbox">
+    <span class="muted">여러 방 이동 시 체크 끄는 것을 권장</span>
+</div>
+
+<div class="controls">
+    <button id="enterBtn">Enter (Auto Connect + Subscribe + History)</button>
+    <button id="leaveBtn">Leave Room (REST DELETE)</button>
+    <button id="disconnectBtn">Disconnect Socket</button>
+</div>
+
+<div id="chat" class="chat-wrap"></div>
+
+<div class="row input-row" style="margin-top:10px;">
+    <input id="msgInput" type="text" placeholder="메시지를 입력하세요" disabled />
+    <button id="sendBtn" disabled>Send</button>
+</div>
+
+<pre id="log"></pre>
+<pre id="noti"></pre>
+
+<script>
+    // ===== 상태 =====
+    let client, socket;
+    let connecting = false;
+    let reconnectTimer = null;
+    let backoffMs = 2000;
+    const backoffMax = 30000;
+
+    let myUserId = null;
+    const subscriptions = new Map(); // roomId -> { subMsg, subRead }
+    const seenChatIds = new Set();
+
+    let lastMsgCtx = { senderId: null, minuteKey: null, metaEl: null, isSystem: false };
+    let unreadPollTimer = null;
+
+    let currentRoomId = null;
+    let readLatestTimer = null;
+
+    // ✅ readerId별로 마지막으로 반영한 lastReadChatId를 보관
+    const lastReadSeen = new Map(); // readerId -> lastAppliedLastReadChatId
+
+    function scheduleReadLatest(roomId) {
+      if (readLatestTimer) clearTimeout(readLatestTimer);
+      readLatestTimer = setTimeout(() => readLatest(roomId), 400);
+    }
+
+    // ===== 유틸 =====
+    function log(...args){
+      const pre = document.getElementById('log');
+      pre.textContent += args.join(' ') + "\n";
+      pre.scrollTop = pre.scrollHeight;
+      console.log(...args);
+    }
+    function noti(...args){
+      const pre = document.getElementById('noti');
+      pre.textContent += args.join(' ') + "\n";
+      pre.scrollTop = pre.scrollHeight;
+      console.log('[NOTI]', ...args);
+    }
+    function setSendUI(enabled){
+      document.getElementById('msgInput').disabled = !enabled;
+      document.getElementById('sendBtn').disabled = !enabled;
+    }
+    setSendUI(false);
+
+    function validJwtOrAlert(token){
+      const dots = (token.match(/\./g) || []).length;
+      if (dots !== 2){
+        alert('잘못된 JWT 형식입니다.');
+        return false;
+      }
+      return true;
+    }
+
+    function parseJwtUserId(token) {
+      try {
+        const payload = token.split('.')[1];
+        const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+        return json.userId || json.sub || json.uid || null;
+      } catch { return null; }
+    }
+
+    function clearChatUI(){
+      document.getElementById('chat').innerHTML = '';
+      seenChatIds.clear();
+      lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:false };
+    }
+
+    function unsubscribeRoom(roomId){
+      const key = String(roomId);
+      const entry = subscriptions.get(key);
+      if (entry) {
+        try { entry.subMsg?.unsubscribe(); } catch(_) {}
+        try { entry.subRead?.unsubscribe(); } catch(_) {}
+      }
+      subscriptions.delete(key);
+    }
+
+    function minuteKeyOf(createdAt) {
+      try {
+        const d = new Date(createdAt);
+        const yy = d.getFullYear();
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        const HH = String(d.getHours()).padStart(2,'0');
+        const MM = String(d.getMinutes()).padStart(2,'0');
+        return `${yy}-${mm}-${dd} ${HH}:${MM}`;
+      } catch { return null; }
+    }
+
+    // ===== 렌더 =====
+    function isSystemType(t){
+      const type = (t || '').toString().toUpperCase();
+      return type === 'SYSTEM' || type.startsWith('SYSTEM_');
+    }
+
+    function renderSystem(m) {
+      const chat = document.getElementById('chat');
+      const row = document.createElement('div');
+      row.className = 'system';
+      const span = document.createElement('span');
+      span.textContent = m.message || m.content || '';
+      row.appendChild(span);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+
+      lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:true };
+    }
+
+    function setMeta(metaEl, timeLabel, countOrNull) {
+      metaEl.innerHTML = '';
+      const timeNode = document.createElement('span');
+      timeNode.className = 'time';
+      timeNode.textContent = timeLabel || '';
+      metaEl.appendChild(timeNode);
+
+      if (typeof countOrNull === 'number' && countOrNull > 0) {
+        const countNode = document.createElement('span');
+        countNode.className = 'count';
+        countNode.textContent = String(countOrNull);
+        metaEl.appendChild(countNode);
+      }
+    }
+
+    function decrementCount(metaEl) {
+      if (!metaEl) return;
+      const countNode = metaEl.querySelector('.count');
+      if (!countNode) return;
+      const cur = parseInt(countNode.textContent || '0', 10) || 0;
+      const next = Math.max(0, cur - 1);
+      if (next === 0) countNode.remove();
+      else countNode.textContent = String(next);
+    }
+
+    function renderChatBubble(m) {
+      if (isSystemType(m.messageType)) { renderSystem(m); return; }
+
+      const mine = (typeof m.mine === 'boolean')
+        ? m.mine
+        : (m.senderId && myUserId && String(m.senderId).trim() === String(myUserId).trim());
+
+      const nick = mine ? '나' : (m.senderNickname || '상대');
+      const avatarUrl = m.senderProfileImageUrl || null;
+
+      const chat = document.getElementById('chat');
+      const wrap = document.createElement('div');
+      wrap.className = 'msg ' + (mine ? 'right' : 'left');
+
+      // 항상 세팅(없으면 '')
+      if (m.chatId) wrap.dataset.chatId = String(m.chatId);
+      wrap.dataset.senderId = (m.senderId != null) ? String(m.senderId) : '';
+
+      if (!mine) {
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        if (avatarUrl) {
+          const img = document.createElement('img');
+          img.src = avatarUrl; img.alt = nick;
+          avatar.appendChild(img);
+        } else {
+          avatar.textContent = (nick || '상').slice(0,2);
+        }
+        wrap.appendChild(avatar);
+      }
+
+      const body = document.createElement('div');
+      body.style.maxWidth = '100%';
+
+      const nickEl = document.createElement('div');
+      nickEl.className = 'nick';
+      nickEl.textContent = mine ? '나' : nick;
+      if (mine) nickEl.style.visibility = 'hidden';
+
+      const row = document.createElement('div');
+      row.className = 'bubble-row';
+
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = m.message || '';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      const curMinuteKey = minuteKeyOf(m.createdAt);
+      const sameSender = !!(lastMsgCtx.senderId && m.senderId && String(lastMsgCtx.senderId) === String(m.senderId));
+      const sameMinute = !!(lastMsgCtx.minuteKey && curMinuteKey && lastMsgCtx.minuteKey === curMinuteKey);
+      const sameRun = sameSender && sameMinute && !lastMsgCtx.isSystem;
+
+      // ⚠️ 이전 메타를 비우지 않는다(카운트가 사라지던 원인)
+      // if (sameRun && lastMsgCtx.metaEl) lastMsgCtx.metaEl.textContent = '';
+
+      // 서버 계산값 그대로 렌더
+      const count = (typeof m.othersUnreadUsers === 'number') ? m.othersUnreadUsers : 0;
+      setMeta(meta, m.timeLabel || '', count);
+
+      if (mine) { row.appendChild(meta); row.appendChild(bubble); }
+      else { row.appendChild(bubble); row.appendChild(meta); }
+
+      body.appendChild(nickEl);
+      body.appendChild(row);
+      wrap.appendChild(body);
+
+      chat.appendChild(wrap);
+      chat.scrollTop = chat.scrollHeight;
+
+      lastMsgCtx = {
+        senderId: m.senderId || (mine ? myUserId : null),
+        minuteKey: curMinuteKey,
+        metaEl: meta,
+        isSystem: false
+      };
+    }
+
+    function renderMessage(m) {
+      if (isSystemType(m.messageType)) renderSystem(m);
+      else renderChatBubble(m);
+    }
+
+    // ===== STOMP 연결 =====
+    function buildClient(serverUrl){
+      socket = new WebSocket(serverUrl);
+      client = Stomp.over(socket);
+      client.debug = () => {};
+      client.heartbeat.outgoing = 10000;
+      client.heartbeat.incoming = 0;
+      socket.onclose = (e) => {
+        log('WS CLOSED:', e.code, e.reason || '');
+        scheduleReconnect();
+        setSendUI(false);
+      };
+    }
+
+    function scheduleReconnect(){
+      if (reconnectTimer || (client && client.connected)) return;
+      const token = document.getElementById('token').value.trim();
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        log(`RECONNECTING... (delay=${backoffMs}ms)`);
+        const serverUrl = document.getElementById('serverUrl').value.trim();
+        ensureConnected(serverUrl, token).catch(() => {});
+        backoffMs = Math.min(backoffMax, backoffMs * 2);
+      }, backoffMs);
+    }
+
+    function ensureConnected(serverUrl, token){
+      return new Promise((resolve, reject) => {
+        if (client && client.connected) return resolve();
+
+        if (connecting){
+          const t0 = Date.now();
+          const wait = setInterval(() => {
+            if (client && client.connected) {
+              clearInterval(wait); return resolve();
+            }
+            if (Date.now() - t0 > 10000){
+              clearInterval(wait); return reject(new Error('CONNECT TIMEOUT'));
+            }
+          }, 150);
+          return;
+        }
+
+        if (!token || !validJwtOrAlert(token)) return reject(new Error('INVALID_TOKEN'));
+
+        buildClient(serverUrl);
+        const headers = { Authorization: 'Bearer ' + token };
+        connecting = true;
+
+        client.connect(headers,
+          frame => {
+            connecting = false;
+            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+            backoffMs = 2000;
+
+            myUserId = frame.headers['user-name'] || parseJwtUserId(token) || null;
+            log('CONNECTED headers:', JSON.stringify(frame.headers));
+            if (!myUserId) log('WARN: user-name header not found & JWT parse failed!');
+
+            client.subscribe('/user/queue/notifications', (msg) => {
+              try { noti('PUSH: ' + JSON.stringify(JSON.parse(msg.body))); }
+              catch(e) { noti('NOTI_PARSE_ERR: ' + e.message); }
+            });
+
+            if (subscriptions.size > 0) {
+              const rooms = [...subscriptions.keys()];
+              const saved = [...subscriptions.entries()];
+              subscriptions.clear();
+              saved.forEach(([rid]) => doSubscribe(rid));
+              log('RESUBSCRIBED: ' + rooms.join(', '));
+            }
+
+            startUnreadPolling();
+            resolve();
+          },
+          err => {
+            connecting = false;
+            log('CONNECT ERROR: ' + ((err && err.body) ? err.body : String(err)));
+            scheduleReconnect();
+            reject(new Error('CONNECT FAILED'));
+          }
+        );
+      });
+    }
+
+    function startUnreadPolling(){
+      stopUnreadPolling();
+      const token = document.getElementById('token').value.trim();
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) return;
+      const fn = async () => {
+        try {
+          const res = await fetch(`/api/notifications/unread`, {
+            headers: { Authorization: 'Bearer ' + token }
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          const items = Array.isArray(data?.data) ? data.data : [];
+          noti('UNREAD (count=' + items.length + '): ' + JSON.stringify(items));
+        } catch {}
+      };
+      fn();
+      unreadPollTimer = setInterval(fn, 30000);
+    }
+    function stopUnreadPolling(){
+      if (unreadPollTimer) { clearInterval(unreadPollTimer); unreadPollTimer = null; }
+    }
+
+    // ===== 구독 & 입장 =====
+    function doSubscribe(roomId){
+      if (!client || !client.connected) { log('NOT_CONNECTED'); return; }
+      if (subscriptions.has(roomId)) { log('ALREADY SUBSCRIBED: ' + roomId); return; }
+
+      // 메시지 스트림
+      const subMsg = client.subscribe(`/sub/rooms/${roomId}`, msg => {
+        try {
+          const data = JSON.parse(msg.body);
+          if (data.chatId && seenChatIds.has(data.chatId)) return;
+          if (data.chatId) seenChatIds.add(data.chatId);
+          renderMessage(data);
+
+          const isSystem = (data.messageType || '').toUpperCase().startsWith('SYSTEM');
+          if (String(currentRoomId) === String(roomId) && !isSystem) {
+            scheduleReadLatest(roomId);
+          }
+        } catch(e) { log('PARSE_ERROR: ' + e.message); }
+      });
+
+      // 읽음 영수증 스트림 (/read)
+      const subRead = client.subscribe(`/sub/rooms/${roomId}/read`, msg => {
+        try {
+          const rr = JSON.parse(msg.body); // { roomId, readerId, lastReadChatId }
+          if (!rr || !rr.readerId || typeof rr.lastReadChatId !== 'number') return;
+
+          // ✅ 중복/과거 이벤트 가드 + 범위 계산
+          const prev = lastReadSeen.get(rr.readerId) || 0;
+          const cur  = rr.lastReadChatId;
+          if (cur <= prev) return;                 // 과거/동일 이벤트 무시
+          lastReadSeen.set(rr.readerId, cur);      // 최신 값 저장
+
+          // ✅ (prev, cur] 구간만 1씩 감소 (이미 감소한 구간 재차감 방지)
+          const nodes = document.querySelectorAll('#chat .msg[data-chat-id]');
+          nodes.forEach(node => {
+            const chatId = Number(node.dataset.chatId || '0');
+            const senderId = node.dataset.senderId || '';
+            if (chatId > prev && chatId <= cur && senderId && senderId !== rr.readerId) {
+              const metaEl = node.querySelector('.meta');
+              decrementCount(metaEl);
+            }
+          });
+        } catch(e) { log('READ_PARSE_ERROR: ' + e.message); }
+      });
+
+      subscriptions.set(roomId, { subMsg, subRead });
+      log('SUBSCRIBED to /sub/rooms/' + roomId + ' & /read');
+      setSendUI(true);
+    }
+
+    async function readLatest(roomId){
+      const token = document.getElementById('token').value.trim();
+      try {
+        const res = await fetch(`/api/chat/rooms/${roomId}/members/me/read-latest`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (!res.ok && res.status !== 204) {
+          const t = await res.text().catch(()=> '');
+          log('READ-LATEST FAILED: ' + res.status + ' ' + t);
+        } else {
+          log('READ-LATEST OK');
+          startUnreadPolling();
+        }
+      } catch (e) {
+        log('READ-LATEST ERROR: ' + (e.message || String(e)));
+      }
+    }
+
+    async function enterRoom(roomId, opts = { isGroup: true }){
+      const token = document.getElementById('token').value.trim();
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      if (!roomId) return log('ROOM_ID_REQUIRED');
+
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) {
+        alert('JWT를 먼저 입력하세요.');
+        return;
+      }
+
+      try {
+        if (opts.isGroup){
+          await fetch(`/api/chat/rooms/group/${roomId}/join`, {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+        }
+
+        await ensureConnected(serverUrl, token);
+        doSubscribe(String(roomId));
+
+        // 히스토리 로드(othersUnreadUsers 포함)
+        const res = await fetch(`/api/chat/rooms/${roomId}/messages?includeSystem=true`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const body = await res.json();
+        const page = body?.data;
+        const arr = page?.items || page?.content || [];
+        if (Array.isArray(arr)) {
+          [...arr].reverse().forEach(m => {
+            if (m.chatId && seenChatIds.has(m.chatId)) return;
+            if (m.chatId) seenChatIds.add(m.chatId);
+            renderMessage(m);
+          });
+        }
+
+        // ✅ 입장 시 최신까지 읽음 1회
+        await readLatest(roomId);
+
+        setSendUI(true);
+        log('ENTERED ROOM: ' + roomId);
+        currentRoomId = String(roomId);
+      } catch (e) {
+        log('ENTER ERROR: ' + (e.message || String(e)));
+        setSendUI(false);
+      }
+    }
+
+    async function leaveRoom(roomId){
+      if (!roomId) return log('ROOM_ID_REQUIRED');
+      const token = document.getElementById('token').value.trim();
+      if (!token || token.includes('REPLACE_WITH_YOUR_JWT')) {
+        alert('JWT를 먼저 입력하세요.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/chat/rooms/${roomId}/members/me/leave`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (res.ok) {
+          unsubscribeRoom(roomId);
+          clearChatUI();
+          setSendUI(false);
+          log('LEAVE SUCCESS: ' + roomId);
+
+          if (String(currentRoomId) === String(roomId)) currentRoomId = null;
+
+          if (document.getElementById('disconnectOnLeave').checked) {
+            manualDisconnect();
+          }
+          return;
+        }
+
+        if (res.status === 403) {
+          log('LEAVE FORBIDDEN (멤버 아님): ' + roomId);
+        } else if (res.status === 404) {
+          log('LEAVE NOT FOUND (방 없음): ' + roomId);
+          unsubscribeRoom(roomId);
+          clearChatUI();
+          setSendUI(false);
+        } else {
+          const text = await res.text().catch(()=> '');
+          log('LEAVE FAILED: ' + res.status + ' ' + text);
+        }
+      } catch (e) {
+        log('LEAVE ERROR: ' + (e.message || String(e)));
+      }
+    }
+
+    // ===== 전송 =====
+    function sendMsg(){
+      if (!client || !client.connected) return log('NOT_CONNECTED');
+      const roomId = document.getElementById('roomId').value.trim();
+      const content = document.getElementById('msgInput').value;
+      if (!roomId) return log('ROOM_ID_REQUIRED');
+      if (!content || !content.trim()) return;
+
+      client.send(`/pub/rooms/${roomId}`, {}, JSON.stringify({ message: content }));
+      log('SENT (await RECV): ' + content);
+      document.getElementById('msgInput').value = '';
+    }
+
+    // ===== 수동 소켓 종료 =====
+    function manualDisconnect(){
+      for (const [rid, entry] of subscriptions.entries()) {
+        try { entry.subMsg?.unsubscribe(); } catch(_) {}
+        try { entry.subRead?.unsubscribe(); } catch(_) {}
+      }
+      subscriptions.clear();
+
+      if (client && client.connected) {
+        try { client.disconnect(() => log('DISCONNECTED')); } catch(_) {}
+      }
+      if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+        try { socket.close(1000, 'manual'); } catch(_) {}
+      }
+      myUserId = null;
+      connecting = false;
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      stopUnreadPolling();
+      if (readLatestTimer) { clearTimeout(readLatestTimer); readLatestTimer = null; }
+      currentRoomId = null;
+      setSendUI(false);
+      lastReadSeen.clear();
+    }
+
+    // ===== 이벤트 바인딩 =====
+    document.getElementById('enterBtn').addEventListener('click', () => {
+      const roomId = document.getElementById('roomId').value.trim();
+      const isGroup = document.getElementById('isGroup').checked;
+      enterRoom(roomId, { isGroup });
+    });
+
+    document.getElementById('leaveBtn').addEventListener('click', () => {
+      const roomId = document.getElementById('roomId').value.trim();
+      leaveRoom(roomId);
+    });
+
+    document.getElementById('disconnectBtn').addEventListener('click', manualDisconnect);
+
+    document.getElementById('sendBtn').addEventListener('click', sendMsg);
+    document.getElementById('msgInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMsg();
+    });
+
+    window.addEventListener('beforeunload', manualDisconnect);
+</script>
+</body>
+</html>

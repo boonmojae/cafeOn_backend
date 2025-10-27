@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.chat.dto.chat;
 
+import com.b1a4.cafeOn.chat.enums.ChatMessageType;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,11 +20,13 @@ public class ChatResponseDTO {
     private Long roomId;
     private String senderId;
     private String message;
-    private String imageUrl;
     private LocalDateTime createdAt;
     private String timeLabel;
-
     private String senderNickname;
     private String senderProfileImageUrl;
-    private boolean mine;
+    private Boolean mine; // null이 허용되게 boolean -> B로 수정
+    private ChatMessageType messageType;
+    private Integer othersUnreadUsers;
+
+//    private String imageUrl;
 }
