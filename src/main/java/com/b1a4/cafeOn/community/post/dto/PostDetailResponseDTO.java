@@ -22,6 +22,7 @@ public class PostDetailResponseDTO {
     private String title;
     private String content;
     private String authorNickname;
+    private String authorProfileImageUrl;
     private PostType type;
     private long viewCount;
     private List<ImageResponseDTO> images;
@@ -32,13 +33,6 @@ public class PostDetailResponseDTO {
 
     public static PostDetailResponseDTO from(PostEntity post, long likeCount, boolean likedByMe) {
 
-        String nicknameToDisplay;
-        if (post.getUser() == null || post.getUser().getStatus() == UserStatus.DELETED) {
-            nicknameToDisplay = "(빈 자리)";
-        } else {
-            nicknameToDisplay = post.getUser().getNickname();
-        }
-
         List<ImageResponseDTO> imageResponseDTOS = post.getImages().stream()
                 .map(ImageResponseDTO::from)
                 .collect(Collectors.toList());
@@ -47,7 +41,8 @@ public class PostDetailResponseDTO {
                 .id(post.getPostId())
                 .title(post.getTitle())
                 .content(post.getContent())
-                .authorNickname(nicknameToDisplay)
+                .authorNickname(post.getUser().getNickname())
+                .authorProfileImageUrl(post.getUser().getProfileImage())
                 .type(post.getType())
                 .images(imageResponseDTOS)
                 .createdAt(post.getCreatedAt())
@@ -58,5 +53,3 @@ public class PostDetailResponseDTO {
                 .build();
     }
 }
-
-
