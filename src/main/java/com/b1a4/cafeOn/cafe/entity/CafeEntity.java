@@ -40,7 +40,11 @@ public class CafeEntity {
     private String phone;
 
     @Column(name = "open_hours", columnDefinition = "TEXT")
-    private String open_hours;
+    private String openHours;
+
+    @Column(name = "kakao_rating", columnDefinition = "DECIMAL(3,2)")
+    @Builder.Default
+    private BigDecimal kakaoRating = BigDecimal.valueOf(0.00);
 
     @Column(name = "avg_rating", columnDefinition = "DECIMAL(3,2)")
     @Builder.Default
@@ -51,6 +55,9 @@ public class CafeEntity {
 
     @Column(name = "kakao_url", columnDefinition = "VARCHAR(255)")
     private String kakaoUrl;
+
+    @Column(name = "reviews_summary", columnDefinition = "TEXT")
+    private String reviewsSummary;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "source", nullable = false)

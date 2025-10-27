@@ -52,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/images/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cafes/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/posts").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/posts/**").hasRole("USER")
