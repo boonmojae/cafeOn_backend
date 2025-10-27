@@ -7,9 +7,6 @@ public record ChatRequestDTO(
         @Size(max = 1000)
         String message
 
-        // @Size(max = 500)
-        // String imageUrl;
-
 ) {
 }
 

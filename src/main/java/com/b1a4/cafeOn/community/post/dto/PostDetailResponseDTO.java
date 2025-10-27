@@ -1,6 +1,5 @@
 package com.b1a4.cafeOn.community.post.dto;
 
-import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
 import com.b1a4.cafeOn.image.dto.ImageResponseDTO;
 import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.community.post.enums.PostType;
@@ -23,6 +22,7 @@ public class PostDetailResponseDTO {
     private String title;
     private String content;
     private String authorNickname;
+    private String authorProfileImageUrl;
     private PostType type;
     private long viewCount;
     private List<ImageResponseDTO> images;
@@ -31,17 +31,7 @@ public class PostDetailResponseDTO {
     private long likeCount;
     private boolean likedByMe;
 
-    // 게시글 상세 조회(댓글 데이터 X, 댓글 API사용)
     public static PostDetailResponseDTO from(PostEntity post, long likeCount, boolean likedByMe) {
-
-        // 탈퇴한 회원 닉네임
-        String nicknameToDisplay;
-
-        if (post.getUser() == null || post.getUser().getStatus() == UserStatus.DELETED) {
-            nicknameToDisplay = "(빈 자리)";
-        } else {
-            nicknameToDisplay = post.getUser().getNickname();
-        }
 
         List<ImageResponseDTO> imageResponseDTOS = post.getImages().stream()
                 .map(ImageResponseDTO::from)
@@ -51,7 +41,8 @@ public class PostDetailResponseDTO {
                 .id(post.getPostId())
                 .title(post.getTitle())
                 .content(post.getContent())
-                .authorNickname(nicknameToDisplay)
+                .authorNickname(post.getUser().getNickname())
+                .authorProfileImageUrl(post.getUser().getProfileImage())
                 .type(post.getType())
                 .images(imageResponseDTOS)
                 .createdAt(post.getCreatedAt())
@@ -62,4 +53,3 @@ public class PostDetailResponseDTO {
                 .build();
     }
 }
-
