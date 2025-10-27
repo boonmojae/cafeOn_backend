@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.cafe.service;
 
 import com.b1a4.cafeOn.cafe.dto.CafeDTO;
 import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
+import com.b1a4.cafeOn.cafe.dto.CafeNearbyResponse;
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
@@ -19,6 +20,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -26,9 +30,7 @@ import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -291,5 +293,99 @@ public class CafeService {
 //                )).collect(Collectors.toList()))
                 .build();
     }
+
+    /**
+     * 3. 사용자 위치 기반 근처 카페 조회
+     */
+    public CafeNearbyResponse getNearbyCafes(double latitude, double longitude, int radius) {
+
+        // 1️⃣ DB 기반 조회
+        List<CafeEntity> nearbyFromDB = cafeRepository.findNearbyCafes(latitude, longitude, radius);
+        log.info("📍 [DB] 반경 {}m 이내 카페 {}개 조회 (lat={}, lon={})",
+                radius, nearbyFromDB.size(), latitude, longitude);
+
+        // 2️⃣ Entity → DTO
+        List<CafeDTO> cafeDTOs = nearbyFromDB.stream()
+                .map(CafeDTO::fromEntity)
+                .toList();
+
+        // 3️⃣ Kakao API 보조 호출 (DB 결과 부족할 때)
+        if (cafeDTOs.size() < 10) {
+            log.info("⚠️ DB 결과 부족 ({}개) → Kakao API로 보조 조회 시작", cafeDTOs.size());
+
+            List<CafeDTO> kakaoCafes = fetchNearbyFromKakao(latitude, longitude, radius);
+
+            Set<String> existingNames = cafeDTOs.stream()
+                    .map(CafeDTO::getName)
+                    .collect(Collectors.toSet());
+
+            List<CafeDTO> newCafes = kakaoCafes.stream()
+                    .filter(c -> !existingNames.contains(c.getName()))
+                    .toList();
+
+            cafeDTOs.addAll(newCafes);
+            log.info("🟢 [Kakao] 새로 추가된 카페 {}개 (중복 제거 후 총 {}개)", newCafes.size(), cafeDTOs.size());
+        } else {
+            log.info("✅ Kakao API 호출 불필요 — DB 결과 충분 ({}개)", cafeDTOs.size());
+        }
+
+        // 4️⃣ 최종 반환 로그
+        log.info("✅ [Final] 총 {}개 카페 반환 (DB + Kakao)", cafeDTOs.size());
+
+        return CafeNearbyResponse.builder()
+                .cafes(cafeDTOs)
+                .build();
+    }
+
+
+    /**
+     * 3-1. kakao API 보조 호출
+     */
+    private List<CafeDTO> fetchNearbyFromKakao(double latitude, double longitude, int radius) {
+        List<CafeDTO> cafes = new ArrayList<>();
+        try {
+            String url = UriComponentsBuilder.newInstance()
+                    .scheme("https")
+                    .host("dapi.kakao.com")
+                    .path("/v2/local/search/category.json")
+                    .queryParam("category_group_code", "CE7")
+                    .queryParam("x", longitude)
+                    .queryParam("y", latitude)
+                    .queryParam("radius", radius)
+                    .build()
+                    .toUriString();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "KakaoAK " + kakaoApiKey);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {}
+            );
+
+            Object docsObj = Objects.requireNonNull(Objects.requireNonNull(response.getBody()).get("documents"));
+            if (docsObj instanceof List<?>) {
+                for (Object doc : (List<?>) docsObj) {
+                    if (doc instanceof Map<?, ?>) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> mapDoc = (Map<String, Object>) doc;
+                        cafes.add(CafeDTO.builder()
+                                .name((String) mapDoc.get("place_name"))
+                                .address((String) mapDoc.get("address_name"))
+                                .latitude(BigDecimal.valueOf(Double.parseDouble((String) mapDoc.get("y"))))
+                                .longitude(BigDecimal.valueOf(Double.parseDouble((String) mapDoc.get("x"))))
+                                .build());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("❌ Kakao API 호출 실패: {}", e.getMessage());
+        }
+        return cafes;
+    }
+
+    /**
+     * 4.
+     */
 
 }

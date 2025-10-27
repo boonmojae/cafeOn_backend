@@ -65,6 +65,30 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
 //    (선택) 업데이트 로직을 구현할 경우 사용
     Optional<CafeEntity> findByKakaoId(String kakaoId);
 
+    /**
+     * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL)
+     * Haversine 공식을 이용해 거리(m) 계산
+     * 반경 `radius` m 이내 카페만 필터링
+     * 정렬은 거리 오름차순
+     * 최대 100개만 응답
+     */
+    @Query(value = """
+    SELECT *,
+           (6371000 * ACOS(
+               COS(RADIANS(:latitude)) * COS(RADIANS(latitude))
+               * COS(RADIANS(longitude) - RADIANS(:longitude))
+               + SIN(RADIANS(:latitude)) * SIN(RADIANS(latitude))
+           )) AS distance
+    FROM cafes
+    HAVING distance <= :radius
+    ORDER BY distance ASC
+    LIMIT 100
+    """, nativeQuery = true)
+    List<CafeEntity> findNearbyCafes(
+            @Param("latitude") double latitude,
+            @Param("longitude") double longitude,
+            @Param("radius") int radius
+    );
 
 
     /**
@@ -72,16 +96,6 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
      */
     @Query(value = "SELECT * FROM cafes ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<CafeEntity> findRandom10();
-
-//    지도 기반 (위도/경도/반경)
-    @Query(value = """
-            SELECT * FROM cafes
-            WHERE (6371 * acos(
-                cos(radians(:lat)) * cos(radians(latitude)) * cos (radians(longitude) - radians(:lng)) +
-                sin(radians(:lat)) * sin(radians(latitude))
-            )) < :radius
-            """, nativeQuery = true)
-    List<CafeEntity> findNearby(@Param("lat") double lat, @Param("lng") double lng, @Param("radius") double radius);
 
 //    평점순 정렬
     @Query("""
