@@ -28,10 +28,17 @@ public class CafeDTO {
 
 //    Cafe API는 읽기(Read) 중심 : DB데이터를 프론트에 맞게 내려줘야 해서 Entity -> DTO 변환이 필요
     public static CafeDTO fromEntity(CafeEntity entity) {
+        BigDecimal rating = entity.getAvgRating();
+
+//        ✅ avg_rating이 null이면 kakao_rating을 대신 사용
+        if (rating == null && entity.getKakaoRating() != null) {
+            rating = entity.getKakaoRating();
+        }
+
         return CafeDTO.builder()
                 .cafeId(entity.getCafeId())
                 .name(entity.getName())
-                .avgRating(BigDecimal.valueOf(entity.getAvgRating() != null ? entity.getAvgRating().doubleValue() : 0.00))
+                .avgRating(rating != null ? rating : BigDecimal.valueOf(0.00))
                 .address(entity.getAddress())
                 .phone(entity.getPhone())
                 .latitude(entity.getLatitude())
