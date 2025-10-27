@@ -60,6 +60,8 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
 //    (선택) 업데이트 로직을 구현할 경우 사용
     Optional<CafeEntity> findByKakaoId(String kakaoId);
 
+
+
     /**
      * 랜덤10개
      */

@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.cafe.controller;
 
 import com.b1a4.cafeOn.cafe.dto.CafeDTO;
+import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
 import com.b1a4.cafeOn.cafe.service.CafeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,10 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -125,6 +123,36 @@ public class CafeController {
         
     }
 
+    /**
+     * 2. 카페 상세 정보 조회
+     */
+    @Operation(
+            summary = "카페 상세 정보 조회",
+            description = "특정 카페의 id를 기반으로 상세 정보를 조회합니다.",
+            parameters = {
+                    @Parameter(
+                            name = "id",
+                            description = "조회할 카페의 고유 ID",
+                            required = true,
+                            example = "1001"
+                    )
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "카페 상세 정보 조회 성공",
+                            content = @Content(schema = @Schema(implementation = CafeDTO.class))
+                    ),
+                    @ApiResponse(responseCode = "404", description = "해당 ID의 카페를 찾을 수 없습니다."),
+                    @ApiResponse(responseCode = "500", description = "서버 내부 오류")
+            }
+    )
+    @GetMapping("/{id}")
+    public ResponseEntity<CafeDetailResponse> getCafeDetail(@PathVariable Long id) {
+        CafeDetailResponse response = cafeService.getCafeDetail(id);
+        return ResponseEntity.ok(response);
+    }
+
 //    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
 //    최근 찜 + 리뷰 수 통계 SQL집계 (30일 기준)
 
@@ -138,9 +166,6 @@ public class CafeController {
 //    @GetMapping("/nearby")
 //    public ResponseEntity<?> getNearbyCafes() {}
 
-//    7. 카페 상세 정보 조회
-//    @GetMapping("/{id}")
-//    public ResponseEntity<?>  getDetailInfos() {}
 
 //    8. 서울시 카페 전체 목록 조회
 //    @GetMapping("/")

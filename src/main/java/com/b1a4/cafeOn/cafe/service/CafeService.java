@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.cafe.service;
 
 import com.b1a4.cafeOn.cafe.dto.CafeDTO;
+import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 @Service
 @EnableAsync    // ✅ Async 동기화를 위한 활성화
 @RequiredArgsConstructor    // ✅ @Autowired 대신 생성자 주입 방식 사용
+@org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class CafeService {
     private final CafeRepository cafeRepository;    // ✅ final + RequiredArgsConstructor
 //    RestTemplate은 Bean으로 등록하고 주입받는 것이 좋으나, 기존 코드를 유지합니다.
@@ -72,7 +74,7 @@ public class CafeService {
     }
 
     /**
-     *  2. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
+     *  1-1. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
      */
     private  List<CafeDTO> searchAndMerge(String keyword) {
 //        2-1. 카카오 API 호출
@@ -119,7 +121,7 @@ public class CafeService {
     }
 
     /**
-     * 키워드 기반 카카오 장소검색: 최대 45페이지(675건)까지 긁어오기
+     * 1-2. 키워드 기반 카카오 장소검색: 최대 45페이지(675건)까지 긁어오기
      * - query만 사용 (category_group_code는 keyword.json에 함께 쓰면 케이스에 따라 필터 꼬일 수 있어 제외)
      * - UTF-8 인코딩 보장
      * - meta.is_end == true 시 조기 종료
@@ -184,10 +186,8 @@ public class CafeService {
         return allDocuments;
     }
 
-
-
     /**
-     * @Async: 카카오 검색 결과를 DB에 비동기 저장 (신규 카페만)
+     * 1-3. @Async: 카카오 검색 결과를 DB에 비동기 저장 (신규 카페만)
      * 이 메서드는 public 이어야 프록시가 생성되어 비동기(@Async)로 동작합니다.
      */
     @Async
@@ -211,7 +211,7 @@ public class CafeService {
     }
 
     /**
-     * Helper: 카카오 API(doc) -> CafeDTO (즉시 응답용)
+     * 1-4. Helper: 카카오 API(doc) -> CafeDTO (즉시 응답용)
      * (DB에 없는 신규 카페용. avg_rating 등 내부 데이터는 0 또는 null)
      */
     private CafeDTO parseKakaoDocToDTO(Map<String, Object> doc) {
@@ -230,7 +230,7 @@ public class CafeService {
     }
 
     /**
-     * Helper: 카카오 API(doc) -> CafeEntity (DB 저장용)
+     * 1-5. Helper: 카카오 API(doc) -> CafeEntity (DB 저장용)
      */
     private CafeEntity parseKakaoDocToEntity(Map<String, Object> doc) {
         String road = (String) doc.getOrDefault("road_address_name", "");
@@ -251,4 +251,45 @@ public class CafeService {
 //                todo: open_hours, reviews_summary, kakao_rating 등은 크롤링해야 하는 작업임
                 .build();
     }
+
+
+    /**
+     * 2. 카페 상세 정보 조회
+     */
+    public CafeDetailResponse getCafeDetail(Long id) {
+        CafeEntity entity = cafeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
+
+//        todo : 실제 DB에는 리뷰, 관련카페가 아직 없으므로 임시 mock 데이터 생성
+        List<CafeDetailResponse.ReviewDTO> reviews = List.of(
+                new CafeDetailResponse.ReviewDTO("김도이", 4.8, "분위기 좋고 커피 맛있어요", LocalDateTime.now())
+        );
+
+        List<CafeDetailResponse.RelatedCafeDTO> related = List.of(
+                new CafeDetailResponse.RelatedCafeDTO(456L, "스타벅스 강남점", "https://cdn.cafeon.kr/photos/456-thumb.jpg")
+        );
+
+        return CafeDetailResponse.builder()
+                .id(entity.getCafeId())
+                .name(entity.getName())
+                .address(entity.getAddress())
+                .phone(entity.getPhone())
+                .hours(entity.getOpenHours())
+                .rating(String.valueOf(entity.getKakaoRating()))    // ✅ todo : 우선 리뷰데이터 업어서 전부 걍 카카오크롤링한 별점 때리기
+                .reviewsSummary(entity.getReviewsSummary())
+                .reviews(reviews)    // ✅ todo : 나중에 ReviewEntity 연동 예정
+//                .reviews(cafe.getReviews().stream().map(r -> new entityDetailResponse.ReviewDTO(
+//                        r.getAuthor(),
+//                        r.getRating(),
+//                        r.getContent(),
+//                        r.getCreatedAt()
+//                )).collect(Collectors.toList()))
+//                .relatedCafes(cafe.getRelatedCafes().stream().map(rc -> new CafeDetailResponse.RelatedCafeDTO(
+//                        rc.getId(),
+//                        rc.getName(),
+//                        rc.getThumbnail()
+//                )).collect(Collectors.toList()))
+                .build();
+    }
+
 }
