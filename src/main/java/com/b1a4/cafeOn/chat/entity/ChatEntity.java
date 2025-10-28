@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.chat.entity;
 
 import com.b1a4.cafeOn.chat.enums.ChatMessageType;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -37,8 +38,9 @@ public class ChatEntity {
     @Column(name = "message", length = 1000, nullable = false)
     private String message;
 
-//    @Column(name = "image_url", length = 500)
-//    private String imageUrl;
+    @OneToMany(mappedBy = "chat", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<ImageEntity> images = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "chatroom_id", nullable = false)
@@ -58,6 +60,16 @@ public class ChatEntity {
     @PrePersist
     private void onCreate() {
         this.createdAt = LocalDateTime.now();
+    }
+
+    public void addImage(ImageEntity image) {
+        images.add(image);
+        image.setChat(this);
+    }
+
+    public void removeImage(ImageEntity image) {
+        images.remove(image);
+        image.setChat(null);
     }
 
     public static ChatEntity text(ChatRoomEntity room, UserEntity sender, String message) {

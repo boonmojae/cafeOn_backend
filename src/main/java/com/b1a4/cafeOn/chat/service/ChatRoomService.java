@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.chat.service;
 
+import com.b1a4.cafeOn.cafe.repository.CafeRepository;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.enums.RoomType;
 import com.b1a4.cafeOn.chat.repository.ChatRoomRepository;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ChatRoomService {
 
     private final ChatRoomRepository chatRoomRepository;
+    private final CafeRepository cafeRepository;
 
     // 1:1 채팅
     @Transactional
@@ -56,7 +58,7 @@ public class ChatRoomService {
         return chatRoomRepository.findByTypeAndCafeId(RoomType.GROUP, cafeId)
                 .orElseGet(() -> {
                     // 없으면 생성 시도
-                    String cafeName = chatRoomRepository.findNameById(cafeId)
+                    String cafeName = cafeRepository.findNameById(cafeId)
                             .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 카페입니다."));
                     String roomName = buildRoomName(cafeName);
 
