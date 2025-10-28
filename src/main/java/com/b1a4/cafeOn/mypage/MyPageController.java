@@ -141,7 +141,7 @@ public class MyPageController {
     // 내가 참여한 채팅방 목록
     @GetMapping("/chat/rooms")
     public ResponseEntity<?> myRooms(@AuthenticationPrincipal String userId,
-                                     @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+                                     @PageableDefault(size = 10) Pageable pageable) {
         try {
             Page<ChatRoomListItemDTO> pageResult = chatRoomMemberService.listMyRooms(userId, pageable);
 
