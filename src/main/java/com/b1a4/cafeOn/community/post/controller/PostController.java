@@ -219,8 +219,7 @@ public class PostController {
 
     // 게시글 삭제
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletePost(@AuthenticationPrincipal String userId, @PathVariable(name = "id") Long postId
-    ) {
+    public ResponseEntity<?> deletePost(@AuthenticationPrincipal String userId, @PathVariable(name = "id") Long postId) {
         postService.deletePost(userId, postId);
         return ResponseEntity.noContent().build();
     }

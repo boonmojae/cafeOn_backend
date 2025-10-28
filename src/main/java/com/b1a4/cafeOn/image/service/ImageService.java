@@ -149,7 +149,7 @@ public class ImageService {
     }
 
     // 삭제
-    public void deleteReviewImage(ReviewEntity review) {
+    public void removeAllImagesOfReview(ReviewEntity review) {
         List<ImageEntity> images = imageRepository.findByReview(review);
         bulkRemoveImagesCommon(images);
 
@@ -157,8 +157,8 @@ public class ImageService {
             review.getImages().clear();
         }
     }
-
-
+    
+    
     // chat
     // 채팅은 이미지 추가만
     private ImageEntity attachNewImageToChat(ChatEntity chat, S3Service.UploadedImageInfo uploaded) {
