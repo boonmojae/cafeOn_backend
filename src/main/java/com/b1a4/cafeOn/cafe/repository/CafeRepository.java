@@ -90,9 +90,8 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             @Param("radius") int radius
     );
 
-
     /**
-     * 랜덤10개
+     * 4. 랜덤 카페 10개 조회
      */
     @Query(value = "SELECT * FROM cafes ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<CafeEntity> findRandom10();
