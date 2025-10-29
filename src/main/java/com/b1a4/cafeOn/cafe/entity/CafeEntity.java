@@ -39,6 +39,17 @@ public class CafeEntity {
     @Column(name = "phone", columnDefinition = "VARCHAR(50)")
     private String phone;
 
+    @Column(name = "view_count", columnDefinition = "INT DEFAULT 0")
+    @Builder.Default
+    private int viewCount = 0;
+
+    @Column(name = "views_last7d", columnDefinition = "INT DEFAULT 0")
+    @Builder.Default
+    private int viewsLast7d = 0;
+
+    @Column(name = "last_viewed_at", columnDefinition = "TIMESTAMP NULL")
+    private LocalDateTime lastViewedAt;
+
     @Column(name = "open_hours", columnDefinition = "TEXT")
     private String openHours;
 

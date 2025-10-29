@@ -2,6 +2,7 @@ package com.b1a4.cafeOn.cafe.controller;
 
 import com.b1a4.cafeOn.cafe.dto.CafeDTO;
 import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
+import com.b1a4.cafeOn.cafe.dto.CafeNearbyResponse;
 import com.b1a4.cafeOn.cafe.service.CafeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -153,18 +154,114 @@ public class CafeController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * 3. 사용자 위치 기반 근처 카페 조회
+     */
+    @GetMapping("/nearby")
+    @Operation(
+            summary = "📍 사용자 위치 기반 근처 카페 조회",
+            description = """
+                사용자의 현재 위치(latitude, longitude)를 기반으로
+                지정 반경(radius, 단위: m) 내의 카페 목록을 DB에서 조회합니다.
+                만약 결과가 적으면 Kakao Map API를 통해 추가 카페를 보강합니다.
+                """,
+            parameters = {
+                    @Parameter(name = "latitude", example = "37.4979"),
+                    @Parameter(name = "longitude", example = "127.0276"),
+                    @Parameter(name = "radius", example = "1000")
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공: 근처 카페 목록 조회 완료",
+                            content = @Content(schema = @Schema(implementation = CafeNearbyResponse.class))
+                    )
+            }
+    )
+    public ResponseEntity<CafeNearbyResponse> getNearbyCafes(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "20000") int radius
+    ) {
+        CafeNearbyResponse response = cafeService.getNearbyCafes(latitude, longitude, radius);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 4. 랜덤 카페 10개 조회
+     */
+    @GetMapping("/random10")
+    @Operation(
+            summary = "🎲 랜덤 카페 10개 조회",
+            description = """
+            전체 카페 데이터 중 무작위로 10개를 반환합니다.
+            - 성능 참고: 데이터가 매우 큰 경우 ORDER BY RAND() 대신 샘플링/캐시 전략을 고려하세요.
+            """,
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공: 랜덤 카페 10개 반환",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDTO.class)),
+                                    examples = @ExampleObject(name = "success_example", value = """
+                                        [
+                                          {
+                                            "cafeId": 101,
+                                            "name": "폴바셋 강남역점",
+                                            "address": "서울 강남구 테헤란로 123",
+                                            "latitude": 37.498023,
+                                            "longitude": 127.027579,
+                                            "phone": "02-123-4567",
+                                            "avgRating": 4.2,
+                                            "reviewsSummary": "진한 에스프레소, 넓은 좌석, 콘센트 많음",
+                                            "wishlistCount": 52
+                                          },
+                                          {
+                                            "cafeId": 207,
+                                            "name": "어글리베이커리 성수점",
+                                            "address": "서울 성동구 아차산로 89",
+                                            "latitude": 37.54321,
+                                            "longitude": 127.05567,
+                                            "phone": "02-345-6789",
+                                            "avgRating": 4.6,
+                                            "reviewsSummary": "빵이 특히 맛있고 직원이 친절함",
+                                            "wishlistCount": 31
+                                          }
+                                        ]
+                                        """)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "❗ 서버 내부 오류",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(name = "error_example", value = """
+                                        {
+                                          "error": "Internal Server Error",
+                                          "message": "랜덤 조회 중 예기치 못한 오류가 발생했습니다."
+                                        }
+                                        """)
+                            )
+                    )
+            }
+    )
+    public ResponseEntity<List<CafeDTO>> getRandomCafes() {
+        List<CafeDTO> randomCafes = cafeService.getRandomCafes();
+        return ResponseEntity.ok(randomCafes);
+    }
+
 //    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
 //    최근 찜 + 리뷰 수 통계 SQL집계 (30일 기준)
 
 //    3. 찜 많은 카페 순위별 조회 (wish10) todo: wishlists 테이블 필요
 
-//    4. 랜덤 카페 (random10)
+
 
 //    5. 사용자 맞춤 카페 순위별 조회 (related10) todo: 임시로 랜덤/지역기반 -> ai
 
-//    6. 사용자 위치 기반 근처 카페 목록 조회 (latitude+longitude + Haversine 공식)
-//    @GetMapping("/nearby")
-//    public ResponseEntity<?> getNearbyCafes() {}
+
 
 
 //    8. 서울시 카페 전체 목록 조회

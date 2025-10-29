@@ -69,7 +69,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
     }
 
     // 게시글 신고 - 작성자 userId 조회
-    @Query("select p.user.userId from PostEntity p where p.postId = :postId")
+    @Query("SELECT p.user.userId FROM PostEntity p WHERE p.postId = :postId")
     Optional<String> findAuthorIdByPostId(@Param("postId") Long postId);
     
     
