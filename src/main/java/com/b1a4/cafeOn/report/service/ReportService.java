@@ -17,6 +17,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+//import com.b1a4.cafeOn.admin.report.dto.AdminReportDetailResponseDTO;
+//import com.b1a4.cafeOn.report.enums.TargetType; // enum 경로에 맞게 수정
+//
+//import java.util.List;
+//import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
