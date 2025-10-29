@@ -23,7 +23,17 @@ public interface WishlistRepository extends JpaRepository<WishlistEntity, Long> 
 
     // 특정 카테고리의 위시 삭제
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    void deleteByUserUserIdAndCafeCafeIdAndCategory(String userId, Long cafeId, WishlistCategory category);
+    @Query("""
+    delete from WishlistEntity w
+    where w.user.userId = :userId
+      and w.cafe.cafeId = :cafeId
+      and w.category = :category
+""")
+    int deleteByUserUserIdAndCafeCafeIdAndCategory(
+            @Param("userId") String userId,
+            @Param("cafeId") Long cafeId,
+            @Param("category") WishlistCategory category
+    );
 
     // 카테고리별 목록
     @Query("""

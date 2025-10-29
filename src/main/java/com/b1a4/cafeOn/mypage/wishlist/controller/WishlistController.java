@@ -25,7 +25,6 @@ public class WishlistController {
 
     private final WishlistService wishlistService;
 
-    // 위시리스트 토글 (카테고리별 추가 / 삭제)
     @PostMapping(path = "/{cafeId}", consumes = MediaType.ALL_VALUE)
     public ResponseEntity<ApiResponse<WishlistResponseDTO>> toggleWishlist(
             @AuthenticationPrincipal String userId,
@@ -37,7 +36,17 @@ public class WishlistController {
         return ResponseEntity.ok(response);
     }
 
-    // 위시리스트 목록 조회 (카테고리별 전용)
+    @DeleteMapping("/{cafeId}")
+    public ResponseEntity<ApiResponse<WishlistResponseDTO>> unwish(
+            @AuthenticationPrincipal String userId,
+            @PathVariable("cafeId") Long cafeId,
+            @RequestParam("category") WishlistCategory category
+    ) {
+        ApiResponse<WishlistResponseDTO> response =
+                wishlistService.unwish(userId, cafeId, category);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping
     public ResponseEntity<ApiResponse<Page<WishlistListResponseDTO>>> getWishlistList(
             @AuthenticationPrincipal String userId,
@@ -49,7 +58,6 @@ public class WishlistController {
         return ResponseEntity.ok(response);
     }
 
-    // 특정 카페에 대해 내가 설정한 위시리스트 카테고리들 조회
     @GetMapping("/{cafeId}")
     public ResponseEntity<ApiResponse<List<WishlistCategory>>> getMyWishlistCategories(
             @AuthenticationPrincipal String userId,

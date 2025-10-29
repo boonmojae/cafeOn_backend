@@ -327,3 +327,33 @@ CREATE TABLE IF NOT EXISTS wishlists (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
+CREATE TABLE IF NOT EXISTS penalties (
+  penalty_id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  report_id    BIGINT UNSIGNED NULL,
+  user_id      CHAR(36) NOT NULL,
+  admin_id     CHAR(36) NOT NULL,
+  penalty_type ENUM('WARNING','SUSPEND') NOT NULL,
+  reason_code  ENUM('DISCOMFORT','AI','AD') NULL,
+  reason       VARCHAR(255) NULL,
+  starts_at    DATETIME NULL,
+  ends_at      DATETIME NULL,
+  status       ENUM('ACTIVE','REVOKED') NOT NULL DEFAULT 'ACTIVE',
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (penalty_id),
+  CONSTRAINT fk_penalty_report
+    FOREIGN KEY (report_id) REFERENCES reports(report_id) ON DELETE SET NULL,
+  CONSTRAINT fk_penalty_user
+    FOREIGN KEY (user_id)  REFERENCES users(user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_penalty_admin
+    FOREIGN KEY (admin_id) REFERENCES users(user_id) ON DELETE CASCADE,
+  CONSTRAINT chk_suspend_dates CHECK (
+    (penalty_type = 'SUSPEND' AND starts_at IS NOT NULL AND ends_at IS NOT NULL AND starts_at < ends_at)
+    OR
+    (penalty_type = 'WARNING' AND starts_at IS NULL AND ends_at IS NULL)
+  )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE INDEX idx_penalty_user_created ON penalties(user_id, created_at);
+CREATE INDEX idx_penalty_user_status_ends ON penalties(user_id, status, ends_at);
+
+
