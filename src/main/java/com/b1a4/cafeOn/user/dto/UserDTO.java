@@ -22,14 +22,14 @@ public class UserDTO {
     private String email;               // VARCHAR(255)
     private String password;            // VARCHAR(255)
     private String nickname;            // VARCHAR(50)
-//    private String profileImage;        // JSON -> String (필요시 DTO/Map 으로 변환 가능)
+//    private String profileImage;        // String (필요시 DTO/Map 으로 변환 가능)
 //    private String status;              // ENUM('ACTIVE', 'SUSPENDED', 'DELETED')
 //    private String role;                // ENUM('USER', 'ADMIN')
 //    private String provider;            // ENUM('LOCAL', 'GOOGLE', 'KAKAO', 'NAVER')
 //    private String providerId;          // VARCHAR(255)
-    private String preferenceKeywords;  // JSON -> String (필요시 List<String>으로 변환)
+    private String preferenceKeywords;  // String (필요시 List<String>으로 변환)
     private String refreshToken;        // VARCHAR(512)
-//    private int penaltyCount;           // INT
+    private int penaltyCount;           // INT
 //    private LocalDateTime createdAt;    // TIMESTAMP
 //    private LocalDateTime updatedAt;    // TIMESTAMP
 //    private LocalDateTime deletedAt;    // TIMESTAMP
