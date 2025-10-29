@@ -21,7 +21,6 @@ public class ReviewResponseDTO {
     private int rating;
     private String content;
     private LocalDateTime createdAt;
-    private boolean reported;
 
     private Long cafeId;
     private String cafeName;
@@ -43,7 +42,6 @@ public class ReviewResponseDTO {
                 .rating(reviewEntity.getRating())
                 .content(reviewEntity.getContent())
                 .createdAt(reviewEntity.getCreatedAt())
-                .reported(reviewEntity.isReported())
                 .cafeId(reviewEntity.getCafe().getCafeId())
                 .cafeName(reviewEntity.getCafe().getName())
                 .reviewerId(reviewEntity.getUser().getUserId())
