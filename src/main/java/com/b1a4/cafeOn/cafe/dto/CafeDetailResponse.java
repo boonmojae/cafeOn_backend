@@ -1,5 +1,6 @@
 package com.b1a4.cafeOn.cafe.dto;
 
+import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
@@ -42,7 +43,10 @@ public class CafeDetailResponse {
     private String reviewsSummary;
 
     @Schema(description = "후기 목록")
-    private List<ReviewDTO> reviews;    // todo: 민재가 구현할 reviewDTO던 내가 만들던? 해야함 민재코드 보자
+    private List<ReviewResponseDTO> reviews;    // todo: 민재가 구현할 reviewDTO던 내가 만들던? 해야함 민재코드 보자
+
+    @Schema(description = "태그 목록")
+    private  List<String> tags;
 
     @Getter
     @AllArgsConstructor

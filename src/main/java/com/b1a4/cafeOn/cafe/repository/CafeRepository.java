@@ -33,7 +33,7 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     List<CafeEntity> findByTag(@Param("tag") String tag);
 
     /**
-     * 1-2. 검색어로 조회
+     * todo : 1-2. 검색어로 조회 (이거 빼는게맞지않나?)
      */
     @Query("""
             SELECT c FROM CafeEntity c
@@ -42,7 +42,7 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     List<CafeEntity> searchByQuery(@Param("query") String query);
 
     /**
-     * 1-3. 검색어 + 태그 조회 (필요 시)
+     * todo : 1-3. 검색어 + 태그 조회 (필요 시) (얘또한 빼야맞지않나?)
      */
     @Query(value = """
             SELECT c.* FROM cafes c
@@ -65,11 +65,6 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
 
 //    (선택) 업데이트 로직을 구현할 경우 사용
     Optional<CafeEntity> findByKakaoId(String kakaoId);
-
-    /**
-     * 2. 특정 카페 리뷰들 조회
-     */
-    List<ReviewEntity> findByCafe_CafeId(Long CafeId);
 
     /**
      * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL)
@@ -102,7 +97,19 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     @Query(value = "SELECT * FROM cafes ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<CafeEntity> findRandom10();
 
-//    평점순 정렬
+    /**
+     * 5. 카페id로 태그 찾기
+     */
+    @Query(value = """
+        SELECT t.name
+        FROM cafe_tags ct
+        JOIN tags t ON ct.tag_id = t.tag_id
+        WHERE ct.cafe_id = :cafeId
+    """, nativeQuery = true)
+    List<String> findTagNamesByCafeId(@Param("cafeId") Long cafeId);
+
+
+    //    평점순 정렬
     @Query("""
             SELECT c FROM CafeEntity c
             WHERE (:query IS NULL OR c.name LIKE %:query% OR c.address LIKE %:query%)
