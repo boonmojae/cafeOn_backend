@@ -265,6 +265,11 @@ public class CafeService {
     public CafeDetailResponse getCafeDetail(Long id) {
         CafeEntity entity = cafeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
+        
+//        2-1. ✅ 조회수 증가
+        entity.setViewCount(entity.getViewCount() +1);
+        entity.setLastViewedAt(LocalDateTime.now());
+        cafeRepository.save(entity);
 
 //        todo : 실제 DB에는 리뷰, 관련카페가 아직 없으므로 임시 mock 데이터 생성
         List<CafeDetailResponse.ReviewDTO> reviews = List.of(
