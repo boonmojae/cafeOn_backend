@@ -397,18 +397,9 @@ public class CafeService {
         List<CafeEntity> cafes = cafeRepository.findRandom10();
         log.info("🎲 랜덤으로 선택된 카페 개수: {}", cafes.size());
         return cafes.stream()
-                .map(cafe -> CafeDTO.builder()
-                        .cafeId(cafe.getCafeId())
-                        .name(cafe.getName())
-                        .address(cafe.getAddress())
-                        .latitude(cafe.getLatitude())
-                        .longitude(cafe.getLongitude())
-                        .phone(cafe.getPhone())
-                        .avgRating(cafe.getKakaoRating())   // todo : 아직은 avg_rating 없어서 카카오별점으로 설정
-                        .openHours(cafe.getOpenHours())
-                        .reviewsSummary(cafe.getReviewsSummary())
-                        .build())
+                .map(CafeDTO::fromEntity)
                 .toList();
     }
+
 
 }
