@@ -361,6 +361,8 @@ public class CafeService {
                     .build()
                     .toUriString();
 
+            log.info("🚀 [Kakao Nearby] Request URL: {}", url);
+
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "KakaoAK " + kakaoApiKey);
             HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -369,24 +371,57 @@ public class CafeService {
                     url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {}
             );
 
-            Object docsObj = Objects.requireNonNull(Objects.requireNonNull(response.getBody()).get("documents"));
-            if (docsObj instanceof List<?>) {
-                for (Object doc : (List<?>) docsObj) {
-                    if (doc instanceof Map<?, ?>) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> mapDoc = (Map<String, Object>) doc;
-                        cafes.add(CafeDTO.builder()
-                                .name((String) mapDoc.get("place_name"))
-                                .address((String) mapDoc.get("address_name"))
-                                .latitude(BigDecimal.valueOf(Double.parseDouble((String) mapDoc.get("y"))))
-                                .longitude(BigDecimal.valueOf(Double.parseDouble((String) mapDoc.get("x"))))
-                                .build());
-                    }
-                }
+            Map<String, Object> body = response.getBody();
+            if (body == null || !body.containsKey("documents")) {
+                log.warn("⚠️ [Kakao Nearby] Response body is null or missing 'documents' key");
+                return cafes;
             }
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> documents = (List<Map<String, Object>>) body.get("documents");
+            if (documents == null || documents.isEmpty()) {
+                log.info("ℹ️ [Kakao Nearby] No cafes found from Kakao API");
+                return cafes;
+            }
+
+            for (Map<String, Object> doc: documents) {
+                try {
+                    String name = (String) doc.getOrDefault("place_name", "");
+                    String address = (String) doc.getOrDefault("road_address_name",
+                            doc.getOrDefault("address_name", ""));
+                    String yStr = (String) doc.get("y");
+                    String xStr = (String) doc.get("x");
+
+                    BigDecimal lat = null;
+                    BigDecimal lon = null;
+
+                    if (yStr != null && yStr.isBlank() && xStr != null && xStr.isBlank()) {
+                        lat = BigDecimal.valueOf(Double.parseDouble(yStr));
+                        lon = BigDecimal.valueOf(Double.parseDouble(xStr));
+                    } else {
+                        log.warn("⚠️ [Kakao Nearby] Invalid coordinates for '{}'", name);
+                    }
+
+                    cafes.add(CafeDTO.builder()
+                            .name(name)
+                            .address(address)
+                            .latitude(lat != null ? lat : BigDecimal.ZERO)
+                            .longitude(lon != null ? lon : BigDecimal.ZERO)
+                            .build());
+                } catch (Exception inner) {
+                    log.warn("⚠️ [Kakao Nearby] Skipping invalid cafe entry: {}", inner.getMessage());
+                }
+
+                log.info("✅ [Kakao Nearby] {} cafes fetched successfully", cafes.size());
+            }
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("❌ [Kakao Nearby] API HTTP error: {}", e.getStatusCode());
+        } catch (ResourceAccessException e) {
+            log.error("❌ [Kakao Nearby] Network access error: {}", e.getMessage());
         } catch (Exception e) {
-            log.error("❌ Kakao API 호출 실패: {}", e.getMessage());
+            log.error("❌ [Kakao Nearby] Unexpected error: {}", e.getMessage(), e);
         }
+
         return cafes;
     }
 

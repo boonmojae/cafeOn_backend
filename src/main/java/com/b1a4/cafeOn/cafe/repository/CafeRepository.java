@@ -74,17 +74,13 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
      * 최대 100개만 응답
      */
     @Query(value = """
-    SELECT *,
-           (6371000 * ACOS(
-               COS(RADIANS(:latitude)) * COS(RADIANS(latitude))
-               * COS(RADIANS(longitude) - RADIANS(:longitude))
-               + SIN(RADIANS(:latitude)) * SIN(RADIANS(latitude))
-           )) AS distance
-    FROM cafes
-    HAVING distance <= :radius
-    ORDER BY distance ASC
-    LIMIT 100
-    """, nativeQuery = true)
+        SELECT *, ST_Distance_Sphere(point(longitude, latitude), point(:longitude, :latitude)) AS distance
+        FROM cafes
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+        AND ST_Distance_Sphere(point(longitude, latitude), point(:longitude, :latitude)) <= :radius
+        ORDER BY distance ASC
+        LIMIT 100
+        """, nativeQuery = true)
     List<CafeEntity> findNearbyCafes(
             @Param("latitude") double latitude,
             @Param("longitude") double longitude,
