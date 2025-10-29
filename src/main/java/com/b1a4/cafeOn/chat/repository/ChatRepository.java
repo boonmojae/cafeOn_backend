@@ -2,9 +2,9 @@ package com.b1a4.cafeOn.chat.repository;
 
 import com.b1a4.cafeOn.chat.entity.ChatEntity;
 import com.b1a4.cafeOn.chat.enums.ChatMessageType;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +24,11 @@ public interface ChatRepository extends JpaRepository<ChatEntity, Long> {
     // beforeId 기준으로 이전 메시지만 이어서 로드
     Slice<ChatEntity> findByChatRoom_ChatRoomIdAndChatIdLessThanOrderByChatIdDesc(Long roomId, Long beforeChatId, Pageable pageable);
 
+    Slice<ChatEntity> findByChatRoom_ChatRoomIdAndMessageTypeInOrderByChatIdDesc(
+            Long chatRoomId, List<ChatMessageType> types, Pageable pageable);
+
+    Slice<ChatEntity> findByChatRoom_ChatRoomIdAndMessageTypeInAndChatIdLessThanOrderByChatIdDesc(
+            Long chatRoomId, List<ChatMessageType> types, Long beforeId, Pageable pageable);
 
     // 텍스트만 조회
     // 채팅화면 스크롤(페이징처리)
@@ -42,5 +47,7 @@ public interface ChatRepository extends JpaRepository<ChatEntity, Long> {
               WHERE c.chatRoom.chatRoomId = :roomId
             """)
     Long findMaxChatIdByRoomId(@Param("roomId") Long roomId);
+
+
 
 }
