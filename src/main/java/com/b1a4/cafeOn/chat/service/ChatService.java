@@ -12,6 +12,10 @@ import com.b1a4.cafeOn.chat.repository.ChatRoomMemberRepository;
 import com.b1a4.cafeOn.chat.repository.ChatRoomRepository;
 import com.b1a4.cafeOn.chat.repository.LastReadView;
 import com.b1a4.cafeOn.common.DisplayMasking;
+import com.b1a4.cafeOn.image.dto.ImageResponseDTO;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
+import com.b1a4.cafeOn.image.enums.ImageCategory;
+import com.b1a4.cafeOn.image.service.S3Service;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -39,6 +44,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final SimpMessagingTemplate template;
+    private final S3Service s3Service;
 
     // 시간 포맷(Asia/Seoul 기준)
     private static final ZoneId Z_SEOUL = ZoneId.of("Asia/Seoul");
@@ -120,8 +126,7 @@ public class ChatService {
         ChatResponseDTO dtoForBroadcast = toDto(chat, null, unreadOthers);
         ChatResponseDTO dtoForSender = toDto(chat, senderId, unreadOthers);
 
-        // 채팅방 입장 시 unreadCount가 떨어지는데 메시지를 전송하면 unreadCount가 또 -1된다 중복 차감을 막기위해 주석
-//        publishReadReceiptAfterCommit(roomId, senderId, chat.getChatId());
+
 
         // 커밋 후 방 브로드캐스트
         ChatResponseDTO finalBroadcast = dtoForBroadcast;
@@ -135,6 +140,72 @@ public class ChatService {
         // 보낸 당사자에게는 mine=true + othersUnreadUsers 포함으로 응답
         return dtoForSender;
     }
+
+
+    @Transactional
+    public ChatResponseDTO sendImageMessage(Long roomId, String senderId, String caption, List<MultipartFile> files) {
+
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("이미지 파일이 없습니다.");
+        }
+
+        ChatRoomEntity room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
+
+        boolean isMember = chatRoomMemberRepository.existsByChatRoom_ChatRoomIdAndUser_UserId(roomId, senderId);
+        if (!isMember) throw new NotChatRoomMemberException();
+
+        UserEntity sender = userRepository.findById(senderId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자"));
+
+        // 이미지 타입 채팅 생성
+        ChatEntity chat = ChatEntity.imageMessage(room, sender, caption);
+
+        for (MultipartFile file : files) {
+            S3Service.UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.CHAT);
+
+            ImageEntity img = ImageEntity.builder()
+                    .originalFileName(info.getOriginalFileName())
+                    .s3Key(info.getS3Key())
+                    .publicUrl(info.getPublicUrl())
+                    .contentType(info.getContentType())
+                    .sizeBytes(info.getSizeBytes())
+                    .build();
+
+            chat.addImage(img);
+        }
+
+        ChatEntity saved = chatRepository.save(chat);
+
+        // 낸 사람은 즉시 읽은 상태로
+        chatRoomMemberRepository.markRoomRead(roomId, senderId, saved.getChatId());
+        notificationService.markRoomAsRead(senderId, roomId);
+
+        // 안 읽은 인원수 계산
+        int unreadOthers = (int) chatRoomMemberRepository
+                .countMembersNotReadThisChat(roomId, senderId, saved.getChatId());
+
+        // 알림 정책
+        chatRoomMemberRepository.bulkIncreaseUnread(roomId, senderId);
+        List<String> targets = chatRoomMemberRepository.findNotificationTargets(roomId, senderId);
+        notificationService.createNewChatNotifications(targets, room, saved);
+
+        ChatResponseDTO dtoForBroadcast = toDto(saved, null, unreadOthers);
+        ChatResponseDTO dtoForSender    = toDto(saved, senderId, unreadOthers);
+
+        // 브로드캐스트
+        ChatResponseDTO finalBroadcast = dtoForBroadcast;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                template.convertAndSend("/sub/rooms/" + roomId, finalBroadcast);
+            }
+        });
+
+        return dtoForSender;
+
+    }
+
 
     @Transactional
     public void markRoomReadToLatest(Long roomId, String userId) {
@@ -183,9 +254,18 @@ public class ChatService {
                     ? chatRepository.findByChatRoom_ChatRoomIdOrderByChatIdDesc(roomId, pageable)
                     : chatRepository.findByChatRoom_ChatRoomIdAndChatIdLessThanOrderByChatIdDesc(roomId, beforeId, pageable);
         } else {
+            List<ChatMessageType> normalTypes = List.of(
+                    ChatMessageType.TEXT,
+                    ChatMessageType.IMAGE
+            );
+
             slice = (beforeId == null)
-                    ? chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeOrderByChatIdDesc(roomId, ChatMessageType.TEXT, pageable)
-                    : chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeAndChatIdLessThanOrderByChatIdDesc(roomId, ChatMessageType.TEXT, beforeId, pageable);
+                    ? chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeInOrderByChatIdDesc(
+                    roomId, normalTypes, pageable
+            )
+                    : chatRepository.findByChatRoom_ChatRoomIdAndMessageTypeInAndChatIdLessThanOrderByChatIdDesc(
+                    roomId, normalTypes, beforeId, pageable
+            );
         }
 
         // 방 멤버들의 lastReadChatId 한 번에
@@ -194,11 +274,13 @@ public class ChatService {
         List<ChatResponseDTO> items = slice.getContent().stream()
                 .map(e -> {
                     Integer unread = null;
-                    if (e.getMessageType() == ChatMessageType.TEXT) {
+
+                    if (e.getMessageType() == ChatMessageType.TEXT
+                            || e.getMessageType() == ChatMessageType.IMAGE) {
+
                         String senderId = (e.getSender() != null ? e.getSender().getUserId() : null);
                         long chatId = e.getChatId();
 
-                        // 보낸 사람 제외lastReadChatId < chatId(또는 NULL)인 멤버 카운트
                         int cnt = 0;
                         for (LastReadView lr : lastReads) {
                             // 보낸 사람 제외
@@ -208,9 +290,11 @@ public class ChatService {
                         }
                         unread = cnt;
                     }
+
                     return toDto(e, viewerId, unread);
                 })
                 .toList();
+
 
         Long nextCursor = null;
         if (slice.hasNext() && !items.isEmpty()) {
@@ -280,14 +364,11 @@ public class ChatService {
         template.convertAndSend("/sub/rooms/" + roomId, dto);
     }
 
-    // 시스템 메시지면 timeLabel = null / TEXT만 timeLabel
-    private ChatResponseDTO toDto(ChatEntity e, String viewerId) {
-        return toDto(e, viewerId, null);
-    }
 
     // 메시지 옆 안읽은 인원 수까지 포함해 DTO 생성
     private ChatResponseDTO toDto(ChatEntity e, String viewerId, Integer unreadOthersCount) {
-        boolean isSystem = e.getMessageType() != ChatMessageType.TEXT;
+
+        boolean isSystem = e.getMessageType() == ChatMessageType.SYSTEM_JOIN || e.getMessageType() == ChatMessageType.SYSTEM_LEAVE;
 
         String senderIdReal = (e.getSender() != null ? e.getSender().getUserId() : null);
         String nickname = DisplayMasking.nicknameOf(e.getSender());
@@ -300,6 +381,11 @@ public class ChatService {
 
         String timeLabel = isSystem ? null : buildTimeLabel(e.getCreatedAt());
 
+        List<ImageResponseDTO> imageDTOS = e.getImages().stream()
+                .map(ImageResponseDTO::from)
+                .toList();
+        List<ImageResponseDTO> imagesForDto = imageDTOS.isEmpty() ? null : imageDTOS;
+
         return ChatResponseDTO.builder()
                 .chatId(e.getChatId())
                 .roomId(e.getChatRoom().getChatRoomId())
@@ -311,7 +397,9 @@ public class ChatService {
                 .senderProfileImageUrl(profileUrl)
                 .mine(mine)
                 .messageType(e.getMessageType())
-                .othersUnreadUsers(unreadOthersCount) // ← 프론트가 시간 옆에 표시
+                .othersUnreadUsers(unreadOthersCount)
+                .images(imagesForDto)
                 .build();
     }
+
 }

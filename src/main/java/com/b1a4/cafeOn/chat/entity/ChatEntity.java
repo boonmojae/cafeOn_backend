@@ -72,12 +72,23 @@ public class ChatEntity {
         image.setChat(null);
     }
 
+    // 채팅
     public static ChatEntity text(ChatRoomEntity room, UserEntity sender, String message) {
         return ChatEntity.builder()
                 .chatRoom(room)
                 .sender(sender)
                 .messageType(ChatMessageType.TEXT)
                 .message(message)
+                .build();
+    }
+
+    // 이미지 메시지를 생성
+    public static ChatEntity imageMessage(ChatRoomEntity room, UserEntity sender, String caption ) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(sender)
+                .messageType(ChatMessageType.IMAGE)
+                .message(caption != null ? caption : "")
                 .build();
     }
 
@@ -100,13 +111,6 @@ public class ChatEntity {
                 .message(user.getNickname() + "님이 퇴장했습니다.")
                 .build();
     }
-
-//    public static ChatEntity image(ChatRoomEntity room, UserEntity sender, String imageUrl) {
-//        return ChatEntity.builder()
-//                .chatRoom(room)
-//                .sender(sender)
-//                .imageUrl(imageUrl)
-//                .build();
-//    }
+    
 
 }
