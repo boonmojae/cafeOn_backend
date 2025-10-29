@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 
@@ -17,6 +18,7 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
     Page<ReviewEntity> findByUser_UserId(String userId, Pageable pageable);
 
     Page<ReviewEntity> findByCafe_CafeId(Long cafeId, Pageable pageable);
+    List<ReviewEntity> findByCafe_CafeId(Long cafeId);  // 작성자(김도이) 페이지어블 안쓰고, 전체가져오기용 메서드 오버로딩 추가
 
     // 리뷰 신고 - 작성자 userId
     @Query("SELECT r.user.userId FROM ReviewEntity r WHERE r.reviewId =:reviewId")
