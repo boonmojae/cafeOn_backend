@@ -26,15 +26,12 @@ public class PenaltyService {
     private final PenaltyRepository penaltyRepository;
     private final UserRepository userRepository;
 
-    /**
-     * 경고 부여 (POST /api/admin/users/{id}/penalty)
-     */
+    // 경고 부여
     @Transactional
     public PenaltyResponseDTO giveWarning(String userId, String adminId, PenaltyRequestDTO dto, Long reportId) {
         UserEntity user = getUserOrThrow(userId);
         UserEntity admin = getUserOrThrow(adminId);
 
-        // (선택) 신고 연동 시 중복 방지
         if (reportId != null && penaltyRepository.existsByReportId(reportId)) {
             throw new IllegalStateException("이미 해당 신고로 패널티가 생성되었습니다. reportId=" + reportId);
         }
@@ -44,13 +41,12 @@ public class PenaltyService {
                 .admin(admin)
                 .penaltyType(PenaltyType.WARNING)
                 .reason(dto.getReason())
-                .reasonCode(dto.getReasonCode()) // null 허용
+                .reasonCode(dto.getReasonCode())
                 .status(PenaltyStatus.ACTIVE)
                 .startsAt(null)
                 .endsAt(null)
                 .build();
 
-        // (옵션) report_id 보관
         if (reportId != null) {
             entity.setReportId(reportId);
         }
@@ -63,10 +59,7 @@ public class PenaltyService {
         return PenaltyResponseDTO.fromEntity(saved);
     }
 
-    /**
-     * 정지 부여 (POST /api/admin/users/{id}/suspend)
-     * dto.duration 예: "7d", "30d"
-     */
+    // 정지 부여
     @Transactional
     public PenaltyResponseDTO suspend(String userId, String adminId, PenaltyRequestDTO dto, Long reportId) {
         UserEntity user = getUserOrThrow(userId);
@@ -76,7 +69,6 @@ public class PenaltyService {
             throw new IllegalArgumentException("duration은 필수입니다. 예: 7d, 30d");
         }
 
-        // (선택) 신고 연동 시 중복 방지
         if (reportId != null && penaltyRepository.existsByReportId(reportId)) {
             throw new IllegalStateException("이미 해당 신고로 패널티가 생성되었습니다. reportId=" + reportId);
         }
@@ -89,13 +81,12 @@ public class PenaltyService {
                 .admin(admin)
                 .penaltyType(PenaltyType.SUSPEND)
                 .reason(Optional.ofNullable(dto.getReason()).orElse("관리자 정지 조치"))
-                .reasonCode(dto.getReasonCode()) // null 허용
+                .reasonCode(dto.getReasonCode())
                 .status(PenaltyStatus.ACTIVE)
                 .startsAt(now)
                 .endsAt(endsAt)
                 .build();
 
-        // (옵션) report_id 보관
         if (reportId != null) {
             entity.setReportId(reportId);
         }
@@ -108,9 +99,7 @@ public class PenaltyService {
         return PenaltyResponseDTO.fromEntity(saved);
     }
 
-    /**
-     * 정지 해제 (선택 API용) — 만료/관리자 해제
-     */
+    // 정지 해제 (선택 API용)
     @Transactional
     public void revoke(Long penaltyId, String adminId, String reason) {
         PenaltyEntity penalty = penaltyRepository.findById(penaltyId)
@@ -123,10 +112,7 @@ public class PenaltyService {
             String merged = (penalty.getReason() == null ? "" : penalty.getReason() + " | ") + "해제사유: " + reason;
             penalty.setReason(merged);
         }
-        // 저장은 트랜잭션 종료 시 flush
     }
-
-    /* -------------------- 내부 유틸 -------------------- */
 
     private UserEntity getUserOrThrow(String userId) {
         return userRepository.findById(userId)
@@ -139,10 +125,6 @@ public class PenaltyService {
         // dirty checking으로 자동 update
     }
 
-    /**
-     * "7d" / "30d" / "2w" / "1m" 형태 지원 (확장)
-     * d: 일, w: 주, m: 30일 기준 월
-     */
     private long parseDurationToDays(String duration) {
         String val = duration.trim().toLowerCase(Locale.ROOT);
         Pattern p = Pattern.compile("^(\\d+)\\s*([dwm])$");
