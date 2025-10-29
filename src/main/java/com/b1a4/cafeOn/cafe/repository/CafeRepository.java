@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.cafe.repository;
 
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
+import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -64,6 +65,11 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
 
 //    (선택) 업데이트 로직을 구현할 경우 사용
     Optional<CafeEntity> findByKakaoId(String kakaoId);
+
+    /**
+     * 2. 특정 카페 리뷰들 조회
+     */
+    List<ReviewEntity> findByCafe_CafeId(Long CafeId);
 
     /**
      * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL)
