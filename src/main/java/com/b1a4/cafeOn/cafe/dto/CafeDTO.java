@@ -54,10 +54,15 @@ public class CafeDTO {
     public static CafeDTO fromEntity(CafeEntity entity) {
         BigDecimal rating = entity.getAvgRating();
 
-//        ✅ avg_rating이 null이면 kakao_rating을 대신 사용
+//        ✅ 1. 평점 처리: avgRating > kakaoRating > 0.00
         if (rating == null && entity.getKakaoRating() != null) {
             rating = entity.getKakaoRating();
         }
+
+//        ✅ 2. 리뷰요약 처리: null → 빈 문자열
+        String summary = (entity.getReviewsSummary() != null)
+                ? entity.getReviewsSummary()
+                : "";
 
         return CafeDTO.builder()
                 .cafeId(entity.getCafeId())
@@ -68,7 +73,7 @@ public class CafeDTO {
                 .latitude(entity.getLatitude())
                 .longitude(entity.getLongitude())
                 .openHours(entity.getOpenHours())
-                .reviewsSummary(entity.getReviewsSummary())
+                .reviewsSummary(summary)
                 .build();
     }
 }
