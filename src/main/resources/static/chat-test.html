@@ -35,18 +35,66 @@
         .bubble-row { display:flex; align-items:flex-end; gap:6px; }
         .bubble {
           border-radius: 14px; padding: 10px 12px; line-height: 1.45; word-break: break-word;
-          background: #f3f4f6; color:#111827; max-width: 100%;
+          background: #2563eb; color:#fff; max-width: 100%;
         }
-        .right .bubble { background: #2563eb; color: #fff; }
+        .msg.left .bubble {
+          background: #f3f4f6;
+          color:#111827;
+        }
+
+        /* 이미지 버블은 파란 말풍선 대신 카드 스타일 */
+        .bubble.bubble-img {
+          background: transparent;
+          color: #111827;
+          padding: 0;
+        }
+        .msg.right .bubble.bubble-img {
+          background: transparent;
+          color: #fff; /* 캡션 글자색 (우측 내 메시지일 때) */
+        }
+
+        /* 여러 장 이미지 보여줄 때 그리드 느낌 */
+        .img-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          max-width: 240px;
+          border-radius: 12px;
+        }
+        .img-grid-item {
+          border-radius: 10px;
+          overflow: hidden;
+          background: #0f172a;
+          max-width: 110px;
+          max-height: 110px;
+          flex: 0 0 auto;
+        }
+        .img-grid-item img {
+          display: block;
+          width: 110px;
+          height: 110px;
+          object-fit: cover;
+        }
+
+        .caption {
+          margin-top: 6px;
+          font-size: 14px;
+          line-height: 1.4;
+          white-space: pre-wrap;
+          word-break: break-word;
+          color: inherit; /* bubble 텍스트 색상 따라감 */
+          background: rgba(0,0,0,0); /* 투명 */
+          max-width: 240px;
+        }
 
         .nick { font-size: 12px; color: #6b7280; margin: 0 0 4px 2px; }
-        .right .nick { text-align: right; color:#93c5fd; }
+        .msg.right .nick { text-align: right; color:#93c5fd; visibility:hidden; }
 
         .meta {
           font-size: 11px; color: #9ca3af; white-space: nowrap; user-select: none; min-width: 42px; text-align: right;
         }
+        .msg.right .meta { color: #dbeafe; }
         .meta .count { margin-left: 6px; }
-        .right .meta { color: #dbeafe; }
 
         .input-row { display:flex; gap:8px; align-items:center; }
         .input-row input[type="text"] { flex:1; }
@@ -116,7 +164,7 @@
     let currentRoomId = null;
     let readLatestTimer = null;
 
-    // ✅ readerId별로 마지막으로 반영한 lastReadChatId를 보관
+    // ✅ readerId별 가장 최신 lastReadChatId를 기억해서 중복 차감 방지
     const lastReadSeen = new Map(); // readerId -> lastAppliedLastReadChatId
 
     function scheduleReadLatest(roomId) {
@@ -207,6 +255,7 @@
       lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:true };
     }
 
+    // meta(시간 + 안읽은 인원수) 표시/업데이트
     function setMeta(metaEl, timeLabel, countOrNull) {
       metaEl.innerHTML = '';
       const timeNode = document.createElement('span');
@@ -222,6 +271,7 @@
       }
     }
 
+    // 읽음 카운트 1 줄이기
     function decrementCount(metaEl) {
       if (!metaEl) return;
       const countNode = metaEl.querySelector('.count');
@@ -232,9 +282,62 @@
       else countNode.textContent = String(next);
     }
 
+    // ✅ 말풍선 안에 실제 컨텐츠(텍스트 or 이미지+캡션)를 채우는 함수
+    function buildBubbleContent(bubble, m, mine) {
+      // 이미지 여부 확인
+      const hasImages = Array.isArray(m.images) && m.images.length > 0;
+
+      if (!hasImages) {
+        // 그냥 텍스트 메시지
+        bubble.textContent = m.message || '';
+        return;
+      }
+
+      // 이미지가 있으면 bubble 스타일을 이미지용 카드 스타일로
+      bubble.classList.add('bubble-img');
+
+      // 이미지 그리드
+      const grid = document.createElement('div');
+      grid.className = 'img-grid';
+
+      m.images.forEach(imgDto => {
+        // 여기에서 서버의 필드명에 맞게 URL을 고른다
+        // 너 오늘 응답에서는 imageUrl 이 필드였음
+        const url =
+          imgDto.imageUrl ||
+          imgDto.publicUrl ||
+          imgDto.public_url ||
+          imgDto.url ||
+          '';
+
+        if (!url) return;
+
+        const cell = document.createElement('div');
+        cell.className = 'img-grid-item';
+
+        const imageEl = document.createElement('img');
+        imageEl.src = url;
+        imageEl.alt = imgDto.originalFileName || 'image';
+        cell.appendChild(imageEl);
+
+        grid.appendChild(cell);
+      });
+
+      bubble.appendChild(grid);
+
+      // 캡션 (있으면만)
+      if (m.message && m.message.trim() !== '') {
+        const cap = document.createElement('div');
+        cap.className = 'caption';
+        cap.textContent = m.message;
+        bubble.appendChild(cap);
+      }
+    }
+
     function renderChatBubble(m) {
       if (isSystemType(m.messageType)) { renderSystem(m); return; }
 
+      // mine 여부: 서버에서 mine 내려오면 그걸 쓰고, 없으면 senderId 비교로 판정
       const mine = (typeof m.mine === 'boolean')
         ? m.mine
         : (m.senderId && myUserId && String(m.senderId).trim() === String(myUserId).trim());
@@ -246,10 +349,11 @@
       const wrap = document.createElement('div');
       wrap.className = 'msg ' + (mine ? 'right' : 'left');
 
-      // 항상 세팅(없으면 '')
+      // dataset 저장 (읽음 카운트 업데이트용)
       if (m.chatId) wrap.dataset.chatId = String(m.chatId);
       wrap.dataset.senderId = (m.senderId != null) ? String(m.senderId) : '';
 
+      // 왼쪽 메시지일 때만 아바타 노출
       if (!mine) {
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
@@ -263,9 +367,11 @@
         wrap.appendChild(avatar);
       }
 
+      // 본문 컨테이너
       const body = document.createElement('div');
       body.style.maxWidth = '100%';
 
+      // 닉네임 (내 메시지는 visibility:hidden 처리)
       const nickEl = document.createElement('div');
       nickEl.className = 'nick';
       nickEl.textContent = mine ? '나' : nick;
@@ -276,7 +382,9 @@
 
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = m.message || '';
+
+      // ✅ 텍스트 or 이미지+캡션 넣는다
+      buildBubbleContent(bubble, m, mine);
 
       const meta = document.createElement('div');
       meta.className = 'meta';
@@ -285,16 +393,20 @@
       const sameSender = !!(lastMsgCtx.senderId && m.senderId && String(lastMsgCtx.senderId) === String(m.senderId));
       const sameMinute = !!(lastMsgCtx.minuteKey && curMinuteKey && lastMsgCtx.minuteKey === curMinuteKey);
       const sameRun = sameSender && sameMinute && !lastMsgCtx.isSystem;
+      // NOTE: 예전에는 같은 덩어리로 묶이면서 이전 메타 없애버렸는데,
+      //       지금은 읽음 카운트 때문에 이전 meta를 지우지 않기로 했어.
 
-      // ⚠️ 이전 메타를 비우지 않는다(카운트가 사라지던 원인)
-      // if (sameRun && lastMsgCtx.metaEl) lastMsgCtx.metaEl.textContent = '';
-
-      // 서버 계산값 그대로 렌더
+      // 서버에서 계산해서 내려준 othersUnreadUsers(안읽은 인원수)를 그대로 태깅
       const count = (typeof m.othersUnreadUsers === 'number') ? m.othersUnreadUsers : 0;
       setMeta(meta, m.timeLabel || '', count);
 
-      if (mine) { row.appendChild(meta); row.appendChild(bubble); }
-      else { row.appendChild(bubble); row.appendChild(meta); }
+      if (mine) {
+        row.appendChild(meta);
+        row.appendChild(bubble);
+      } else {
+        row.appendChild(bubble);
+        row.appendChild(meta);
+      }
 
       body.appendChild(nickEl);
       body.appendChild(row);
@@ -450,13 +562,13 @@
           const rr = JSON.parse(msg.body); // { roomId, readerId, lastReadChatId }
           if (!rr || !rr.readerId || typeof rr.lastReadChatId !== 'number') return;
 
-          // ✅ 중복/과거 이벤트 가드 + 범위 계산
+          // ✅ 중복/과거 이벤트 무시 & 범위 계산
           const prev = lastReadSeen.get(rr.readerId) || 0;
           const cur  = rr.lastReadChatId;
-          if (cur <= prev) return;                 // 과거/동일 이벤트 무시
-          lastReadSeen.set(rr.readerId, cur);      // 최신 값 저장
+          if (cur <= prev) return;
+          lastReadSeen.set(rr.readerId, cur);
 
-          // ✅ (prev, cur] 구간만 1씩 감소 (이미 감소한 구간 재차감 방지)
+          // ✅ (prev, cur] 범위에 해당하는 메시지들의 unread 카운트 1씩 감소
           const nodes = document.querySelectorAll('#chat .msg[data-chat-id]');
           nodes.forEach(node => {
             const chatId = Number(node.dataset.chatId || '0');
@@ -514,7 +626,7 @@
         await ensureConnected(serverUrl, token);
         doSubscribe(String(roomId));
 
-        // 히스토리 로드(othersUnreadUsers 포함)
+        // 히스토리 로드 (includeSystem=true면 시스템 메시지도 내려올 수 있음)
         const res = await fetch(`/api/chat/rooms/${roomId}/messages?includeSystem=true`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -529,7 +641,7 @@
           });
         }
 
-        // ✅ 입장 시 최신까지 읽음 1회
+        // ✅ 방 들어오면 한번 읽음 동기화
         await readLatest(roomId);
 
         setSendUI(true);
@@ -551,8 +663,8 @@
 
       try {
         const res = await fetch(`/api/chat/rooms/${roomId}/members/me/leave`, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + token }
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + token }
         });
 
         if (res.ok) {
@@ -585,7 +697,7 @@
       }
     }
 
-    // ===== 전송 =====
+    // ===== 메시지 전송 =====
     function sendMsg(){
       if (!client || !client.connected) return log('NOT_CONNECTED');
       const roomId = document.getElementById('roomId').value.trim();
