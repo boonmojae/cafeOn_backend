@@ -134,45 +134,47 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMemberEn
             """)
     int updateMute(@Param("roomId") Long roomId, @Param("userId") String userId, @Param("muted") boolean muted);
 
+
     // 내가 참여한 채팅방 목록
     @Query(value = """
-          SELECT DISTINCT NEW com.b1a4.cafeOn.chat.dto.room.ChatRoomListItemDTO(
-              r.chatRoomId,
-              CASE WHEN r.type = com.b1a4.cafeOn.chat.enums.RoomType.GROUP
-                   THEN r.roomName
-                   ELSE COALESCE(u2.nickname, '(알 수 없음)')
-              END,
-              r.type,
-              r.cafeId,
-              COALESCE(m.unreadCount, 0),
-              lastText.message,
-              lastText.createdAt,
-              (SELECT COUNT(m3.chatRoomMemberId) FROM ChatRoomMemberEntity m3 WHERE m3.chatRoom = r)
-          )
-          FROM ChatRoomMemberEntity m
-            JOIN m.chatRoom r
-            LEFT JOIN r.chatRoomMembers m2 WITH m2.user.userId <> :userId
-            LEFT JOIN m2.user u2
-            LEFT JOIN com.b1a4.cafeOn.chat.entity.ChatEntity lastText
-                   WITH lastText.chatId = (
-                       SELECT MAX(c2.chatId)
-                       FROM com.b1a4.cafeOn.chat.entity.ChatEntity c2
-                       WHERE c2.chatRoom = r
-                         AND c2.messageType = com.b1a4.cafeOn.chat.enums.ChatMessageType.TEXT
-                   )
-          WHERE m.user.userId = :userId
-          ORDER BY
-            CASE WHEN lastText.createdAt IS NULL THEN 1 ELSE 0 END ASC,
-            lastText.createdAt DESC,
-            r.chatRoomId DESC
-        """,
-countQuery = """
-          SELECT COUNT(DISTINCT r.chatRoomId)
-          FROM ChatRoomMemberEntity m
-            JOIN m.chatRoom r
-          WHERE m.user.userId = :userId
-        """
+            SELECT DISTINCT NEW com.b1a4.cafeOn.chat.dto.room.ChatRoomListItemDTO(
+                r.chatRoomId,
+                CASE WHEN r.type = com.b1a4.cafeOn.chat.enums.RoomType.GROUP
+                     THEN r.roomName
+                     ELSE COALESCE(u2.nickname, '(알 수 없음)')
+                END,
+                r.type,
+                r.cafeId,
+                COALESCE(m.unreadCount, 0),
+                lastText.message,
+                lastText.createdAt,
+                (SELECT COUNT(m3.chatRoomMemberId) FROM ChatRoomMemberEntity m3 WHERE m3.chatRoom = r)
+            )
+            FROM ChatRoomMemberEntity m
+              JOIN m.chatRoom r
+              LEFT JOIN r.chatRoomMembers m2 WITH m2.user.userId <> :userId
+              LEFT JOIN m2.user u2
+              LEFT JOIN com.b1a4.cafeOn.chat.entity.ChatEntity lastText
+                     WITH lastText.chatId = (
+                         SELECT MAX(c2.chatId)
+                         FROM com.b1a4.cafeOn.chat.entity.ChatEntity c2
+                         WHERE c2.chatRoom = r
+                           AND c2.messageType = com.b1a4.cafeOn.chat.enums.ChatMessageType.TEXT
+                     )
+            WHERE m.user.userId = :userId
+            ORDER BY
+              CASE WHEN lastText.createdAt IS NULL THEN 1 ELSE 0 END ASC,
+              lastText.createdAt DESC,
+              r.chatRoomId DESC
+          """,
+          countQuery = """
+                    SELECT COUNT(DISTINCT r.chatRoomId)
+                    FROM ChatRoomMemberEntity m
+                      JOIN m.chatRoom r
+                    WHERE m.user.userId = :userId
+                  """
     )
     Page<ChatRoomListItemDTO> findMyRoomListPage(@Param("userId") String userId, Pageable pageable);
+
 
 }

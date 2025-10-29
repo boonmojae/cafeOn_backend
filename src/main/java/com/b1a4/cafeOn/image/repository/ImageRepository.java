@@ -14,7 +14,7 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
 
     // 게시글
     List<ImageEntity> findByPost(PostEntity post);
-    
+
     // 리뷰
     List<ImageEntity> findByReview(ReviewEntity review);
 

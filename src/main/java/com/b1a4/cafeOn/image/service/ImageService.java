@@ -149,7 +149,7 @@ public class ImageService {
     }
 
     // 삭제
-    public void deleteReviewImage(ReviewEntity review) {
+    public void removeAllImagesOfReview(ReviewEntity review) {
         List<ImageEntity> images = imageRepository.findByReview(review);
         bulkRemoveImagesCommon(images);
 

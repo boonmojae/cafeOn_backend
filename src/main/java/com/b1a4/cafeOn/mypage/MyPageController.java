@@ -7,7 +7,7 @@ import com.b1a4.cafeOn.community.comment.dto.CommentResponseDTO;
 import com.b1a4.cafeOn.community.comment.service.CommentService;
 import com.b1a4.cafeOn.community.post.dto.PostListResponseDTO;
 import com.b1a4.cafeOn.community.post.service.PostService;
-import com.b1a4.cafeOn.review.dto.ReviewDTO;
+import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import com.b1a4.cafeOn.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -141,7 +141,7 @@ public class MyPageController {
     // 내가 참여한 채팅방 목록
     @GetMapping("/chat/rooms")
     public ResponseEntity<?> myRooms(@AuthenticationPrincipal String userId,
-                                     @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+                                     @PageableDefault(size = 10) Pageable pageable) {
         try {
             Page<ChatRoomListItemDTO> pageResult = chatRoomMemberService.listMyRooms(userId, pageable);
 
@@ -165,28 +165,28 @@ public class MyPageController {
 
 
     // 내가 작성한 리뷰 목록
-//    @GetMapping("/reviews")
-//    public ResponseEntity<?> myReviews(@AuthenticationPrincipal String userId,
-//                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-//        try {
-//            Page<ReviewDTO> pageResult = reviewService.getReviewById(userId, pageable);
-//
-//            ApiResponse<Page<ReviewDTO>> body = ApiResponse.<Page<ReviewDTO>>builder()
-//                    .message("내가 작성한 리뷰 목록 조회 성공")
-//                    .data(pageResult)
-//                    .build();
-//
-//            return ResponseEntity.ok(body);
-//
-//        } catch (Exception e) {
-//            log.error("내가 작성한 리뷰 목록 조회 실패 userId:{}", userId, e);
-//
-//            ApiResponse<?> error = ApiResponse.builder()
-//                    .message("내가 작성한 리뷰 목록 조회 실패")
-//                    .build();
-//
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-//        }
-//    }
+    @GetMapping("/reviews")
+    public ResponseEntity<?> myReviews(@AuthenticationPrincipal String userId,
+                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        try {
+            Page<ReviewResponseDTO> pageResult = reviewService.getReviewById(userId, pageable);
+
+            ApiResponse<Page<ReviewResponseDTO>> body = ApiResponse.<Page<ReviewResponseDTO>>builder()
+                    .message("내가 작성한 리뷰 목록 조회 성공")
+                    .data(pageResult)
+                    .build();
+
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            log.error("내가 작성한 리뷰 목록 조회 실패 userId:{}", userId, e);
+
+            ApiResponse<?> error = ApiResponse.builder()
+                    .message("내가 작성한 리뷰 목록 조회 실패")
+                    .build();
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+        }
+    }
 
 }

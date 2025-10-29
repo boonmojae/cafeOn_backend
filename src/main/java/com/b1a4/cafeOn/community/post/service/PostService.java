@@ -249,12 +249,12 @@ public class PostService {
     // 게시글 삭제
     @Transactional
     public void deletePost(String userId, Long postId) {
-        UserEntity caller = findByUserId(userId);
+        UserEntity user = findByUserId(userId);
 
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new PostNotFoundException(postId));
 
-        if (!isOwnerOrAdmin(caller.getUserId(), post)) {
+        if (!isOwnerOrAdmin(user.getUserId(), post)) {
             throw new AccessDeniedException("삭제 권한이 없습니다.");
         }
 
@@ -284,12 +284,12 @@ public class PostService {
     }
 
     public UserEntity userStatus(String userId) {
-        UserEntity author = findByUserId(userId);
+        UserEntity user = findByUserId(userId);
 
-        if (author.getStatus() == null || author.getStatus() == UserStatus.DELETED) {
+        if (user.getStatus() == null || user.getStatus() == UserStatus.DELETED) {
             throw new RuntimeException("탈퇴한 사용자는 게시글 접근 권한이 없습니다.");
         }
 
-        return author;
+        return user;
     }
 }
