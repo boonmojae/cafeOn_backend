@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @Tag(name = "Penalty (Admin)")
 @RestController
 @RequestMapping("/api/admin/users")
@@ -52,4 +54,20 @@ public class PenaltyController {
                         .build()
         );
     }
+
+    // 목록 조회
+    @Operation(summary = "회원 패널티 내역 조회", description = "특정 회원의 패널티 내역을 조회합니다.")
+    @GetMapping("/{userId}/penalties")
+    public ResponseEntity<ApiResponse<List<PenaltyResponseDTO>>> getUserPenalties(
+            @PathVariable("userId") String userId
+    ) {
+        List<PenaltyResponseDTO> penalties = penaltyService.getUserPenalties(userId);
+        return ResponseEntity.ok(
+                ApiResponse.<List<PenaltyResponseDTO>>builder()
+                        .message("회원 패널티 내역이 조회되었습니다.")
+                        .data(penalties)
+                        .build()
+        );
+    }
+
 }
