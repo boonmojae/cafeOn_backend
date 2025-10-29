@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS cafes (
     open_hours TEXT, -- 오픈 시간
     kakao_rating DECIMAL(3,2), -- 카카오맵 내 후기별점
     avg_rating DECIMAL(3,2), -- 카카오맵과 네이버지도의 별점을 평균낸 최종별점(ex. 3.44)
+    view_count INT DEFAULT 0,   -- 총조회수
+    views_last7d INT DEFAULT 0, -- 최근7일조회수
+    last_viewed_at DATETIME NULL;   -- 최근조회시간
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     kakao_url VARCHAR(255), -- 카카오맵 URL
     reviews_summary TEXT,    -- 네이버블로그에 카페이름 검색해 나온 내용들을 ai로 한줄요약함

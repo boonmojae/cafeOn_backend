@@ -6,6 +6,9 @@ import com.b1a4.cafeOn.cafe.dto.CafeNearbyResponse;
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
+import com.b1a4.cafeOn.review.entity.ReviewEntity;
+import com.b1a4.cafeOn.review.repository.ReviewRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,7 @@ import java.util.stream.Collectors;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class CafeService {
     private final CafeRepository cafeRepository;    // ✅ final + RequiredArgsConstructor
+    private final ReviewRepository reviewRepository;
 //    RestTemplate은 Bean으로 등록하고 주입받는 것이 좋으나, 기존 코드를 유지합니다.
     private final RestTemplate restTemplate = new RestTemplate();
     private static final int KAKAO_PAGE_SIZE = 15;
@@ -265,15 +269,26 @@ public class CafeService {
     public CafeDetailResponse getCafeDetail(Long id) {
         CafeEntity entity = cafeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
+        
+//        2-1. ✅ 조회수 증가
+        entity.setViewCount(entity.getViewCount() +1);
+        entity.setLastViewedAt(LocalDateTime.now());
+        cafeRepository.save(entity);
 
-//        todo : 실제 DB에는 리뷰, 관련카페가 아직 없으므로 임시 mock 데이터 생성
-        List<CafeDetailResponse.ReviewDTO> reviews = List.of(
-                new CafeDetailResponse.ReviewDTO("김도이", 4.8, "분위기 좋고 커피 맛있어요", LocalDateTime.now())
-        );
+//        2-2. ✅ 리뷰 + 이미지 가져오기
+        List<ReviewEntity> reviewsFromDB = reviewRepository.findByCafe_CafeId(id);
 
-        List<CafeDetailResponse.RelatedCafeDTO> related = List.of(
-                new CafeDetailResponse.RelatedCafeDTO(456L, "스타벅스 강남점", "https://cdn.cafeon.kr/photos/456-thumb.jpg")
-        );
+        List<CafeDetailResponse.ReviewDTO> reviews = reviewsFromDB.stream()
+                .map(r -> new CafeDetailResponse.ReviewDTO(
+                        r.getUser().getNickname(),  // 작성자
+                        (double) r.getRating(),    // 평점
+                        r.getContent(),             // 내용
+                        r.getCreatedAt(),           // 작성일
+                        r.getImages().stream()      // 연결된 이미지 URL 추출
+                                .map(ImageEntity::getPublicUrl)
+                                .toList()           // Java 17 OK
+                ))
+                .toList();
 
         return CafeDetailResponse.builder()
                 .id(entity.getCafeId())
@@ -283,18 +298,7 @@ public class CafeService {
                 .hours(entity.getOpenHours())
                 .rating(String.valueOf(entity.getKakaoRating()))    // ✅ todo : 우선 리뷰데이터 업어서 전부 걍 카카오크롤링한 별점 때리기
                 .reviewsSummary(entity.getReviewsSummary())
-                .reviews(reviews)    // ✅ todo : 나중에 ReviewEntity 연동 예정
-//                .reviews(cafe.getReviews().stream().map(r -> new entityDetailResponse.ReviewDTO(
-//                        r.getAuthor(),
-//                        r.getRating(),
-//                        r.getContent(),
-//                        r.getCreatedAt()
-//                )).collect(Collectors.toList()))
-//                .relatedCafes(cafe.getRelatedCafes().stream().map(rc -> new CafeDetailResponse.RelatedCafeDTO(
-//                        rc.getId(),
-//                        rc.getName(),
-//                        rc.getThumbnail()
-//                )).collect(Collectors.toList()))
+                .reviews(reviews)
                 .build();
     }
 
