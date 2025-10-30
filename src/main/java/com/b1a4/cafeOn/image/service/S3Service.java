@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.image.service;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -102,6 +104,21 @@ public class S3Service {
     // 삭제
     public void deleteImageByKey(String s3Key) {
         amazonS3.deleteObject(bucket, s3Key);
+    }
+
+
+    public void deleteAll(List<String> keys) {
+        if (keys == null || keys.isEmpty()) return;
+
+        final int BATCH = 1000;
+        for (int start = 0; start < keys.size(); start += BATCH) {
+            int end = Math.min(start + BATCH, keys.size());
+            var batch = keys.subList(start, end);
+
+            DeleteObjectsRequest req = new DeleteObjectsRequest(bucket);
+            req.setKeys(batch.stream().map(DeleteObjectsRequest.KeyVersion::new).toList());
+            amazonS3.deleteObjects(req);
+        }
     }
 }
 

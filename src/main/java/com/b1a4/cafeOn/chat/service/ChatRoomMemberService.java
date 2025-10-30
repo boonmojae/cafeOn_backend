@@ -11,6 +11,7 @@ import com.b1a4.cafeOn.chat.exception.NotChatRoomMemberException;
 import com.b1a4.cafeOn.chat.repository.ChatRoomMemberRepository;
 import com.b1a4.cafeOn.chat.repository.ChatRoomRepository;
 import com.b1a4.cafeOn.chat.repository.NotificationRepository;
+import com.b1a4.cafeOn.image.service.ImageService;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class ChatRoomMemberService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final ImageService imageService;
 
     // 1:1 채팅방 생성(or 조회) + 가입(멱등)
     @Transactional
@@ -148,16 +150,18 @@ public class ChatRoomMemberService {
             // 동시 퇴장 방어
             long remain = chatRoomMemberRepository.countByChatRoom_ChatRoomId(roomId);
             if (remain == 0) {
+                imageService.removeAllImagesOfChatRoom(roomId);
                 chatRoomRepository.deleteById(roomId);
             }
             return;
         }
 
         if (count == 1) {
-            // 마지막 1명: 멤버 먼저 삭제
-            chatRoomMemberRepository.delete(member);
+            
+            // 채팅방 모든 s3 삭제
+            imageService.removeAllImagesOfChatRoom(roomId);
 
-            // 방 삭제 -> 연결된 데이터 전부 삭제
+            chatRoomMemberRepository.delete(member);
             chatRoomRepository.deleteById(roomId);
             return;
         }

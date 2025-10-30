@@ -334,34 +334,6 @@ public class ChatService {
         });
     }
 
-//    @Transactional
-//    public void publishSystemJoin(Long roomId, String actorUserId) {
-//        ChatRoomEntity room = chatRoomRepository.findById(roomId)
-//                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
-//        UserEntity actor = userRepository.findById(actorUserId)
-//                .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
-//
-//        var cutoff = LocalDateTime.now().minusSeconds(30);
-//        if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
-//                roomId, actorUserId, ChatMessageType.SYSTEM_JOIN, cutoff)) {
-//            return;
-//        }
-//
-//        ChatEntity saved = chatRepository.save(ChatEntity.systemJoin(room, actor));
-//        ChatResponseDTO dto = ChatResponseDTO.builder()
-//                .chatId(saved.getChatId())
-//                .roomId(roomId)
-//                .senderId(null)
-//                .senderNickname(null)
-//                .senderProfileImageUrl(null)
-//                .message(saved.getMessage())
-//                .createdAt(saved.getCreatedAt())
-//                .mine(null)
-//                .messageType(saved.getMessageType())
-//                .build();
-//
-//        template.convertAndSend("/sub/rooms/" + roomId, dto);
-//    }
 
     // SYSTEM: 퇴장 메시지
     @Transactional
@@ -387,35 +359,6 @@ public class ChatService {
             }
         });
     }
-//
-//    @Transactional
-//    public void publishSystemLeave(Long roomId, String actorUserId) {
-//        ChatRoomEntity room = chatRoomRepository.findById(roomId)
-//                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
-//        UserEntity actor = userRepository.findById(actorUserId)
-//                .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
-//
-//        var cutoff = LocalDateTime.now().minusSeconds(30);
-//        if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
-//                roomId, actorUserId, ChatMessageType.SYSTEM_LEAVE, cutoff)) {
-//            return;
-//        }
-//
-//        ChatEntity saved = chatRepository.save(ChatEntity.systemLeave(room, actor));
-//        ChatResponseDTO dto = ChatResponseDTO.builder()
-//                .chatId(saved.getChatId())
-//                .roomId(roomId)
-//                .senderId(null)
-//                .senderNickname(null)
-//                .senderProfileImageUrl(null)
-//                .message(saved.getMessage())
-//                .createdAt(saved.getCreatedAt())
-//                .mine(null)
-//                .messageType(saved.getMessageType())
-//                .build();
-//
-//        template.convertAndSend("/sub/rooms/" + roomId, dto);
-//    }
 
     @Transactional
     public void ensureTodayDateSeparator(Long roomId, UserEntity sender, ChatRoomEntity room) {

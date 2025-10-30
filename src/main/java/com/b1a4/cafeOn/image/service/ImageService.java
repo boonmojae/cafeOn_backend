@@ -8,6 +8,8 @@ import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.awt.*;
 import java.util.List;
@@ -157,14 +159,22 @@ public class ImageService {
             review.getImages().clear();
         }
     }
-    
-    
-    // chat
-    // 채팅은 이미지 추가만
-    private ImageEntity attachNewImageToChat(ChatEntity chat, S3Service.UploadedImageInfo uploaded) {
-        return attachNewImageCommon(null, null, chat, uploaded);
-    }
 
+
+    // chat
+    // 채팅 삭제(마지막 멤버가 채팅방 나가기)
+    @Transactional
+    public void removeAllImagesOfChatRoom(Long roomId) {
+        List<String> keys = imageRepository.findAllS3KeysByRoomId(roomId);
+
+        imageRepository.bulkDeleteByRoomId(roomId);
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                s3Service.deleteAll(keys);
+            }
+        });
+    }
 
 
 }
