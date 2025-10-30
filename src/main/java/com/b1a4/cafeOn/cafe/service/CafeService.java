@@ -298,6 +298,7 @@ public class CafeService {
                 .reviewsSummary(entity.getReviewsSummary())
                 .reviews(reviews)   // ✅ ← CafeDetailResponse.reviews 타입이 List<ReviewResponseDTO> 인지 확인!
                 .tags(tagNames)
+                .photoUrl(entity.getPhotoUrl())
                 .build();
     }
 
@@ -305,46 +306,54 @@ public class CafeService {
     /**
      * 3. 사용자 위치 기반 근처 카페 조회
      */
-    public CafeNearbyResponse getNearbyCafes(double latitude, double longitude, int radius) {
+    public List<CafeDetailResponse> getNearbyCafes(double latitude, double longitude, int radius) {
 
         // 1️⃣ DB 기반 조회
         List<CafeEntity> nearbyFromDB = cafeRepository.findNearbyCafes(latitude, longitude, radius);
         log.info("📍 [DB] 반경 {}m 이내 카페 {}개 조회 (lat={}, lon={})",
                 radius, nearbyFromDB.size(), latitude, longitude);
 
-        // 2️⃣ Entity → DTO
-        List<CafeDTO> cafeDTOs = nearbyFromDB.stream()
-                .map(CafeDTO::fromEntity)
-                .toList();
+        // 2️⃣ Entity → CafeDetailResponse
+        List<CafeDetailResponse> cafeDetails = nearbyFromDB.stream()
+                .map(this::toDetailResponse)
+                .collect(Collectors.toCollection(ArrayList::new));
 
         // 3️⃣ Kakao API 보조 호출 (DB 결과 부족할 때)
-        if (cafeDTOs.size() < 10) {
-            log.info("⚠️ DB 결과 부족 ({}개) → Kakao API로 보조 조회 시작", cafeDTOs.size());
+        if (cafeDetails.size() < 10) {
+            log.info("⚠️ DB 결과 부족 ({}개) → Kakao API로 보조 조회 시작", cafeDetails.size());
 
             List<CafeDTO> kakaoCafes = fetchNearbyFromKakao(latitude, longitude, radius);
 
-            Set<String> existingNames = cafeDTOs.stream()
-                    .map(CafeDTO::getName)
+            Set<String> existingNames = cafeDetails.stream()
+                    .map(CafeDetailResponse::getName)
                     .collect(Collectors.toSet());
 
-            List<CafeDTO> newCafes = kakaoCafes.stream()
+            List<CafeDetailResponse> newCafes = kakaoCafes.stream()
                     .filter(c -> !existingNames.contains(c.getName()))
+                    .map(dto -> CafeDetailResponse.builder()
+                            .name(dto.getName())
+                            .address(dto.getAddress())
+                            .latitude(dto.getLatitude())
+                            .longitude(dto.getLongitude())
+                            .phone(dto.getPhone())
+                            .rating("0.00")
+                            .reviewsSummary(null)
+                            .reviews(List.of())
+                            .tags(List.of())
+                            .photoUrl(null)
+                            .build())
                     .toList();
 
-            cafeDTOs.addAll(newCafes);
-            log.info("🟢 [Kakao] 새로 추가된 카페 {}개 (중복 제거 후 총 {}개)", newCafes.size(), cafeDTOs.size());
+            cafeDetails.addAll(newCafes);
+            log.info("🟢 [Kakao] 새로 추가된 카페 {}개 (중복 제거 후 총 {}개)", newCafes.size(), cafeDetails.size());
         } else {
-            log.info("✅ Kakao API 호출 불필요 — DB 결과 충분 ({}개)", cafeDTOs.size());
+            log.info("✅ Kakao API 호출 불필요 — DB 결과 충분 ({}개)", cafeDetails.size());
         }
 
-        // 4️⃣ 최종 반환 로그
-        log.info("✅ [Final] 총 {}개 카페 반환 (DB + Kakao)", cafeDTOs.size());
+        log.info("✅ [Final] 총 {}개 카페 반환 (DB + Kakao)", cafeDetails.size());
 
-        return CafeNearbyResponse.builder()
-                .cafes(cafeDTOs)
-                .build();
+        return cafeDetails;
     }
-
 
     /**
      * 3-1. kakao API 보조 호출
@@ -427,14 +436,17 @@ public class CafeService {
         return cafes;
     }
 
+
     /**
      * 4. 랜덤 카페 10개 조회
      */
-    public List<CafeDTO> getRandomCafes() {
+    @Transactional(readOnly = true)
+    public List<CafeDetailResponse> getRandomCafes() {
         List<CafeEntity> cafes = cafeRepository.findRandom10();
         log.info("🎲 랜덤으로 선택된 카페 개수: {}", cafes.size());
+
         return cafes.stream()
-                .map(CafeDTO::fromEntity)
+                .map(this::toDetailResponse)   // ✅ 공통 변환 메서드 (이미 CafeService에 있음)
                 .toList();
     }
 
@@ -446,17 +458,22 @@ public class CafeService {
         List<CafeEntity> hotCafes = cafeRepository.findHotWeightedNative(w7d, wAll, wRate, wRev);
 
         return hotCafes.stream().map(cafe -> {
+            // ✅ 태그명 리스트
             List<String> tags = cafeRepository.findTagNamesByCafeId(cafe.getCafeId());
+
+            // ✅ 리뷰는 ReviewService가 알아서 ReviewResponseDTO로 변환
+            List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(cafe.getCafeId());
             return CafeDetailResponse.builder()
                     .id(cafe.getCafeId())
                     .name(cafe.getName())
                     .address(cafe.getAddress())
                     .phone(cafe.getPhone())
                     .rating(String.valueOf(cafe.getKakaoRating()))
-//                    .photos(cafe.getPhoto())    // todo : cafe.getPhoto 만들어야함
                     .hours(cafe.getOpenHours())
                     .reviewsSummary(cafe.getReviewsSummary())
+                    .reviews(reviews)
                     .tags(tags)
+                    .photoUrl(cafe.getPhotoUrl())
                     .build();
         }).toList();
     }
@@ -488,13 +505,39 @@ public class CafeService {
                             .reviewsSummary(cafe.getReviewsSummary())
                             .reviews(reviews)   // ✅ ReviewResponseDTO 그대로 전달
                             .tags(tagNames)
+                            .photoUrl(cafe.getPhotoUrl())
                             .build();
                 })
                 .toList();
     }
 
 
+    /**
+     * ✅ 공통 변환 메서드: CafeEntity → CafeDetailResponse
+     */
+    private CafeDetailResponse toDetailResponse(CafeEntity entity) {
+        List<String> tags = cafeRepository.findTagNamesByCafeId(entity.getCafeId());
+        List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(entity.getCafeId());
 
+        BigDecimal rating = entity.getAvgRating() != null
+                ? entity.getAvgRating()
+                : entity.getKakaoRating();
+
+        return CafeDetailResponse.builder()
+                .id(entity.getCafeId())
+                .name(entity.getName())
+                .address(entity.getAddress())
+                .phone(entity.getPhone())
+                .hours(entity.getOpenHours())
+                .rating(rating != null ? String.format("%.2f", rating) : "0.00")
+                .reviewsSummary(entity.getReviewsSummary())
+                .reviews(reviews)
+                .tags(tags)
+                .photoUrl(entity.getPhotoUrl())
+                .latitude(entity.getLatitude())
+                .longitude(entity.getLongitude())
+                .build();
+    }
 
 
 }
