@@ -163,10 +163,10 @@ public class CafeController {
     @Operation(
             summary = "📍 사용자 위치 기반 근처 카페 조회",
             description = """
-                사용자의 현재 위치(latitude, longitude)를 기반으로
-                지정 반경(radius, 단위: m) 내의 카페 목록을 DB에서 조회합니다.
-                만약 결과가 적으면 Kakao Map API를 통해 추가 카페를 보강합니다.
-                """,
+            사용자의 현재 위치(latitude, longitude)를 기반으로
+            지정 반경(radius, 단위: m) 내의 카페 목록을 DB에서 조회합니다.
+            만약 결과가 적으면 Kakao Map API를 통해 추가 카페를 보강합니다.
+            """,
             parameters = {
                     @Parameter(name = "latitude", example = "37.4979"),
                     @Parameter(name = "longitude", example = "127.0276"),
@@ -176,18 +176,22 @@ public class CafeController {
                     @ApiResponse(
                             responseCode = "200",
                             description = "✅ 성공: 근처 카페 목록 조회 완료",
-                            content = @Content(schema = @Schema(implementation = CafeNearbyResponse.class))
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDetailResponse.class))
+                            )
                     )
             }
     )
-    public ResponseEntity<CafeNearbyResponse> getNearbyCafes(
+    public ResponseEntity<List<CafeDetailResponse>> getNearbyCafes(
             @RequestParam double latitude,
             @RequestParam double longitude,
             @RequestParam(defaultValue = "20000") int radius
     ) {
-        CafeNearbyResponse response = cafeService.getNearbyCafes(latitude, longitude, radius);
-        return ResponseEntity.ok(response);
+        List<CafeDetailResponse> cafes = cafeService.getNearbyCafes(latitude, longitude, radius);
+        return ResponseEntity.ok(cafes);
     }
+
 
     /**
      * 4. 랜덤 카페 10개 조회

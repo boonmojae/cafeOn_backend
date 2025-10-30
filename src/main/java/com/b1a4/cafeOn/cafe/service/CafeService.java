@@ -306,45 +306,55 @@ public class CafeService {
     /**
      * 3. 사용자 위치 기반 근처 카페 조회
      */
-    public CafeNearbyResponse getNearbyCafes(double latitude, double longitude, int radius) {
+    public List<CafeDetailResponse> getNearbyCafes(double latitude, double longitude, int radius) {
 
         // 1️⃣ DB 기반 조회
         List<CafeEntity> nearbyFromDB = cafeRepository.findNearbyCafes(latitude, longitude, radius);
         log.info("📍 [DB] 반경 {}m 이내 카페 {}개 조회 (lat={}, lon={})",
                 radius, nearbyFromDB.size(), latitude, longitude);
 
-        // 2️⃣ Entity → DTO
-        List<CafeDTO> cafeDTOs = nearbyFromDB.stream()
-                .map(CafeDTO::fromEntity)
-                .toList();
+        // 2️⃣ Entity → CafeDetailResponse
+        List<CafeDetailResponse> cafeDetails = nearbyFromDB.stream()
+                .map(this::toDetailResponse)
+                .collect(Collectors.toCollection(ArrayList::new));
 
         // 3️⃣ Kakao API 보조 호출 (DB 결과 부족할 때)
-        if (cafeDTOs.size() < 10) {
-            log.info("⚠️ DB 결과 부족 ({}개) → Kakao API로 보조 조회 시작", cafeDTOs.size());
+        if (cafeDetails.size() < 10) {
+            log.info("⚠️ DB 결과 부족 ({}개) → Kakao API로 보조 조회 시작", cafeDetails.size());
 
             List<CafeDTO> kakaoCafes = fetchNearbyFromKakao(latitude, longitude, radius);
 
-            Set<String> existingNames = cafeDTOs.stream()
-                    .map(CafeDTO::getName)
+            Set<String> existingNames = cafeDetails.stream()
+                    .map(CafeDetailResponse::getName)
                     .collect(Collectors.toSet());
 
-            List<CafeDTO> newCafes = kakaoCafes.stream()
+            List<CafeDetailResponse> newCafes = kakaoCafes.stream()
                     .filter(c -> !existingNames.contains(c.getName()))
+                    .map(dto -> CafeDetailResponse.builder()
+                            .name(dto.getName())
+                            .address(dto.getAddress())
+                            .latitude(dto.getLatitude())
+                            .longitude(dto.getLongitude())
+                            .phone(dto.getPhone())
+                            .rating("0.00")
+                            .reviewsSummary(null)
+                            .reviews(List.of())
+                            .tags(List.of())
+                            .photoUrl(null)
+                            .build())
                     .toList();
 
-            cafeDTOs.addAll(newCafes);
-            log.info("🟢 [Kakao] 새로 추가된 카페 {}개 (중복 제거 후 총 {}개)", newCafes.size(), cafeDTOs.size());
+            cafeDetails.addAll(newCafes);
+            log.info("🟢 [Kakao] 새로 추가된 카페 {}개 (중복 제거 후 총 {}개)", newCafes.size(), cafeDetails.size());
         } else {
-            log.info("✅ Kakao API 호출 불필요 — DB 결과 충분 ({}개)", cafeDTOs.size());
+            log.info("✅ Kakao API 호출 불필요 — DB 결과 충분 ({}개)", cafeDetails.size());
         }
 
-        // 4️⃣ 최종 반환 로그
-        log.info("✅ [Final] 총 {}개 카페 반환 (DB + Kakao)", cafeDTOs.size());
+        log.info("✅ [Final] 총 {}개 카페 반환 (DB + Kakao)", cafeDetails.size());
 
-        return CafeNearbyResponse.builder()
-                .cafes(cafeDTOs)
-                .build();
+        return cafeDetails;
     }
+
 
 
     /**
@@ -501,7 +511,30 @@ public class CafeService {
     }
 
 
+    /**
+     * ✅ 공통 변환 메서드: CafeEntity → CafeDetailResponse
+     */
+    private CafeDetailResponse toDetailResponse(CafeEntity entity) {
+        List<String> tags = cafeRepository.findTagNamesByCafeId(entity.getCafeId());
+        List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(entity.getCafeId());
 
+        BigDecimal rating = entity.getAvgRating() != null
+                ? entity.getAvgRating()
+                : entity.getKakaoRating();
+
+        return CafeDetailResponse.builder()
+                .id(entity.getCafeId())
+                .name(entity.getName())
+                .address(entity.getAddress())
+                .phone(entity.getPhone())
+                .hours(entity.getOpenHours())
+                .rating(rating != null ? String.format("%.2f", rating) : "0.00")
+                .reviewsSummary(entity.getReviewsSummary())
+                .reviews(reviews)
+                .tags(tags)
+                .photoUrl(entity.getPhotoUrl())
+                .build();
+    }
 
 
 }
