@@ -166,12 +166,6 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             @Param("wRev") double wRev
     );
 
-
-
-
-
-
-
     /**
      * 6-1. 최근 7일 조회수 자동 갱신하는 배치 코드
      */
@@ -182,6 +176,22 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             c.lastViewCount = c.viewCount
         """)
     void updateViewsLast7d();
+
+    /**
+     * 7. 찜 많은 카페 top10 조회
+     */
+    @Query(
+            value = """
+        SELECT c.*
+        FROM cafes c
+        JOIN wishlists w ON w.cafe_id = c.cafe_id
+        GROUP BY c.cafe_id
+        ORDER BY COUNT(w.cafe_id) DESC
+        LIMIT :limit
+        """,
+            nativeQuery = true
+    )
+    List<CafeEntity> findTopWishlistedCafesFull(@Param("limit") int limit);
 
 
 

@@ -257,7 +257,7 @@ public class CafeController {
     /**
      * 5. 종합 인기지수 기반 요즘 뜨는 카페 10개 조회
      */
-    @GetMapping("/hot10/weighted")
+    @GetMapping("/hot10")
     @Operation(
             summary = "🔥 종합 인기 지수 기반 요즘 뜨는 카페 Top 10",
             description = """
@@ -305,6 +305,112 @@ public class CafeController {
     ) {
         List<CafeDetailResponse> hotCafes = cafeService.getHotCafesWeighted(w7d, wAll, wRate, wRev);
         return ResponseEntity.ok(hotCafes);
+    }
+
+    /**
+     * 6. 찜 많은 카페 Top 10 조회
+     */
+    @GetMapping("/wish10")
+    @Operation(
+            summary = "💖 찜 많은 카페 Top 10 조회",
+            description = """
+                    wishlists 테이블을 기준으로 카페별 찜 개수를 집계하여 상위 10개를 반환합니다.<br><br>
+                    - `limit` 파라미터로 원하는 개수를 지정할 수 있습니다. (기본 10개)<br>
+                    - 각 카페에 대해 별점, 후기, 태그, 리뷰 요약이 모두 포함됩니다.<br><br>
+                    예를 들어 `limit=5`로 호출 시 상위 5개의 인기 카페 정보를 내려줍니다.
+                    """,
+            parameters = {
+                    @Parameter(
+                            name = "limit",
+                            description = "가져올 카페 개수 (기본값: 10)",
+                            example = "10"
+                    )
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공: 찜 많은 카페 목록 반환",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDetailResponse.class)),
+                                    examples = @ExampleObject(value = """
+                                            [
+                                              {
+                                                "id": 1,
+                                                "name": "카페온 강남점",
+                                                "address": "서울특별시 강남구 테헤란로 123",
+                                                "phone": "02-1234-5678",
+                                                "rating": "4.85",
+                                                "photos": [
+                                                  "https://cdn.cafeon.kr/images/reviews/123-1.jpg",
+                                                  "https://cdn.cafeon.kr/images/reviews/456-1.jpg"
+                                                ],
+                                                "hours": "월~금 10:00~21:00 / 주말 11:00~20:00",
+                                                "reviewsSummary": "조용하고 감성적인 분위기의 브런치 카페입니다.",
+                                                "reviews": [
+                                                  {
+                                                    "author": "김도이",
+                                                    "rating": 5,
+                                                    "content": "분위기 좋고 커피 맛있어요!",
+                                                    "createdAt": "2025-10-25T14:32:00"
+                                                  },
+                                                  {
+                                                    "author": "박민재",
+                                                    "rating": 4,
+                                                    "content": "좌석 간격이 넓고 조용해서 작업하기 좋았습니다.",
+                                                    "createdAt": "2025-10-27T09:45:10"
+                                                  }
+                                                ],
+                                                "tags": ["조용한", "감성적인", "브런치맛집"]
+                                              },
+                                              {
+                                                "id": 2,
+                                                "name": "앤드테일 압구정점",
+                                                "address": "서울특별시 강남구 압구정로 11길 7",
+                                                "phone": "02-555-7890",
+                                                "rating": "4.72",
+                                                "photos": [
+                                                  "https://cdn.cafeon.kr/images/reviews/789-1.jpg"
+                                                ],
+                                                "hours": "월~일 11:00~22:00",
+                                                "reviewsSummary": "인테리어가 세련되고 조용한 분위기",
+                                                "reviews": [],
+                                                "tags": ["모던한", "데이트하기좋은"]
+                                              }
+                                            ]
+                                            """)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "❌ 잘못된 파라미터 (limit 음수 또는 0 등)",
+                            content = @Content(mediaType = "application/json",
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "error": "Invalid parameter",
+                                              "message": "limit은 1 이상이어야 합니다."
+                                            }
+                                            """))
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "❗ 서버 내부 오류",
+                            content = @Content(mediaType = "application/json",
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "error": "Internal Server Error",
+                                              "message": "찜 많은 카페 조회 중 오류가 발생했습니다."
+                                            }
+                                            """))
+                    )
+            }
+    )
+    public ResponseEntity<List<CafeDetailResponse>> getTopWishlistedCafes(
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        List<CafeDetailResponse> topCafes = cafeService.getTopWishlistedCafes(limit);
+        log.info("💖 [TopWishlisted] {}개 카페 반환됨", topCafes.size());
+        return ResponseEntity.ok(topCafes);
     }
 
 

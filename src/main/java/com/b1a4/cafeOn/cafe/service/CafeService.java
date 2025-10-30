@@ -461,6 +461,39 @@ public class CafeService {
         }).toList();
     }
 
+    /**
+     * 6. 찜 많은 카페 10개 조회
+     */
+    @Transactional(readOnly = true)
+    public List<CafeDetailResponse> getTopWishlistedCafes(int limit) {
+        List<CafeEntity> cafes = cafeRepository.findTopWishlistedCafesFull(limit);
+
+        return cafes.stream()
+                .map(cafe -> {
+                    // ✅ 리뷰는 ReviewService가 알아서 ReviewResponseDTO로 변환
+                    List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(cafe.getCafeId());
+
+                    // ✅ 태그명 리스트
+                    List<String> tagNames = cafeRepository.findTagNamesByCafeId(cafe.getCafeId());
+
+                    return CafeDetailResponse.builder()
+                            .id(cafe.getCafeId())
+                            .name(cafe.getName())
+                            .address(cafe.getAddress())
+                            .phone(cafe.getPhone())
+                            .rating(cafe.getKakaoRating() != null
+                                    ? String.format("%.2f", cafe.getKakaoRating())
+                                    : "0.00")
+                            .hours(cafe.getOpenHours())
+                            .reviewsSummary(cafe.getReviewsSummary())
+                            .reviews(reviews)   // ✅ ReviewResponseDTO 그대로 전달
+                            .tags(tagNames)
+                            .build();
+                })
+                .toList();
+    }
+
+
 
 
 
