@@ -68,7 +68,7 @@ public class ChatRoomService {
                                         .type(RoomType.GROUP)
                                         .cafeId(cafeId)
                                         .roomName(roomName)
-                                        .maxCapacity(4)
+                                        .maxCapacity(30)
                                         .build()
                         );
                     } catch (org.springframework.dao.DataIntegrityViolationException dup) {

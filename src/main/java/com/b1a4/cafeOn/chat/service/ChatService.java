@@ -97,6 +97,9 @@ public class ChatService {
         UserEntity sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자"));
 
+        // 오늘자 날짜
+        ensureTodayDateSeparator(roomId, sender, room);
+
         // 저장
         ChatEntity chat = chatRepository.save(
                 ChatEntity.text(room, sender, chatRequestDTO.message().trim())
@@ -125,7 +128,6 @@ public class ChatService {
         // 브로드캐스트/응답 DTO 구성
         ChatResponseDTO dtoForBroadcast = toDto(chat, null, unreadOthers);
         ChatResponseDTO dtoForSender = toDto(chat, senderId, unreadOthers);
-
 
 
         // 커밋 후 방 브로드캐스트
@@ -157,6 +159,9 @@ public class ChatService {
 
         UserEntity sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자"));
+
+        // 오늘자 날짜
+        ensureTodayDateSeparator(roomId, sender, room);
 
         // 이미지 타입 채팅 생성
         ChatEntity chat = ChatEntity.imageMessage(room, sender, caption);
@@ -191,7 +196,7 @@ public class ChatService {
         notificationService.createNewChatNotifications(targets, room, saved);
 
         ChatResponseDTO dtoForBroadcast = toDto(saved, null, unreadOthers);
-        ChatResponseDTO dtoForSender    = toDto(saved, senderId, unreadOthers);
+        ChatResponseDTO dtoForSender = toDto(saved, senderId, unreadOthers);
 
         // 브로드캐스트
         ChatResponseDTO finalBroadcast = dtoForBroadcast;
@@ -319,20 +324,44 @@ public class ChatService {
         }
 
         ChatEntity saved = chatRepository.save(ChatEntity.systemJoin(room, actor));
-        ChatResponseDTO dto = ChatResponseDTO.builder()
-                .chatId(saved.getChatId())
-                .roomId(roomId)
-                .senderId(null)
-                .senderNickname(null)
-                .senderProfileImageUrl(null)
-                .message(saved.getMessage())
-                .createdAt(saved.getCreatedAt())
-                .mine(null)
-                .messageType(saved.getMessageType())
-                .build();
+        ChatResponseDTO dto = toDto(saved, null, null);
 
-        template.convertAndSend("/sub/rooms/" + roomId, dto);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                template.convertAndSend("/sub/rooms/" + roomId, dto);
+            }
+        });
     }
+
+//    @Transactional
+//    public void publishSystemJoin(Long roomId, String actorUserId) {
+//        ChatRoomEntity room = chatRoomRepository.findById(roomId)
+//                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
+//        UserEntity actor = userRepository.findById(actorUserId)
+//                .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
+//
+//        var cutoff = LocalDateTime.now().minusSeconds(30);
+//        if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
+//                roomId, actorUserId, ChatMessageType.SYSTEM_JOIN, cutoff)) {
+//            return;
+//        }
+//
+//        ChatEntity saved = chatRepository.save(ChatEntity.systemJoin(room, actor));
+//        ChatResponseDTO dto = ChatResponseDTO.builder()
+//                .chatId(saved.getChatId())
+//                .roomId(roomId)
+//                .senderId(null)
+//                .senderNickname(null)
+//                .senderProfileImageUrl(null)
+//                .message(saved.getMessage())
+//                .createdAt(saved.getCreatedAt())
+//                .mine(null)
+//                .messageType(saved.getMessageType())
+//                .build();
+//
+//        template.convertAndSend("/sub/rooms/" + roomId, dto);
+//    }
 
     // SYSTEM: 퇴장 메시지
     @Transactional
@@ -349,26 +378,68 @@ public class ChatService {
         }
 
         ChatEntity saved = chatRepository.save(ChatEntity.systemLeave(room, actor));
-        ChatResponseDTO dto = ChatResponseDTO.builder()
-                .chatId(saved.getChatId())
-                .roomId(roomId)
-                .senderId(null)
-                .senderNickname(null)
-                .senderProfileImageUrl(null)
-                .message(saved.getMessage())
-                .createdAt(saved.getCreatedAt())
-                .mine(null)
-                .messageType(saved.getMessageType())
-                .build();
+        ChatResponseDTO dto = toDto(saved, null, null);
 
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                template.convertAndSend("/sub/rooms/" + roomId, dto);
+            }
+        });
+    }
+//
+//    @Transactional
+//    public void publishSystemLeave(Long roomId, String actorUserId) {
+//        ChatRoomEntity room = chatRoomRepository.findById(roomId)
+//                .orElseThrow(() -> new ChatRoomNotFoundException(roomId));
+//        UserEntity actor = userRepository.findById(actorUserId)
+//                .orElseThrow(() -> new IllegalStateException("존재하지 않는 유저"));
+//
+//        var cutoff = LocalDateTime.now().minusSeconds(30);
+//        if (chatRepository.existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(
+//                roomId, actorUserId, ChatMessageType.SYSTEM_LEAVE, cutoff)) {
+//            return;
+//        }
+//
+//        ChatEntity saved = chatRepository.save(ChatEntity.systemLeave(room, actor));
+//        ChatResponseDTO dto = ChatResponseDTO.builder()
+//                .chatId(saved.getChatId())
+//                .roomId(roomId)
+//                .senderId(null)
+//                .senderNickname(null)
+//                .senderProfileImageUrl(null)
+//                .message(saved.getMessage())
+//                .createdAt(saved.getCreatedAt())
+//                .mine(null)
+//                .messageType(saved.getMessageType())
+//                .build();
+//
+//        template.convertAndSend("/sub/rooms/" + roomId, dto);
+//    }
+
+    @Transactional
+    public void ensureTodayDateSeparator(Long roomId, UserEntity sender, ChatRoomEntity room) {
+        LocalDateTime kstStartOfDay = LocalDate.now(Z_SEOUL).atStartOfDay();
+
+        boolean exists = chatRepository.existsByChatRoom_ChatRoomIdAndMessageTypeAndCreatedAtAfter(roomId, ChatMessageType.SYSTEM_DATE, kstStartOfDay);
+        if (exists) return;
+
+        ChatEntity sep = chatRepository.saveAndFlush(ChatEntity.systemDate(room, sender, formatKoreanDate(LocalDate.now(Z_SEOUL))));
+
+        ChatResponseDTO dto = toDto(sep, null, null);
         template.convertAndSend("/sub/rooms/" + roomId, dto);
     }
 
+    // 날짜 반환 포맷
+    private String formatKoreanDate(LocalDate date) {
+        return date.getYear() + "년 " + date.getMonthValue() + "월 " + date.getDayOfMonth() + "일";
+    }
 
-    // 메시지 옆 안읽은 인원 수까지 포함해 DTO 생성
+
+    // 반환 dto
     private ChatResponseDTO toDto(ChatEntity e, String viewerId, Integer unreadOthersCount) {
 
-        boolean isSystem = e.getMessageType() == ChatMessageType.SYSTEM_JOIN || e.getMessageType() == ChatMessageType.SYSTEM_LEAVE;
+        boolean isSystem = !(e.getMessageType() == ChatMessageType.TEXT || e.getMessageType() == ChatMessageType.IMAGE);
 
         String senderIdReal = (e.getSender() != null ? e.getSender().getUserId() : null);
         String nickname = DisplayMasking.nicknameOf(e.getSender());
