@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +60,9 @@ public class ChatEntity {
 
     @PrePersist
     private void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        }
     }
 
     public void addImage(ImageEntity image) {
@@ -111,6 +114,16 @@ public class ChatEntity {
                 .message(user.getNickname() + "님이 퇴장했습니다.")
                 .build();
     }
+
     
+    // 날짜 시스템 메시지
+    public static ChatEntity systemDate(ChatRoomEntity room, UserEntity user, String dateLabel) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(user)
+                .messageType(ChatMessageType.SYSTEM_DATE)
+                .message(dateLabel)
+                .build();
+    }
 
 }

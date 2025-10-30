@@ -52,7 +52,7 @@ public class ChatRoomEntity {
     @Column(name = "room_name", length = 100)
     private String roomName;
 
-    // 기본 30 (1:1은 서비스에서 2로 넣기 권장)
+    // 기본 30 (1:1은 서비스에서 2로 넣기)
     @Builder.Default
     @Column(name = "max_capacity", nullable = false)
     private Integer maxCapacity = 30;

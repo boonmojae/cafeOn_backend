@@ -18,11 +18,5 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
     // GROUP 방 조회 (잠금 없이)
     Optional<ChatRoomEntity> findByTypeAndCafeId(RoomType type, Long cafeId);
 
-    // 채팅방 잠금
-    // 정원 체크/입장
-//    @Lock(LockModeType.PESSIMISTIC_WRITE)
-//    @Query("select c from ChatRoomEntity c where c.type = :type and c.cafeId = :cafeId")
-//    Optional<ChatRoomEntity> findByTypeAndCafeIdForUpdate(@Param("type") RoomType type,
-//                                                          @Param("cafeId") Long cafeId);
 
 }
