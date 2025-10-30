@@ -2,11 +2,14 @@ package com.b1a4.cafeOn.cafe.repository;
 
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.review.entity.ReviewEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.List;
 import java.util.Optional;
@@ -103,6 +106,85 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
         WHERE ct.cafe_id = :cafeId
     """, nativeQuery = true)
     List<String> findTagNamesByCafeId(@Param("cafeId") Long cafeId);
+
+
+
+    /**
+     * 6. 종합 인기지수 기반 Top 10 카페 조회 (가중 평균 방식)
+     *
+     * <p>인기지수(Hot Score) 계산 공식:</p>
+     * <pre>
+     * HotScore =
+     *     (최근 7일 조회수 * w7d)
+     *   + (전체 누적 조회수 * wAll)
+     *   + (평균 평점 * 50 * wRate)
+     *   + (리뷰 개수 * 5 * wRev)
+     * </pre>
+     *
+     * 각 항목의 기본 가중치는 다음과 같습니다:
+     * - w7d  : 최근 7일간 조회수 비중 (기본값 0.4)
+     * - wAll : 누적 조회수 비중 (기본값 0.2)
+     * - wRate: 평균 평점 비중 (기본값 0.2)
+     * - wRev : 리뷰 수 비중 (기본값 0.2)
+     *
+     * <p>가중치는 Controller에서 요청 파라미터로 조정할 수 있습니다.<br>
+     * 예: /api/cafes/hot10/weighted?w7d=0.4&wAll=0.2&wRate=0.2&wRev=0.2</p>
+     *
+     * <p>쿼리 방식: JOIN 대신 서브쿼리로 리뷰 수를 계산하여 alias 충돌 방지</p>
+     *
+     * @param w7d  최근 7일 조회수 가중치
+     * @param wAll 누적 조회수 가중치
+     * @param wRate 평균 평점 가중치
+     * @param wRev 리뷰 수 가중치
+     * @return 인기지수 기준 상위 10개 카페 엔티티 리스트
+     */
+    @Query(
+            value = """
+            SELECT c.*
+            FROM cafes c
+            ORDER BY (
+                -- 최근 7일 조회수 비중
+                (c.views_last7d * :w7d)
+                +
+                -- 전체 누적 조회수 비중
+                (c.view_count * :wAll)
+                +
+                -- 평균 평점(0~5)을 50배 스케일링 후 가중치 적용
+                (IFNULL(c.avg_rating, 0) * 50 * :wRate)
+                +
+                -- 리뷰 개수(서브쿼리로 계산) × 5점 스케일링 후 가중치 적용
+                ((SELECT COUNT(*) FROM reviews r WHERE r.cafe_id = c.cafe_id) * 5 * :wRev)
+            ) DESC
+            LIMIT 10
+            """,
+            nativeQuery = true
+    )
+    List<CafeEntity> findHotWeightedNative(
+            @Param("w7d") double w7d,
+            @Param("wAll") double wAll,
+            @Param("wRate") double wRate,
+            @Param("wRev") double wRev
+    );
+
+
+
+
+
+
+
+    /**
+     * 6-1. 최근 7일 조회수 자동 갱신하는 배치 코드
+     */
+    @Modifying
+    @Query("""
+        UPDATE CafeEntity c
+        SET c.viewsLast7d = (c.viewCount - c.lastViewCount),
+            c.lastViewCount = c.viewCount
+        """)
+    void updateViewsLast7d();
+
+
+
 
 
     //    평점순 정렬

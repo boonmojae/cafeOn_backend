@@ -47,6 +47,10 @@ public class CafeEntity {
     @Builder.Default
     private int viewsLast7d = 0;
 
+    @Column(name = "last_view_count", columnDefinition = "INT DEFAULT 0")
+    @Builder.Default
+    private int lastViewCount = 0;
+
     @Column(name = "last_viewed_at", columnDefinition = "TIMESTAMP NULL")
     private LocalDateTime lastViewedAt;
 

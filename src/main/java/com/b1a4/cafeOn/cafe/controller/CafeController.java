@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.media.*;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 import java.util.List;
 
@@ -251,6 +253,61 @@ public class CafeController {
         List<CafeDTO> randomCafes = cafeService.getRandomCafes();
         return ResponseEntity.ok(randomCafes);
     }
+
+    /**
+     * 5. 종합 인기지수 기반 요즘 뜨는 카페 10개 조회
+     */
+    @GetMapping("/hot10/weighted")
+    @Operation(
+            summary = "🔥 종합 인기 지수 기반 요즘 뜨는 카페 Top 10",
+            description = """
+    최근 7일 조회수, 누적 조회수, 평균 평점, 리뷰 수를 가중합으로 계산해 상위 10개를 반환합니다.
+    가중치는 쿼리 파라미터로 조절할 수 있습니다.
+    hot_score = views_last7d*w7d + view_count*wAll + avg_rating*50*wRate + review_count*5*wRev
+    """,
+            parameters = {
+                    @Parameter(name = "w7d",  description = "최근 7일 조회수 가중치", example = "0.4"),
+                    @Parameter(name = "wAll", description = "누적 조회수 가중치",   example = "0.2"),
+                    @Parameter(name = "wRate",description = "평균 평점 가중치",   example = "0.2"),
+                    @Parameter(name = "wRev", description = "리뷰 수 가중치",     example = "0.2")
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDTO.class)),
+                                    examples = @ExampleObject(value = """
+                [
+                  {
+                    "cafeId": 637639,
+                    "name": "미묘",
+                    "address": "서울 서대문구 연희로11길 41",
+                    "latitude": 37.57,
+                    "longitude": 126.93,
+                    "phone": "",
+                    "openHours": "월 13:00 ~ 19:00 ...",
+                    "avgRating": 4.3,
+                    "reviewsSummary": "치즈케이크 맛있고 사진 스팟 많음"
+                  }
+                ]
+                """)
+                            )
+                    )
+            }
+    )
+    public ResponseEntity<List<CafeDetailResponse>> getHotCafesWeighted(
+            @RequestParam(defaultValue = "0.4") double w7d,
+            @RequestParam(defaultValue = "0.2") double wAll,
+            @RequestParam(defaultValue = "0.2") double wRate,
+            @RequestParam(defaultValue = "0.2") double wRev
+    ) {
+        List<CafeDetailResponse> hotCafes = cafeService.getHotCafesWeighted(w7d, wAll, wRate, wRev);
+        return ResponseEntity.ok(hotCafes);
+    }
+
+
 
 //    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
 //    최근 찜 + 리뷰 수 통계 SQL집계 (30일 기준)
