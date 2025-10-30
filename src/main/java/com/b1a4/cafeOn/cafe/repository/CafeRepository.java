@@ -1,6 +1,7 @@
 package com.b1a4.cafeOn.cafe.repository;
 
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
+import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -66,6 +67,11 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     Optional<CafeEntity> findByKakaoId(String kakaoId);
 
     /**
+     * 2. 특정 카페 리뷰들 조회
+     */
+    List<ReviewEntity> findByCafe_CafeId(Long CafeId);
+
+    /**
      * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL)
      * Haversine 공식을 이용해 거리(m) 계산
      * 반경 `radius` m 이내 카페만 필터링
@@ -90,9 +96,8 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             @Param("radius") int radius
     );
 
-
     /**
-     * 랜덤10개
+     * 4. 랜덤 카페 10개 조회
      */
     @Query(value = "SELECT * FROM cafes ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<CafeEntity> findRandom10();

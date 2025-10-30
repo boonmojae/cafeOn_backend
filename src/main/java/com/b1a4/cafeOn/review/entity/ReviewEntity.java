@@ -35,10 +35,6 @@ public class ReviewEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Builder.Default
-    @Column(name = "is_reported", nullable = false)
-    private boolean reported = false;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private UserEntity user;

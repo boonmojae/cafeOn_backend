@@ -6,6 +6,9 @@ import com.b1a4.cafeOn.cafe.dto.CafeNearbyResponse;
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
+import com.b1a4.cafeOn.image.entity.ImageEntity;
+import com.b1a4.cafeOn.review.entity.ReviewEntity;
+import com.b1a4.cafeOn.review.repository.ReviewRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,7 @@ import java.util.stream.Collectors;
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class CafeService {
     private final CafeRepository cafeRepository;    // ✅ final + RequiredArgsConstructor
+    private final ReviewRepository reviewRepository;
 //    RestTemplate은 Bean으로 등록하고 주입받는 것이 좋으나, 기존 코드를 유지합니다.
     private final RestTemplate restTemplate = new RestTemplate();
     private static final int KAKAO_PAGE_SIZE = 15;
@@ -76,7 +80,7 @@ public class CafeService {
     }
 
     /**
-     *  1-1. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
+     *  2. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
      */
     private  List<CafeDTO> searchAndMerge(String keyword) {
 //        2-1. 카카오 API 호출
@@ -123,7 +127,7 @@ public class CafeService {
     }
 
     /**
-     * 1-2. 키워드 기반 카카오 장소검색: 최대 45페이지(675건)까지 긁어오기
+     * 키워드 기반 카카오 장소검색: 최대 45페이지(675건)까지 긁어오기
      * - query만 사용 (category_group_code는 keyword.json에 함께 쓰면 케이스에 따라 필터 꼬일 수 있어 제외)
      * - UTF-8 인코딩 보장
      * - meta.is_end == true 시 조기 종료
@@ -132,16 +136,18 @@ public class CafeService {
         List<Map<String, Object>> allDocuments = new ArrayList<>();
 
         try {
-            // ✅ 직접 UTF-8 인코딩 (이중 인코딩 방지)
-            String encodedKeyword = URLEncoder.encode(keyword, StandardCharsets.UTF_8)
-                    .replace("+", "%20"); // ✅ 카카오 API는 +를 공백으로 인식 안함
-            int page = 1;
+            for (int page = 1; page <= 45; page++) {
 
-            for (; page <= 45; page++) {
-                String url = String.format(
-                        "https://dapi.kakao.com/v2/local/search/keyword.json?query=%s&category_group_code=CE7&size=15&page=%d",
-                        encodedKeyword, page
-                );
+                // ✅ UriComponentsBuilder에 맡기면 이중 인코딩 없음
+                String url = UriComponentsBuilder
+                        .fromUriString("https://dapi.kakao.com/v2/local/search/keyword.json")
+                        .queryParam("query", keyword)               // 예: "강남 카페"
+//                        .queryParam("category_group_code", "CE7")
+                        .queryParam("size", 15)
+                        .queryParam("page", page)
+                        .encode(StandardCharsets.UTF_8)             // ✅ 한글 안전하게 인코딩
+                        .toUriString();
+
 
                 log.info("🚀 Kakao API Request URL: {}", url);
 
@@ -188,8 +194,10 @@ public class CafeService {
         return allDocuments;
     }
 
+
+
     /**
-     * 1-3. @Async: 카카오 검색 결과를 DB에 비동기 저장 (신규 카페만)
+     * @Async: 카카오 검색 결과를 DB에 비동기 저장 (신규 카페만)
      * 이 메서드는 public 이어야 프록시가 생성되어 비동기(@Async)로 동작합니다.
      */
     @Async
@@ -261,15 +269,26 @@ public class CafeService {
     public CafeDetailResponse getCafeDetail(Long id) {
         CafeEntity entity = cafeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
+        
+//        2-1. ✅ 조회수 증가
+        entity.setViewCount(entity.getViewCount() +1);
+        entity.setLastViewedAt(LocalDateTime.now());
+        cafeRepository.save(entity);
 
-//        todo : 실제 DB에는 리뷰, 관련카페가 아직 없으므로 임시 mock 데이터 생성
-        List<CafeDetailResponse.ReviewDTO> reviews = List.of(
-                new CafeDetailResponse.ReviewDTO("김도이", 4.8, "분위기 좋고 커피 맛있어요", LocalDateTime.now())
-        );
+//        2-2. ✅ 리뷰 + 이미지 가져오기
+        List<ReviewEntity> reviewsFromDB = reviewRepository.findByCafe_CafeId(id);
 
-        List<CafeDetailResponse.RelatedCafeDTO> related = List.of(
-                new CafeDetailResponse.RelatedCafeDTO(456L, "스타벅스 강남점", "https://cdn.cafeon.kr/photos/456-thumb.jpg")
-        );
+        List<CafeDetailResponse.ReviewDTO> reviews = reviewsFromDB.stream()
+                .map(r -> new CafeDetailResponse.ReviewDTO(
+                        r.getUser().getNickname(),  // 작성자
+                        (double) r.getRating(),    // 평점
+                        r.getContent(),             // 내용
+                        r.getCreatedAt(),           // 작성일
+                        r.getImages().stream()      // 연결된 이미지 URL 추출
+                                .map(ImageEntity::getPublicUrl)
+                                .toList()           // Java 17 OK
+                ))
+                .toList();
 
         return CafeDetailResponse.builder()
                 .id(entity.getCafeId())
@@ -279,18 +298,7 @@ public class CafeService {
                 .hours(entity.getOpenHours())
                 .rating(String.valueOf(entity.getKakaoRating()))    // ✅ todo : 우선 리뷰데이터 업어서 전부 걍 카카오크롤링한 별점 때리기
                 .reviewsSummary(entity.getReviewsSummary())
-                .reviews(reviews)    // ✅ todo : 나중에 ReviewEntity 연동 예정
-//                .reviews(cafe.getReviews().stream().map(r -> new entityDetailResponse.ReviewDTO(
-//                        r.getAuthor(),
-//                        r.getRating(),
-//                        r.getContent(),
-//                        r.getCreatedAt()
-//                )).collect(Collectors.toList()))
-//                .relatedCafes(cafe.getRelatedCafes().stream().map(rc -> new CafeDetailResponse.RelatedCafeDTO(
-//                        rc.getId(),
-//                        rc.getName(),
-//                        rc.getThumbnail()
-//                )).collect(Collectors.toList()))
+                .reviews(reviews)
                 .build();
     }
 
@@ -385,7 +393,24 @@ public class CafeService {
     }
 
     /**
-     * 4.
+     * 4. 랜덤 카페 10개 조회
      */
+    public List<CafeDTO> getRandomCafes() {
+        List<CafeEntity> cafes = cafeRepository.findRandom10();
+        log.info("🎲 랜덤으로 선택된 카페 개수: {}", cafes.size());
+        return cafes.stream()
+                .map(cafe -> CafeDTO.builder()
+                        .cafeId(cafe.getCafeId())
+                        .name(cafe.getName())
+                        .address(cafe.getAddress())
+                        .latitude(cafe.getLatitude())
+                        .longitude(cafe.getLongitude())
+                        .phone(cafe.getPhone())
+                        .avgRating(cafe.getKakaoRating())   // todo : 아직은 avg_rating 없어서 카카오별점으로 설정
+                        .openHours(cafe.getOpenHours())
+                        .reviewsSummary(cafe.getReviewsSummary())
+                        .build())
+                .toList();
+    }
 
 }
