@@ -5,6 +5,9 @@ import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,5 +23,24 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
 
     // 채팅
     List<ImageEntity> findByChat(ChatEntity chat);
+
+    // 채팅방 모든 이미지
+    @Query("""
+        select i.s3Key
+          from ImageEntity i
+          join i.chat c
+         where c.chatRoom.chatRoomId = :roomId
+    """)
+    List<String> findAllS3KeysByRoomId(@Param("roomId") Long roomId);
+
+    // 채팅방 이미지 일괄 삭제 => DB 이미지가 남아서 채팅방 나가기X 아래 메서드 사용
+    // long deleteByChat_ChatRoom_ChatRoomId(Long roomId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        delete from ImageEntity i
+         where i.chat.chatRoom.chatRoomId = :roomId
+    """)
+    int bulkDeleteByRoomId(@Param("roomId") Long roomId);
 
 }

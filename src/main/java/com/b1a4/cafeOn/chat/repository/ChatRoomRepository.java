@@ -3,8 +3,6 @@ package com.b1a4.cafeOn.chat.repository;
 import com.b1a4.cafeOn.chat.entity.ChatRoomEntity;
 import com.b1a4.cafeOn.chat.enums.RoomType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -17,6 +15,5 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
 
     // GROUP 방 조회 (잠금 없이)
     Optional<ChatRoomEntity> findByTypeAndCafeId(RoomType type, Long cafeId);
-
 
 }
