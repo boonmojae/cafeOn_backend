@@ -49,6 +49,9 @@ public class CafeDetailResponse {
     @Schema(description = "태그 목록")
     private  List<String> tags;
 
+    @Schema(description = "대표 사진 URL", example = "https://img1.kakaocdn.net/...jpg")
+    private String photoUrl;
+
     @Getter
     @AllArgsConstructor
     @Schema(description = "후기 정보 DTO")

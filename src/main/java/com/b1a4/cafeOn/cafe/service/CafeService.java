@@ -298,6 +298,7 @@ public class CafeService {
                 .reviewsSummary(entity.getReviewsSummary())
                 .reviews(reviews)   // ✅ ← CafeDetailResponse.reviews 타입이 List<ReviewResponseDTO> 인지 확인!
                 .tags(tagNames)
+                .photoUrl(entity.getPhotoUrl())
                 .build();
     }
 
@@ -446,17 +447,22 @@ public class CafeService {
         List<CafeEntity> hotCafes = cafeRepository.findHotWeightedNative(w7d, wAll, wRate, wRev);
 
         return hotCafes.stream().map(cafe -> {
+            // ✅ 태그명 리스트
             List<String> tags = cafeRepository.findTagNamesByCafeId(cafe.getCafeId());
+
+            // ✅ 리뷰는 ReviewService가 알아서 ReviewResponseDTO로 변환
+            List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(cafe.getCafeId());
             return CafeDetailResponse.builder()
                     .id(cafe.getCafeId())
                     .name(cafe.getName())
                     .address(cafe.getAddress())
                     .phone(cafe.getPhone())
                     .rating(String.valueOf(cafe.getKakaoRating()))
-//                    .photos(cafe.getPhoto())    // todo : cafe.getPhoto 만들어야함
                     .hours(cafe.getOpenHours())
                     .reviewsSummary(cafe.getReviewsSummary())
+                    .reviews(reviews)
                     .tags(tags)
+                    .photoUrl(cafe.getPhotoUrl())
                     .build();
         }).toList();
     }
@@ -488,6 +494,7 @@ public class CafeService {
                             .reviewsSummary(cafe.getReviewsSummary())
                             .reviews(reviews)   // ✅ ReviewResponseDTO 그대로 전달
                             .tags(tagNames)
+                            .photoUrl(cafe.getPhotoUrl())
                             .build();
                 })
                 .toList();
