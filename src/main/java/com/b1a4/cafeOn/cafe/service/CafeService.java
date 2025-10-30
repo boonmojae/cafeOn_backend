@@ -355,8 +355,6 @@ public class CafeService {
         return cafeDetails;
     }
 
-
-
     /**
      * 3-1. kakao API 보조 호출
      */
@@ -438,14 +436,17 @@ public class CafeService {
         return cafes;
     }
 
+
     /**
      * 4. 랜덤 카페 10개 조회
      */
-    public List<CafeDTO> getRandomCafes() {
+    @Transactional(readOnly = true)
+    public List<CafeDetailResponse> getRandomCafes() {
         List<CafeEntity> cafes = cafeRepository.findRandom10();
         log.info("🎲 랜덤으로 선택된 카페 개수: {}", cafes.size());
+
         return cafes.stream()
-                .map(CafeDTO::fromEntity)
+                .map(this::toDetailResponse)   // ✅ 공통 변환 메서드 (이미 CafeService에 있음)
                 .toList();
     }
 
@@ -533,6 +534,8 @@ public class CafeService {
                 .reviews(reviews)
                 .tags(tags)
                 .photoUrl(entity.getPhotoUrl())
+                .latitude(entity.getLatitude())
+                .longitude(entity.getLongitude())
                 .build();
     }
 

@@ -253,8 +253,8 @@ public class CafeController {
                     )
             }
     )
-    public ResponseEntity<List<CafeDTO>> getRandomCafes() {
-        List<CafeDTO> randomCafes = cafeService.getRandomCafes();
+    public ResponseEntity<List<CafeDetailResponse>> getRandomCafes() {
+        List<CafeDetailResponse> randomCafes = cafeService.getRandomCafes();
         return ResponseEntity.ok(randomCafes);
     }
 
