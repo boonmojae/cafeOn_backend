@@ -9,9 +9,9 @@ import com.b1a4.cafeOn.admin.penalty.enums.ReasonCode;
 import com.b1a4.cafeOn.admin.penalty.repository.PenaltyRepository;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Locale;

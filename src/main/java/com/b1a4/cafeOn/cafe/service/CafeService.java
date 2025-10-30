@@ -11,7 +11,8 @@ import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import com.b1a4.cafeOn.review.repository.ReviewRepository;
 import com.b1a4.cafeOn.review.service.ReviewService;
-import jakarta.transaction.Transactional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -269,6 +270,7 @@ public class CafeService {
     /**
      * 2. 카페 상세 정보 조회
      */
+    @Transactional
     public CafeDetailResponse getCafeDetail(Long id) {
         CafeEntity entity = cafeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
@@ -435,6 +437,31 @@ public class CafeService {
                 .map(CafeDTO::fromEntity)
                 .toList();
     }
+
+    /**
+     * 5. 종합 인기점수 기반 요즘 뜨는 카페 10개 조회
+     */
+    @Transactional(readOnly = true)
+    public List<CafeDetailResponse> getHotCafesWeighted(double w7d, double wAll, double wRate, double wRev) {
+        List<CafeEntity> hotCafes = cafeRepository.findHotWeightedNative(w7d, wAll, wRate, wRev);
+
+        return hotCafes.stream().map(cafe -> {
+            List<String> tags = cafeRepository.findTagNamesByCafeId(cafe.getCafeId());
+            return CafeDetailResponse.builder()
+                    .id(cafe.getCafeId())
+                    .name(cafe.getName())
+                    .address(cafe.getAddress())
+                    .phone(cafe.getPhone())
+                    .rating(String.valueOf(cafe.getKakaoRating()))
+//                    .photos(cafe.getPhoto())    // todo : cafe.getPhoto 만들어야함
+                    .hours(cafe.getOpenHours())
+                    .reviewsSummary(cafe.getReviewsSummary())
+                    .tags(tags)
+                    .build();
+        }).toList();
+    }
+
+
 
 
 }

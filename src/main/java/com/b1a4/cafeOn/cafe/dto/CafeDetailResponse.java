@@ -36,8 +36,9 @@ public class CafeDetailResponse {
     @Schema(description = "영업시간", example = "월 10:00~20:00")
     private String hours;
 
-    @Schema(description = "현재 영업 여부", example = "true")
-    private boolean isOpen;
+//    이부분은 프론트에서 해야할 것 같음
+//    @Schema(description = "현재 영업 여부", example = "true")
+//    private boolean isOpen;
 
     @Schema(description = "후기 요약", example = "조용하고 감성적인 분위기의 브런치 카페입니다.")
     private String reviewsSummary;
