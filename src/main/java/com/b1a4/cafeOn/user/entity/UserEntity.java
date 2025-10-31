@@ -78,6 +78,9 @@ public class UserEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "profile_image_url", length = 255)
+    private String profileImageUrl;
+
     @PrePersist // Persist(INSERT) 하기 전에 실행됨
     // save() 할 때, 처음DB에 들어가기 직전 호출되어, 자동으로 createdAt/updatedAt이 들어감
     protected void onCreate() {
