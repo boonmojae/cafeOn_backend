@@ -37,7 +37,7 @@ public class AdminReportController {
         );
     }
 
-    // 신고 상세 조회 (원본: 제목/내용/이미지)
+    // 신고 상세 조회
     @GetMapping("/{id}")
     @Operation(summary = "신고 상세 조회", description = "신고 상세 정보 및 원본(제목/내용/이미지)을 반환합니다.")
     public ResponseEntity<ApiResponse<?>> getReportDetail(@PathVariable("id") Long id) {
