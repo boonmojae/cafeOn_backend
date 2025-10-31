@@ -5,9 +5,9 @@ import com.b1a4.cafeOn.admin.penalty.dto.PenaltyResponseDTO;
 import com.b1a4.cafeOn.admin.penalty.entity.PenaltyEntity;
 import com.b1a4.cafeOn.admin.penalty.enums.PenaltyStatus;
 import com.b1a4.cafeOn.admin.penalty.enums.PenaltyType;
-import com.b1a4.cafeOn.admin.penalty.enums.ReasonCode;
 import com.b1a4.cafeOn.admin.penalty.repository.PenaltyRepository;
 import com.b1a4.cafeOn.user.entity.UserEntity;
+import com.b1a4.cafeOn.user.enums.UserStatus;                // ✅ 추가
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -92,6 +92,9 @@ public class PenaltyService {
             entity.setReportId(reportId);
         }
 
+        // ✅ 계정 상태를 SUSPENDED로 전환 (정지 부여 시)
+        user.setStatus(UserStatus.SUSPENDED);
+
         PenaltyEntity saved = penaltyRepository.save(entity);
 
         // users.penalty_count += 1
@@ -100,7 +103,7 @@ public class PenaltyService {
         return PenaltyResponseDTO.fromEntity(saved);
     }
 
-    // 정지 해제 (선택 API용)
+    // 정지 해제
     @Transactional
     public void revoke(Long penaltyId, String adminId, String reason) {
         PenaltyEntity penalty = penaltyRepository.findById(penaltyId)
@@ -108,10 +111,23 @@ public class PenaltyService {
 
         // 상태 변경만 — penalty_count는 이력 개념이라 감소하지 않음
         penalty.setStatus(PenaltyStatus.REVOKED);
+
         // (선택) 사유 남기고 싶으면 reason append
         if (reason != null && !reason.isBlank()) {
             String merged = (penalty.getReason() == null ? "" : penalty.getReason() + " | ") + "해제사유: " + reason;
             penalty.setReason(merged);
+        }
+
+        // ✅ 정지 해제 시: 다른 활성 정지가 없으면 사용자 상태를 ACTIVE로 복귀
+        if (penalty.getPenaltyType() == PenaltyType.SUSPEND) {
+            // flush하여 방금 REVOKED 반영 후 조회(같은 트랜잭션에서도 안전하게)
+            penaltyRepository.flush(); // JpaRepository 제공 메서드
+
+            String userId = penalty.getUser().getUserId();
+            boolean stillSuspended = penaltyRepository.hasActiveSuspension(userId, LocalDateTime.now());
+            if (!stillSuspended) {
+                penalty.getUser().setStatus(UserStatus.ACTIVE);
+            }
         }
     }
 
@@ -121,7 +137,7 @@ public class PenaltyService {
     }
 
     private void incrementPenaltyCount(UserEntity user) {
-        Integer current = Optional.ofNullable(user.getPenaltyCount()).orElse(0);
+        int current = user.getPenaltyCount(); // int라 null 아님
         user.setPenaltyCount(current + 1);
         // dirty checking으로 자동 update
     }
@@ -152,5 +168,4 @@ public class PenaltyService {
                 .map(PenaltyResponseDTO::fromEntity)
                 .toList();
     }
-
 }
