@@ -80,6 +80,21 @@ public class AdminReportService {
             preview = emptyPreview();
         }
 
+        Long parentId = null;
+        if (report.getTargetType() == TargetType.REVIEW) {
+            ReviewEntity review = reviewRepository.findById(report.getTargetId()).orElse(null);
+            if (review != null && review.getCafe() != null) {
+                parentId = review.getCafe().getCafeId(); // 리뷰 → 상위는 카페
+            }
+        } else if (report.getTargetType() == TargetType.COMMENT) {
+            CommentEntity comment = commentRepository.findById(report.getTargetId()).orElse(null);
+            if (comment != null && comment.getPost() != null) {
+                parentId = comment.getPost().getPostId(); // 댓글 → 상위는 게시글
+            }
+        } else if (report.getTargetType() == TargetType.POST) {
+            parentId = null; // 게시글은 상위 없음
+        }
+
         return AdminReportDetailResponseDTO.builder()
                 .reportId(report.getReportId())
                 .status(report.getStatus())
@@ -95,6 +110,7 @@ public class AdminReportService {
                 .createdAt(report.getCreatedAt())
                 .handledAt(report.getHandledAt())
                 .target(preview)
+                .parentId(parentId)
                 .build();
     }
 

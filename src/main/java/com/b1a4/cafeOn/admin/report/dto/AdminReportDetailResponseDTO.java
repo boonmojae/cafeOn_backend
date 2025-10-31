@@ -17,6 +17,7 @@ public class AdminReportDetailResponseDTO {
     private ReportStatus status;        // PENDING / RESOLVED / REJECTED
     private String targetType;          // POST / COMMENT / REVIEW
     private Long targetId;
+    private Long parentId;
     private String content;             // 신고 사유(텍스트)
     private String reporterId;
     private String reporterNickname;
