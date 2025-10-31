@@ -10,11 +10,10 @@ import lombok.Setter;
 @Setter
 public class AdminReportRequestDTO {
 
-    // 신고 처리 상태 (RESOLVED / REJECTED)
+    // 신고 처리 상태 RESOLVED / REJECTED
     @NotNull(message = "status는 필수 값입니다.")
     private ReportStatus status;
 
-    // 관리자 처리 메모
     @NotBlank(message = "관리자 처리 메모를 입력해 주세요.")
     private String adminNote;
 }

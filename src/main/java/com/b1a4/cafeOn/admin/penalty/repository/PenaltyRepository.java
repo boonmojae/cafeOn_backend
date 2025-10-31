@@ -12,7 +12,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public interface PenaltyRepository extends JpaRepository<PenaltyEntity, Long> {
 
@@ -69,4 +71,20 @@ public interface PenaltyRepository extends JpaRepository<PenaltyEntity, Long> {
     // 패널티 목록
     List<PenaltyEntity> findByUserOrderByCreatedAtDesc(UserEntity user);
 
+    // 여러 유저의 패널티 수를 한 번에 집계 (userId -> count)
+    @Query("""
+       SELECT p.user.userId AS userId, COUNT(p) AS cnt
+       FROM PenaltyEntity p
+       WHERE p.user.userId IN :userIds
+       GROUP BY p.user.userId
+       """)
+    List<Object[]> countGroupByUserIdRaw(@Param("userIds") List<String> userIds);
+
+    default Map<String, Long> countGroupByUserId(List<String> userIds) {
+        Map<String, Long> map = new HashMap<>();
+        for (Object[] row : countGroupByUserIdRaw(userIds)) {
+            map.put((String) row[0], (Long) row[1]);
+        }
+        return map;
+    }
 }
