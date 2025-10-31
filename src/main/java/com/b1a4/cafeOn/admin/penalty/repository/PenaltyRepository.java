@@ -3,6 +3,7 @@ package com.b1a4.cafeOn.admin.penalty.repository;
 import com.b1a4.cafeOn.admin.penalty.entity.PenaltyEntity;
 import com.b1a4.cafeOn.admin.penalty.enums.PenaltyStatus;
 import com.b1a4.cafeOn.admin.penalty.enums.PenaltyType;
+import com.b1a4.cafeOn.user.entity.UserEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -64,4 +65,8 @@ public interface PenaltyRepository extends JpaRepository<PenaltyEntity, Long> {
             List<PenaltyStatus> statuses,
             Pageable pageable
     );
+
+    // 패널티 목록
+    List<PenaltyEntity> findByUserOrderByCreatedAtDesc(UserEntity user);
+
 }

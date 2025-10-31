@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -141,4 +142,15 @@ public class PenaltyService {
             default -> throw new IllegalArgumentException("지원하지 않는 단위: " + unit);
         };
     }
+
+    // 패널티 목록
+    @Transactional
+    public List<PenaltyResponseDTO> getUserPenalties(String userId) {
+        UserEntity user = getUserOrThrow(userId);
+        return penaltyRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .map(PenaltyResponseDTO::fromEntity)
+                .toList();
+    }
+
 }
