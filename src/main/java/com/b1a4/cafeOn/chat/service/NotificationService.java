@@ -97,7 +97,6 @@ public class NotificationService {
     }
 
 
-
     @Transactional
     public void markRoomAsRead(String userId, Long roomId) {
         notificationRepository.markRoomNotificationsRead(userId, roomId);

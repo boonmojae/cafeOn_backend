@@ -47,6 +47,10 @@ public class CafeEntity {
     @Builder.Default
     private int viewsLast7d = 0;
 
+    @Column(name = "last_view_count", columnDefinition = "INT DEFAULT 0")
+    @Builder.Default
+    private int lastViewCount = 0;
+
     @Column(name = "last_viewed_at", columnDefinition = "TIMESTAMP NULL")
     private LocalDateTime lastViewedAt;
 
@@ -74,6 +78,9 @@ public class CafeEntity {
     @Column(name = "source", nullable = false)
     @Builder.Default
     private CafeSource source = CafeSource.KAKAO;
+
+    @Column(name = "photo_url", columnDefinition = "VARCHAR(512)")
+    private String photoUrl;
 
     /* 나중에 크롤러나 관리자페이지 등에서 새로운카페가 추가되거나 기존 정보가 수정될 가능성이 생긴다면 이부분 활성화
     @PrePersist

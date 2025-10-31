@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,7 +60,9 @@ public class ChatEntity {
 
     @PrePersist
     private void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        }
     }
 
     public void addImage(ImageEntity image) {
@@ -72,12 +75,23 @@ public class ChatEntity {
         image.setChat(null);
     }
 
+    // 채팅
     public static ChatEntity text(ChatRoomEntity room, UserEntity sender, String message) {
         return ChatEntity.builder()
                 .chatRoom(room)
                 .sender(sender)
                 .messageType(ChatMessageType.TEXT)
                 .message(message)
+                .build();
+    }
+
+    // 이미지 메시지를 생성
+    public static ChatEntity imageMessage(ChatRoomEntity room, UserEntity sender, String caption ) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(sender)
+                .messageType(ChatMessageType.IMAGE)
+                .message(caption != null ? caption : "")
                 .build();
     }
 
@@ -101,12 +115,15 @@ public class ChatEntity {
                 .build();
     }
 
-//    public static ChatEntity image(ChatRoomEntity room, UserEntity sender, String imageUrl) {
-//        return ChatEntity.builder()
-//                .chatRoom(room)
-//                .sender(sender)
-//                .imageUrl(imageUrl)
-//                .build();
-//    }
+    
+    // 날짜 시스템 메시지
+    public static ChatEntity systemDate(ChatRoomEntity room, UserEntity user, String dateLabel) {
+        return ChatEntity.builder()
+                .chatRoom(room)
+                .sender(user)
+                .messageType(ChatMessageType.SYSTEM_DATE)
+                .message(dateLabel)
+                .build();
+    }
 
 }

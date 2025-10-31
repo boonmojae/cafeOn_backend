@@ -4,9 +4,11 @@ import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Data
 @Getter
 @Setter
 @Builder
@@ -27,17 +29,21 @@ public class CafeDetailResponse {
     @Schema(description = "전화번호", example = "02-123-4567")
     private String phone;
 
+    private BigDecimal latitude;
+    private BigDecimal longitude;
+
     @Schema(description = "평균 별점", example = "3.90")
     private String rating;
 
-    @Schema(description = "카페 사진 URL 리스트")
-    private List<String> photos;
+//    @Schema(description = "카페 사진 URL 리스트")
+//    private List<String> photos;
 
     @Schema(description = "영업시간", example = "월 10:00~20:00")
     private String hours;
 
-    @Schema(description = "현재 영업 여부", example = "true")
-    private boolean isOpen;
+//    이부분은 프론트에서 해야할 것 같음
+//    @Schema(description = "현재 영업 여부", example = "true")
+//    private boolean isOpen;
 
     @Schema(description = "후기 요약", example = "조용하고 감성적인 분위기의 브런치 카페입니다.")
     private String reviewsSummary;
@@ -47,6 +53,9 @@ public class CafeDetailResponse {
 
     @Schema(description = "태그 목록")
     private  List<String> tags;
+
+    @Schema(description = "대표 사진 URL", example = "https://img1.kakaocdn.net/...jpg")
+    private String photoUrl;
 
     @Getter
     @AllArgsConstructor

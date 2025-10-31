@@ -53,12 +53,13 @@ public class ChatRoomController {
 
     // 채팅방 뮤트
     @PatchMapping("/{roomId}/members/me/mute")
-    public ResponseEntity<Void> mute(@AuthenticationPrincipal String userId,
-                                     @PathVariable Long roomId,
-                                     @RequestBody MuteReq body) {
+    public ResponseEntity<MuteRes> mute(@AuthenticationPrincipal String userId,
+                                        @PathVariable Long roomId, @RequestBody MuteReq body) {
         chatRoomMemberService.updateMute(roomId, userId, body.muted());
-        return ResponseEntity.noContent().build();
+        String msg = body.muted() ? "뮤트되었습니다." : "뮤트가 해제되었습니다.";
+        return ResponseEntity.ok(new MuteRes(body.muted(), msg));
     }
     public record MuteReq(boolean muted) {}
+    public record MuteRes(boolean muted, String message) {}
 
 }

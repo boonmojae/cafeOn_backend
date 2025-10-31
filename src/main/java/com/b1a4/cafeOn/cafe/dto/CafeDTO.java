@@ -46,6 +46,9 @@ public class CafeDTO {
     @Schema(description = "후기 요약", example = "진한 에스프레소, 좌석 넓음, 콘센트 많음")
     private String reviewsSummary;
 
+    @Schema(description = "대표 사진 URL", example = "https://img1.kakaocdn.net/...jpg")
+    private String photoUrl;
+
 //    @Schema(description = "찜 수", example = "52")
 //    private Integer wishlistCount;
 //    private String relatedCafes;    // todo
@@ -74,6 +77,7 @@ public class CafeDTO {
                 .longitude(entity.getLongitude())
                 .openHours(entity.getOpenHours())
                 .reviewsSummary(summary)
+                .photoUrl(entity.getPhotoUrl())
                 .build();
     }
 }

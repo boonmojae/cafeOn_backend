@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.media.*;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 import java.util.List;
 
@@ -161,10 +163,10 @@ public class CafeController {
     @Operation(
             summary = "📍 사용자 위치 기반 근처 카페 조회",
             description = """
-                사용자의 현재 위치(latitude, longitude)를 기반으로
-                지정 반경(radius, 단위: m) 내의 카페 목록을 DB에서 조회합니다.
-                만약 결과가 적으면 Kakao Map API를 통해 추가 카페를 보강합니다.
-                """,
+            사용자의 현재 위치(latitude, longitude)를 기반으로
+            지정 반경(radius, 단위: m) 내의 카페 목록을 DB에서 조회합니다.
+            만약 결과가 적으면 Kakao Map API를 통해 추가 카페를 보강합니다.
+            """,
             parameters = {
                     @Parameter(name = "latitude", example = "37.4979"),
                     @Parameter(name = "longitude", example = "127.0276"),
@@ -174,18 +176,22 @@ public class CafeController {
                     @ApiResponse(
                             responseCode = "200",
                             description = "✅ 성공: 근처 카페 목록 조회 완료",
-                            content = @Content(schema = @Schema(implementation = CafeNearbyResponse.class))
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDetailResponse.class))
+                            )
                     )
             }
     )
-    public ResponseEntity<CafeNearbyResponse> getNearbyCafes(
+    public ResponseEntity<List<CafeDetailResponse>> getNearbyCafes(
             @RequestParam double latitude,
             @RequestParam double longitude,
             @RequestParam(defaultValue = "20000") int radius
     ) {
-        CafeNearbyResponse response = cafeService.getNearbyCafes(latitude, longitude, radius);
-        return ResponseEntity.ok(response);
+        List<CafeDetailResponse> cafes = cafeService.getNearbyCafes(latitude, longitude, radius);
+        return ResponseEntity.ok(cafes);
     }
+
 
     /**
      * 4. 랜덤 카페 10개 조회
@@ -247,10 +253,171 @@ public class CafeController {
                     )
             }
     )
-    public ResponseEntity<List<CafeDTO>> getRandomCafes() {
-        List<CafeDTO> randomCafes = cafeService.getRandomCafes();
+    public ResponseEntity<List<CafeDetailResponse>> getRandomCafes() {
+        List<CafeDetailResponse> randomCafes = cafeService.getRandomCafes();
         return ResponseEntity.ok(randomCafes);
     }
+
+    /**
+     * 5. 종합 인기지수 기반 요즘 뜨는 카페 10개 조회
+     */
+    @GetMapping("/hot10")
+    @Operation(
+            summary = "🔥 종합 인기 지수 기반 요즘 뜨는 카페 Top 10",
+            description = """
+    최근 7일 조회수, 누적 조회수, 평균 평점, 리뷰 수를 가중합으로 계산해 상위 10개를 반환합니다.
+    가중치는 쿼리 파라미터로 조절할 수 있습니다.
+    hot_score = views_last7d*w7d + view_count*wAll + avg_rating*50*wRate + review_count*5*wRev
+    """,
+            parameters = {
+                    @Parameter(name = "w7d",  description = "최근 7일 조회수 가중치", example = "0.4"),
+                    @Parameter(name = "wAll", description = "누적 조회수 가중치",   example = "0.2"),
+                    @Parameter(name = "wRate",description = "평균 평점 가중치",   example = "0.2"),
+                    @Parameter(name = "wRev", description = "리뷰 수 가중치",     example = "0.2")
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDTO.class)),
+                                    examples = @ExampleObject(value = """
+                [
+                  {
+                    "cafeId": 637639,
+                    "name": "미묘",
+                    "address": "서울 서대문구 연희로11길 41",
+                    "latitude": 37.57,
+                    "longitude": 126.93,
+                    "phone": "",
+                    "openHours": "월 13:00 ~ 19:00 ...",
+                    "avgRating": 4.3,
+                    "reviewsSummary": "치즈케이크 맛있고 사진 스팟 많음"
+                  }
+                ]
+                """)
+                            )
+                    )
+            }
+    )
+    public ResponseEntity<List<CafeDetailResponse>> getHotCafesWeighted(
+            @RequestParam(defaultValue = "0.4") double w7d,
+            @RequestParam(defaultValue = "0.2") double wAll,
+            @RequestParam(defaultValue = "0.2") double wRate,
+            @RequestParam(defaultValue = "0.2") double wRev
+    ) {
+        List<CafeDetailResponse> hotCafes = cafeService.getHotCafesWeighted(w7d, wAll, wRate, wRev);
+        return ResponseEntity.ok(hotCafes);
+    }
+
+    /**
+     * 6. 찜 많은 카페 Top 10 조회
+     */
+    @GetMapping("/wish10")
+    @Operation(
+            summary = "💖 찜 많은 카페 Top 10 조회",
+            description = """
+                    wishlists 테이블을 기준으로 카페별 찜 개수를 집계하여 상위 10개를 반환합니다.<br><br>
+                    - `limit` 파라미터로 원하는 개수를 지정할 수 있습니다. (기본 10개)<br>
+                    - 각 카페에 대해 별점, 후기, 태그, 리뷰 요약이 모두 포함됩니다.<br><br>
+                    예를 들어 `limit=5`로 호출 시 상위 5개의 인기 카페 정보를 내려줍니다.
+                    """,
+            parameters = {
+                    @Parameter(
+                            name = "limit",
+                            description = "가져올 카페 개수 (기본값: 10)",
+                            example = "10"
+                    )
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공: 찜 많은 카페 목록 반환",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    array = @ArraySchema(schema = @Schema(implementation = CafeDetailResponse.class)),
+                                    examples = @ExampleObject(value = """
+                                            [
+                                              {
+                                                "id": 1,
+                                                "name": "카페온 강남점",
+                                                "address": "서울특별시 강남구 테헤란로 123",
+                                                "phone": "02-1234-5678",
+                                                "rating": "4.85",
+                                                "photos": [
+                                                  "https://cdn.cafeon.kr/images/reviews/123-1.jpg",
+                                                  "https://cdn.cafeon.kr/images/reviews/456-1.jpg"
+                                                ],
+                                                "hours": "월~금 10:00~21:00 / 주말 11:00~20:00",
+                                                "reviewsSummary": "조용하고 감성적인 분위기의 브런치 카페입니다.",
+                                                "reviews": [
+                                                  {
+                                                    "author": "김도이",
+                                                    "rating": 5,
+                                                    "content": "분위기 좋고 커피 맛있어요!",
+                                                    "createdAt": "2025-10-25T14:32:00"
+                                                  },
+                                                  {
+                                                    "author": "박민재",
+                                                    "rating": 4,
+                                                    "content": "좌석 간격이 넓고 조용해서 작업하기 좋았습니다.",
+                                                    "createdAt": "2025-10-27T09:45:10"
+                                                  }
+                                                ],
+                                                "tags": ["조용한", "감성적인", "브런치맛집"]
+                                              },
+                                              {
+                                                "id": 2,
+                                                "name": "앤드테일 압구정점",
+                                                "address": "서울특별시 강남구 압구정로 11길 7",
+                                                "phone": "02-555-7890",
+                                                "rating": "4.72",
+                                                "photos": [
+                                                  "https://cdn.cafeon.kr/images/reviews/789-1.jpg"
+                                                ],
+                                                "hours": "월~일 11:00~22:00",
+                                                "reviewsSummary": "인테리어가 세련되고 조용한 분위기",
+                                                "reviews": [],
+                                                "tags": ["모던한", "데이트하기좋은"]
+                                              }
+                                            ]
+                                            """)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "❌ 잘못된 파라미터 (limit 음수 또는 0 등)",
+                            content = @Content(mediaType = "application/json",
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "error": "Invalid parameter",
+                                              "message": "limit은 1 이상이어야 합니다."
+                                            }
+                                            """))
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "❗ 서버 내부 오류",
+                            content = @Content(mediaType = "application/json",
+                                    examples = @ExampleObject(value = """
+                                            {
+                                              "error": "Internal Server Error",
+                                              "message": "찜 많은 카페 조회 중 오류가 발생했습니다."
+                                            }
+                                            """))
+                    )
+            }
+    )
+    public ResponseEntity<List<CafeDetailResponse>> getTopWishlistedCafes(
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        List<CafeDetailResponse> topCafes = cafeService.getTopWishlistedCafes(limit);
+        log.info("💖 [TopWishlisted] {}개 카페 반환됨", topCafes.size());
+        return ResponseEntity.ok(topCafes);
+    }
+
+
 
 //    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
 //    최근 찜 + 리뷰 수 통계 SQL집계 (30일 기준)

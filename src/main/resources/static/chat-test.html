@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="utf-8" />
-    <title>STOMP Chat (히스토리 + 실시간 읽음 카운트 최종)</title>
+    <title>STOMP Chat (히스토리 + 실시간 읽음 + Run Grouping: time last-only, count all)</title>
     <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -35,18 +35,43 @@
         .bubble-row { display:flex; align-items:flex-end; gap:6px; }
         .bubble {
           border-radius: 14px; padding: 10px 12px; line-height: 1.45; word-break: break-word;
-          background: #f3f4f6; color:#111827; max-width: 100%;
+          background: #2563eb; color:#fff; max-width: 100%;
         }
-        .right .bubble { background: #2563eb; color: #fff; }
+        .msg.left .bubble {
+          background: #f3f4f6;
+          color:#111827;
+        }
+
+        /* 이미지 버블은 파란 말풍선 대신 카드 스타일 */
+        .bubble.bubble-img {
+          background: transparent;
+          color: #111827;
+          padding: 0;
+        }
+        .msg.right .bubble.bubble-img { background: transparent; color: #fff; }
+
+        .img-grid {
+          display: flex; flex-wrap: wrap; gap: 6px; max-width: 240px; border-radius: 12px;
+        }
+        .img-grid-item {
+          border-radius: 10px; overflow: hidden; background: #0f172a;
+          max-width: 110px; max-height: 110px; flex: 0 0 auto;
+        }
+        .img-grid-item img { display: block; width: 110px; height: 110px; object-fit: cover; }
+
+        .caption {
+          margin-top: 6px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word;
+          color: inherit; background: rgba(0,0,0,0); max-width: 240px;
+        }
 
         .nick { font-size: 12px; color: #6b7280; margin: 0 0 4px 2px; }
-        .right .nick { text-align: right; color:#93c5fd; }
+        .msg.right .nick { text-align: right; color:#93c5fd; visibility:hidden; }
 
         .meta {
           font-size: 11px; color: #9ca3af; white-space: nowrap; user-select: none; min-width: 42px; text-align: right;
         }
+        .msg.right .meta { color: #dbeafe; }
         .meta .count { margin-left: 6px; }
-        .right .meta { color: #dbeafe; }
 
         .input-row { display:flex; gap:8px; align-items:center; }
         .input-row input[type="text"] { flex:1; }
@@ -59,7 +84,7 @@
     </style>
 </head>
 <body>
-<h3>STOMP Chat (히스토리 + 실시간 읽음 카운트 최종)</h3>
+<h3>STOMP Chat (히스토리 + 실시간 읽음 + Run Grouping)</h3>
 
 <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <label>Server (ws/wss):</label>
@@ -110,14 +135,15 @@
     const subscriptions = new Map(); // roomId -> { subMsg, subRead }
     const seenChatIds = new Set();
 
-    let lastMsgCtx = { senderId: null, minuteKey: null, metaEl: null, isSystem: false };
     let unreadPollTimer = null;
-
     let currentRoomId = null;
     let readLatestTimer = null;
 
-    // ✅ readerId별로 마지막으로 반영한 lastReadChatId를 보관
+    // ✅ readerId별 최신 lastReadChatId 저장 (중복 차감 방지)
     const lastReadSeen = new Map(); // readerId -> lastAppliedLastReadChatId
+
+    // ✅ 런의 마지막 meta를 관리: runKey(senderId|minuteKey) -> { metaEl, lastChatId }
+    const runLastMeta = new Map();
 
     function scheduleReadLatest(roomId) {
       if (readLatestTimer) clearTimeout(readLatestTimer);
@@ -163,7 +189,7 @@
     function clearChatUI(){
       document.getElementById('chat').innerHTML = '';
       seenChatIds.clear();
-      lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:false };
+      runLastMeta.clear();
     }
 
     function unsubscribeRoom(roomId){
@@ -188,25 +214,20 @@
       } catch { return null; }
     }
 
-    // ===== 렌더 =====
+    // ===== 런 키 =====
     function isSystemType(t){
       const type = (t || '').toString().toUpperCase();
       return type === 'SYSTEM' || type.startsWith('SYSTEM_');
     }
-
-    function renderSystem(m) {
-      const chat = document.getElementById('chat');
-      const row = document.createElement('div');
-      row.className = 'system';
-      const span = document.createElement('span');
-      span.textContent = m.message || m.content || '';
-      row.appendChild(span);
-      chat.appendChild(row);
-      chat.scrollTop = chat.scrollHeight;
-
-      lastMsgCtx = { senderId:null, minuteKey:null, metaEl:null, isSystem:true };
+    function runKeyOf(msg){
+      if (isSystemType(msg.messageType)) return null;
+      const sid = msg.senderId ? String(msg.senderId).trim() : '';
+      const mk  = minuteKeyOf(msg.createdAt);
+      if (!sid || !mk) return null;
+      return `${sid}|${mk}`;
     }
 
+    // ===== 메타 표시 유틸 =====
     function setMeta(metaEl, timeLabel, countOrNull) {
       metaEl.innerHTML = '';
       const timeNode = document.createElement('span');
@@ -221,7 +242,11 @@
         metaEl.appendChild(countNode);
       }
     }
-
+    function hideOnlyTime(metaEl){
+      if (!metaEl) return;
+      const t = metaEl.querySelector('.time');
+      if (t) t.style.visibility = 'hidden'; // 시간만 숨김 (count는 유지)
+    }
     function decrementCount(metaEl) {
       if (!metaEl) return;
       const countNode = metaEl.querySelector('.count');
@@ -230,6 +255,59 @@
       const next = Math.max(0, cur - 1);
       if (next === 0) countNode.remove();
       else countNode.textContent = String(next);
+    }
+
+    // ===== 렌더 =====
+    function renderSystem(m) {
+      const chat = document.getElementById('chat');
+      const row = document.createElement('div');
+      row.className = 'system';
+      const span = document.createElement('span');
+      span.textContent = m.message || m.content || '';
+      row.appendChild(span);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function buildBubbleContent(bubble, m, mine) {
+      const hasImages = Array.isArray(m.images) && m.images.length > 0;
+      if (!hasImages) {
+        bubble.textContent = m.message || '';
+        return;
+      }
+      bubble.classList.add('bubble-img');
+
+      const grid = document.createElement('div');
+      grid.className = 'img-grid';
+
+      m.images.forEach(imgDto => {
+        const url =
+          imgDto.imageUrl ||
+          imgDto.publicUrl ||
+          imgDto.public_url ||
+          imgDto.url ||
+          '';
+        if (!url) return;
+
+        const cell = document.createElement('div');
+        cell.className = 'img-grid-item';
+
+        const imageEl = document.createElement('img');
+        imageEl.src = url;
+        imageEl.alt = imgDto.originalFileName || 'image';
+        cell.appendChild(imageEl);
+
+        grid.appendChild(cell);
+      });
+
+      bubble.appendChild(grid);
+
+      if (m.message && m.message.trim() !== '') {
+        const cap = document.createElement('div');
+        cap.className = 'caption';
+        cap.textContent = m.message;
+        bubble.appendChild(cap);
+      }
     }
 
     function renderChatBubble(m) {
@@ -246,9 +324,11 @@
       const wrap = document.createElement('div');
       wrap.className = 'msg ' + (mine ? 'right' : 'left');
 
-      // 항상 세팅(없으면 '')
       if (m.chatId) wrap.dataset.chatId = String(m.chatId);
       wrap.dataset.senderId = (m.senderId != null) ? String(m.senderId) : '';
+
+      const rk = runKeyOf(m);
+      if (rk) wrap.dataset.runKey = rk;
 
       if (!mine) {
         const avatar = document.createElement('div');
@@ -276,25 +356,16 @@
 
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = m.message || '';
+      buildBubbleContent(bubble, m, mine);
 
       const meta = document.createElement('div');
       meta.className = 'meta';
 
-      const curMinuteKey = minuteKeyOf(m.createdAt);
-      const sameSender = !!(lastMsgCtx.senderId && m.senderId && String(lastMsgCtx.senderId) === String(m.senderId));
-      const sameMinute = !!(lastMsgCtx.minuteKey && curMinuteKey && lastMsgCtx.minuteKey === curMinuteKey);
-      const sameRun = sameSender && sameMinute && !lastMsgCtx.isSystem;
-
-      // ⚠️ 이전 메타를 비우지 않는다(카운트가 사라지던 원인)
-      // if (sameRun && lastMsgCtx.metaEl) lastMsgCtx.metaEl.textContent = '';
-
-      // 서버 계산값 그대로 렌더
       const count = (typeof m.othersUnreadUsers === 'number') ? m.othersUnreadUsers : 0;
       setMeta(meta, m.timeLabel || '', count);
 
       if (mine) { row.appendChild(meta); row.appendChild(bubble); }
-      else { row.appendChild(bubble); row.appendChild(meta); }
+      else      { row.appendChild(bubble); row.appendChild(meta); }
 
       body.appendChild(nickEl);
       body.appendChild(row);
@@ -303,17 +374,14 @@
       chat.appendChild(wrap);
       chat.scrollTop = chat.scrollHeight;
 
-      lastMsgCtx = {
-        senderId: m.senderId || (mine ? myUserId : null),
-        minuteKey: curMinuteKey,
-        metaEl: meta,
-        isSystem: false
-      };
-    }
-
-    function renderMessage(m) {
-      if (isSystemType(m.messageType)) renderSystem(m);
-      else renderChatBubble(m);
+      // ✅ 같은 런의 이전 메타의 "시간만" 숨김 (카운트 유지)
+      if (rk) {
+        const prev = runLastMeta.get(rk);
+        if (prev && prev.metaEl && prev.metaEl !== meta) {
+          hideOnlyTime(prev.metaEl);  // 시간만 숨긴다
+        }
+        runLastMeta.set(rk, { metaEl: meta, lastChatId: Number(m.chatId || 0) });
+      }
     }
 
     // ===== STOMP 연결 =====
@@ -435,7 +503,7 @@
           const data = JSON.parse(msg.body);
           if (data.chatId && seenChatIds.has(data.chatId)) return;
           if (data.chatId) seenChatIds.add(data.chatId);
-          renderMessage(data);
+          renderChatBubble(data); // 시스템은 내부에서 자동 분기
 
           const isSystem = (data.messageType || '').toUpperCase().startsWith('SYSTEM');
           if (String(currentRoomId) === String(roomId) && !isSystem) {
@@ -450,16 +518,15 @@
           const rr = JSON.parse(msg.body); // { roomId, readerId, lastReadChatId }
           if (!rr || !rr.readerId || typeof rr.lastReadChatId !== 'number') return;
 
-          // ✅ 중복/과거 이벤트 가드 + 범위 계산
           const prev = lastReadSeen.get(rr.readerId) || 0;
           const cur  = rr.lastReadChatId;
-          if (cur <= prev) return;                 // 과거/동일 이벤트 무시
-          lastReadSeen.set(rr.readerId, cur);      // 최신 값 저장
+          if (cur <= prev) return;
+          lastReadSeen.set(rr.readerId, cur);
 
-          // ✅ (prev, cur] 구간만 1씩 감소 (이미 감소한 구간 재차감 방지)
+          // ✅ (prev, cur] 범위의 모든 메시지들의 "각각"의 카운트를 1씩 감소
           const nodes = document.querySelectorAll('#chat .msg[data-chat-id]');
           nodes.forEach(node => {
-            const chatId = Number(node.dataset.chatId || '0');
+            const chatId   = Number(node.dataset.chatId || '0');
             const senderId = node.dataset.senderId || '';
             if (chatId > prev && chatId <= cur && senderId && senderId !== rr.readerId) {
               const metaEl = node.querySelector('.meta');
@@ -514,7 +581,7 @@
         await ensureConnected(serverUrl, token);
         doSubscribe(String(roomId));
 
-        // 히스토리 로드(othersUnreadUsers 포함)
+        // 히스토리 로드 (includeSystem=true면 시스템 메시지도 포함)
         const res = await fetch(`/api/chat/rooms/${roomId}/messages?includeSystem=true`, {
           headers: { 'Authorization': 'Bearer ' + token }
         });
@@ -525,11 +592,11 @@
           [...arr].reverse().forEach(m => {
             if (m.chatId && seenChatIds.has(m.chatId)) return;
             if (m.chatId) seenChatIds.add(m.chatId);
-            renderMessage(m);
+            renderChatBubble(m);
           });
         }
 
-        // ✅ 입장 시 최신까지 읽음 1회
+        // 방 들어오면 한번 읽음 동기화
         await readLatest(roomId);
 
         setSendUI(true);
@@ -585,7 +652,7 @@
       }
     }
 
-    // ===== 전송 =====
+    // ===== 메시지 전송 =====
     function sendMsg(){
       if (!client || !client.connected) return log('NOT_CONNECTED');
       const roomId = document.getElementById('roomId').value.trim();
@@ -620,6 +687,7 @@
       currentRoomId = null;
       setSendUI(false);
       lastReadSeen.clear();
+      runLastMeta.clear();
     }
 
     // ===== 이벤트 바인딩 =====
