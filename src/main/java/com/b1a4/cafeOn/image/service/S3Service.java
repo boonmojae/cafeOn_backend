@@ -68,6 +68,7 @@ public class S3Service {
             case POST -> "posts/";
             case REVIEW -> "reviews/";
             case CHAT -> "chats/";
+            case PROFILE -> "profiles/";
         };
 
         // key 생성 (폴더/prefix + uuid + "_" + 원본명)
