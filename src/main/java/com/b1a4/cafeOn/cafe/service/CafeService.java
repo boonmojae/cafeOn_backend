@@ -511,6 +511,29 @@ public class CafeService {
                 .toList();
     }
 
+    /**
+     * 7. 리뷰 조회 메서드
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCafeReviews(Long cafeId) {
+        // 1️⃣ 카페 존재 여부 검증
+        if (!cafeRepository.existsById(cafeId)) {
+            throw new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + cafeId);
+        }
+
+        // 2️⃣ 리뷰 전체 조회 (이미 ReviewService에 getReviewsByCafeId 있음)
+        List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(cafeId);
+
+        // 3️⃣ Map 형태로 반환 (reviews, count)
+        Map<String, Object> result = new HashMap<>();
+        result.put("reviews", reviews);
+        result.put("count", reviews.size());
+
+        log.info("💬 [CafeService] cafeId={} 리뷰 {}개 반환", cafeId, reviews.size());
+        return result;
+    }
+
+
 
     /**
      * ✅ 공통 변환 메서드: CafeEntity → CafeDetailResponse

@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.media.*;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 
 import java.util.List;
+import java.util.Map;
 
 // 카페 검색, 관련 카페 추천 등 읽기 전용 도메인 (모든 사용자 접근 가능 - permitAll)
 @Slf4j
@@ -417,6 +418,65 @@ public class CafeController {
         return ResponseEntity.ok(topCafes);
     }
 
+
+    /**
+     * 7. 특정 카페 리뷰 목록 조회
+     */
+    @GetMapping("/{id}/reviews")
+    @Operation(
+            summary = "💬 특정 카페 리뷰 목록 조회",
+            description = """
+                특정 카페의 리뷰 전체 목록을 반환합니다.<br>
+                별도의 sort나 page 파라미터는 사용하지 않으며, 
+                단순히 cafe_id 기준으로 모든 리뷰와 총 개수를 내려줍니다.
+                """,
+            parameters = {
+                    @Parameter(
+                            name = "id",
+                            description = "조회할 카페의 고유 ID",
+                            required = true,
+                            example = "1001"
+                    )
+            },
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "✅ 성공: 리뷰 목록 및 총 개수 반환",
+                            content = @Content(mediaType = "application/json",
+                                    examples = @ExampleObject(value = """
+                                        {
+                                          "reviews": [
+                                            {
+                                              "reviewId": 12,
+                                              "nickname": "coffee_lover",
+                                              "rating": 5,
+                                              "content": "분위기 좋고 조용한 카페예요 ☕",
+                                              "images": [
+                                                "https://cdn.cafeon.kr/reviews/12-1.jpg"
+                                              ],
+                                              "createdAt": "2025-10-30T14:23:11"
+                                            },
+                                            {
+                                              "reviewId": 13,
+                                              "nickname": "latte_holic",
+                                              "rating": 4,
+                                              "content": "라떼 맛집 인정!",
+                                              "images": [],
+                                              "createdAt": "2025-10-29T10:02:40"
+                                            }
+                                          ],
+                                          "count": 2
+                                        }
+                                        """))
+                    ),
+                    @ApiResponse(responseCode = "404", description = "❌ 해당 카페 또는 리뷰를 찾을 수 없습니다."),
+                    @ApiResponse(responseCode = "500", description = "❗ 서버 내부 오류")
+            }
+    )
+    public ResponseEntity<Map<String, Object>> getCafeReviews(@PathVariable Long id) {
+        Map<String, Object> response = cafeService.getCafeReviews(id);
+        return ResponseEntity.ok(response);
+    }
 
 
 //    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
