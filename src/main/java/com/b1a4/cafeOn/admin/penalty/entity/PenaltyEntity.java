@@ -60,6 +60,7 @@ public class PenaltyEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
+    @Builder.Default
     private PenaltyStatus status = PenaltyStatus.ACTIVE;
 
     @Column(name = "created_at", nullable = false, updatable = false)

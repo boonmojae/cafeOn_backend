@@ -1,13 +1,17 @@
 package com.b1a4.cafeOn.image.service;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -19,7 +23,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class S3Service {
 
-    private final AmazonS3 amazonS3;
+    private final S3Client s3;
 
     @Value("${spring.cloud.aws.s3.bucket}")
     private String bucket;
@@ -28,24 +32,19 @@ public class S3Service {
     private String cdnBaseUrl;
 
     public static class UploadedImageInfo {
-        private final String s3Key;             // S3에 실제로 저장된 key (ex. "reviews/uuid_original.jpg")
-        private final String originalFileName;  // 원본 파일명
-        private final String contentType;       // MIME type
-        private final long sizeBytes;           // 파일 크기
-        private final String publicUrl;         // 최종 접근 URL (cdnBaseUrl + key)
+        private final String s3Key;
+        private final String originalFileName;
+        private final String contentType;
+        private final long sizeBytes;
+        private final String publicUrl;
 
-        public UploadedImageInfo(String s3Key,
-                                 String originalFileName,
-                                 String contentType,
-                                 long sizeBytes,
-                                 String publicUrl) {
+        public UploadedImageInfo(String s3Key, String originalFileName, String contentType, long sizeBytes, String publicUrl) {
             this.s3Key = s3Key;
             this.originalFileName = originalFileName;
             this.contentType = contentType;
             this.sizeBytes = sizeBytes;
             this.publicUrl = publicUrl;
         }
-
         public String getS3Key() { return s3Key; }
         public String getOriginalFileName() { return originalFileName; }
         public String getContentType() { return contentType; }
@@ -53,16 +52,14 @@ public class S3Service {
         public String getPublicUrl() { return publicUrl; }
     }
 
-    // category: POST / REVIEW / CHAT
+    // category: POST / REVIEW / CHAT / PROFILE
     public UploadedImageInfo uploadImage(MultipartFile file, ImageCategory category) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("빈 파일은 업로드할 수 없습니다.");
         }
 
         String originalName = file.getOriginalFilename();
-        if (originalName == null || originalName.isBlank()) {
-            originalName = "unnamed";
-        }
+        if (originalName == null || originalName.isBlank()) originalName = "unnamed";
 
         String prefix = switch (category) {
             case POST -> "posts/";
@@ -71,25 +68,25 @@ public class S3Service {
             case PROFILE -> "profiles/";
         };
 
-        // key 생성 (폴더/prefix + uuid + "_" + 원본명)
         String uuid = UUID.randomUUID().toString();
         String key = prefix + uuid + "_" + originalName;
 
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentLength(file.getSize());
-        metadata.setContentType(file.getContentType());
+        PutObjectRequest putReq = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .contentType(file.getContentType())
+                .contentLength(file.getSize())
+                .build();
 
         try {
-            amazonS3.putObject(bucket, key, file.getInputStream(), metadata);
+            s3.putObject(putReq, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
         } catch (IOException e) {
             throw new RuntimeException("S3 업로드 중 오류가 발생했습니다.", e);
         }
 
         // 퍼블릭 URL 생성
-        String encodedKey = URLEncoder.encode(key, StandardCharsets.UTF_8);
-
         String base = cdnBaseUrl.endsWith("/") ? cdnBaseUrl : cdnBaseUrl + "/";
-
+        String encodedKey = URLEncoder.encode(key, StandardCharsets.UTF_8);
         String url = base + encodedKey;
 
         return new UploadedImageInfo(
@@ -101,13 +98,15 @@ public class S3Service {
         );
     }
 
-
-    // 삭제
+    // 삭제 (단건)
     public void deleteImageByKey(String s3Key) {
-        amazonS3.deleteObject(bucket, s3Key);
+        s3.deleteObject(DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(s3Key)
+                .build());
     }
 
-
+    // 삭제 (대량)
     public void deleteAll(List<String> keys) {
         if (keys == null || keys.isEmpty()) return;
 
@@ -116,10 +115,14 @@ public class S3Service {
             int end = Math.min(start + BATCH, keys.size());
             var batch = keys.subList(start, end);
 
-            DeleteObjectsRequest req = new DeleteObjectsRequest(bucket);
-            req.setKeys(batch.stream().map(DeleteObjectsRequest.KeyVersion::new).toList());
-            amazonS3.deleteObjects(req);
+            var objects = batch.stream()
+                    .map(k -> ObjectIdentifier.builder().key(k).build())
+                    .toList();
+
+            s3.deleteObjects(DeleteObjectsRequest.builder()
+                    .bucket(bucket)
+                    .delete(Delete.builder().objects(objects).build())
+                    .build());
         }
     }
 }
-
