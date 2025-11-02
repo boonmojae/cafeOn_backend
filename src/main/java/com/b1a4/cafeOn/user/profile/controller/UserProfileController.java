@@ -70,5 +70,13 @@ public class UserProfileController {
                 .build());
     }
 
-
+    // 회원 탈퇴
+    @DeleteMapping
+    @Operation(summary = "회원 탈퇴", description = "Soft Delete로 회원을 탈퇴 처리합니다. 닉네임은 '탈퇴회원'으로 변경되고 프로필 정보가 초기화됩니다.")
+    public ResponseEntity<?> deleteMyAccount(@AuthenticationPrincipal String userId) {
+        userProfileService.deleteMyAccount(userId);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .message("회원탈퇴가 완료되었습니다.")
+                .build());
+    }
 }
