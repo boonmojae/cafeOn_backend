@@ -12,88 +12,143 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Reports", description = "신고(게시글/댓글/리뷰) API")
+@SecurityRequirement(name = "Bearer Authentication")
 public class ReportController {
 
     private final ReportService reportService;
 
-    // 게시글 신고
+    @Operation(summary = "게시글 신고", description = "postId에 해당하는 게시글을 신고합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "신고 접수 성공",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportEnvelope.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "요청 오류",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageOnly.class))
+            )
+    })
     @PostMapping("/posts/{postId}/reports")
-    public ResponseEntity<?> reportPost(@AuthenticationPrincipal String userId, @PathVariable Long postId,
-                                        @Valid @RequestBody ReportRequestDTO reportRequestDTO) {
-
+    public ResponseEntity<ApiResponse<ReportResponseDTO>> reportPost(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @PathVariable Long postId,
+            @Valid @RequestBody ReportRequestDTO reportRequestDTO
+    ) {
         try {
-            ReportResponseDTO responseDTO = reportService.reportPost(userId, postId, reportRequestDTO);
-
-            ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
-                    .data(responseDTO)
-                    .message("신고가 접수되었습니다.")
-                    .build();
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
+            ReportResponseDTO dto = reportService.reportPost(userId, postId, reportRequestDTO);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.<ReportResponseDTO>builder()
+                            .data(dto)
+                            .message("신고가 접수되었습니다.")
+                            .build());
         } catch (Exception e) {
             log.error("게시글 신고 실패 userId:{}, postId:{}", userId, postId, e);
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<ReportResponseDTO>builder()
+                            .message(e.getMessage())
+                            .build());
         }
-
     }
 
-    // 댓글 신고
+    @Operation(summary = "댓글 신고", description = "commentId에 해당하는 댓글을 신고합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "신고 접수 성공",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportEnvelope.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "요청 오류",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageOnly.class))
+            )
+    })
     @PostMapping("/comments/{commentId}/reports")
-    public ResponseEntity<?> reportComment(@AuthenticationPrincipal String userId, @PathVariable Long commentId,
-                                           @Valid @RequestBody ReportRequestDTO reportRequestDTO) {
+    public ResponseEntity<ApiResponse<ReportResponseDTO>> reportComment(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @PathVariable Long commentId,
+            @Valid @RequestBody ReportRequestDTO reportRequestDTO
+    ) {
         try {
-            ReportResponseDTO responseDTO = reportService.reportComment(userId, commentId, reportRequestDTO);
-
-            ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
-                    .data(responseDTO)
-                    .message("신고가 접수되었습니다.")
-                    .build();
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
+            ReportResponseDTO dto = reportService.reportComment(userId, commentId, reportRequestDTO);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.<ReportResponseDTO>builder()
+                            .data(dto)
+                            .message("신고가 접수되었습니다.")
+                            .build());
         } catch (Exception e) {
             log.error("댓글 신고 실패 userId:{}, commentId:{}", userId, commentId, e);
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<ReportResponseDTO>builder()
+                            .message(e.getMessage())
+                            .build());
         }
-
     }
 
-
-    // 리뷰 신고
+    @Operation(summary = "리뷰 신고", description = "reviewId에 해당하는 리뷰를 신고합니다.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "신고 접수 성공",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ReportEnvelope.class))
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "요청 오류",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageOnly.class))
+            )
+    })
     @PostMapping("/reviews/{reviewId}/reports")
-    public ResponseEntity<?> reportReview(@AuthenticationPrincipal String userId, @PathVariable Long reviewId,
-                                          @Valid @RequestBody ReportRequestDTO reportRequestDTO) {
+    public ResponseEntity<ApiResponse<ReportResponseDTO>> reportReview(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @PathVariable Long reviewId,
+            @Valid @RequestBody ReportRequestDTO reportRequestDTO
+    ) {
         try {
-
-            ReportResponseDTO responseDTO = reportService.reportReview(userId, reviewId, reportRequestDTO);
-
-            ApiResponse<ReportResponseDTO> response = ApiResponse.<ReportResponseDTO>builder()
-                    .data(responseDTO)
-                    .message("리뷰 신고 성공")
-                    .build();
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
+            ReportResponseDTO dto = reportService.reportReview(userId, reviewId, reportRequestDTO);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.<ReportResponseDTO>builder()
+                            .data(dto)
+                            .message("리뷰 신고 성공")
+                            .build());
         } catch (Exception e) {
-            log.error("리뷰 신고 실패 userId:{}, reviewId:{}", userId, reviewId);
-            ApiResponse<?> errorResponse = ApiResponse.builder()
-                    .message(e.getMessage())
-                    .build();
-            return ResponseEntity.badRequest().body(errorResponse);
+            log.error("리뷰 신고 실패 userId:{}, reviewId:{}", userId, reviewId, e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<ReportResponseDTO>builder()
+                            .message(e.getMessage())
+                            .build());
         }
     }
 
+    @Schema(name = "ApiResponse<ReportResponseDTO>")
+    static class ReportEnvelope {
+        public String message;
+        public ReportResponseDTO data;
+    }
 
+    @Schema(name = "ApiResponse<MessageOnly>")
+    static class MessageOnly {
+        public String message;
+    }
 }

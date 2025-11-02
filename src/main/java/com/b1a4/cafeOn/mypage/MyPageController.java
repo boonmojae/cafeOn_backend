@@ -11,6 +11,7 @@ import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import com.b1a4.cafeOn.review.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -18,14 +19,19 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.Parameter;
 
 @RestController
 @RequestMapping("/api/my")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "MyPage", description = "마이페이지 API (내 글/댓글/좋아요/채팅방/리뷰 목록)")
+@SecurityRequirement(name = "Bearer Authentication")
 public class MyPageController {
 
     private final PostService postService;
@@ -33,160 +39,141 @@ public class MyPageController {
     private final ChatRoomMemberService chatRoomMemberService;
     private final ReviewService reviewService;
 
-
-    // 내가 작성한 게시글 목록
+    @Operation(summary = "내가 작성한 게시글 목록", description = "내가 작성한 게시글을 최신순으로 페이징 조회합니다.")
     @GetMapping("/posts")
-    public ResponseEntity<?> myPosts(@AuthenticationPrincipal String userId,
-                                     @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<PostListResponseDTO>>> myPosts(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @ParameterObject
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
         try {
             Page<PostListResponseDTO> pageResult = postService.getPostsById(userId, pageable);
-
             ApiResponse<Page<PostListResponseDTO>> body = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .message("내가 작성한 게시글 조회 성공")
                     .data(pageResult)
                     .build();
-
             return ResponseEntity.ok(body);
-
         } catch (Exception e) {
             log.error("내가 작성한 게시글 조회 실패 userId:{} ", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
+            ApiResponse<Page<PostListResponseDTO>> error = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .message("내가 작성한 게시글 조회 실패")
                     .build();
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 
-
-    // 내가 좋아요한 게시글 목록
+    @Operation(summary = "내가 좋아요한 게시글 목록", description = "내가 좋아요한 게시글을 최신순으로 페이징 조회합니다.")
     @GetMapping("/likes/posts")
-    public ResponseEntity<?> likedPost(@AuthenticationPrincipal String userId,
-                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<PostListResponseDTO>>> likedPost(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @ParameterObject
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
         try {
             Page<PostListResponseDTO> pageResult = postService.getLikePostById(userId, pageable);
-
             ApiResponse<Page<PostListResponseDTO>> body = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .message("내가 좋아요한 게시글 조회 성공")
                     .data(pageResult)
                     .build();
-
             return ResponseEntity.ok(body);
-
         } catch (Exception e) {
             log.error("내가 좋아요한 게시글 조회 실패 userId:{}", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
+            ApiResponse<Page<PostListResponseDTO>> error = ApiResponse.<Page<PostListResponseDTO>>builder()
                     .message("내가 좋아요한 게시글 조회 실패")
                     .build();
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 
-
-    // 내가 작성한 댓글 목록
+    @Operation(summary = "내가 작성한 댓글 목록", description = "내가 작성한 댓글을 최신순으로 페이징 조회합니다.")
     @GetMapping("/comments")
-    public ResponseEntity<?> myComments(@AuthenticationPrincipal String userId,
-                                        @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<CommentResponseDTO>>> myComments(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @ParameterObject
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
         try {
             Page<CommentResponseDTO> pageResult = commentService.getCommentByUserId(userId, pageable);
-
             ApiResponse<Page<CommentResponseDTO>> body = ApiResponse.<Page<CommentResponseDTO>>builder()
                     .message("내가 작성한 댓글 조회 성공")
                     .data(pageResult)
                     .build();
-
             return ResponseEntity.ok(body);
-
         } catch (Exception e) {
             log.error("내가 작성한 댓글 조회 실패 userId:{}", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
+            ApiResponse<Page<CommentResponseDTO>> error = ApiResponse.<Page<CommentResponseDTO>>builder()
                     .message("내가 작성한 댓글 조회 실패")
                     .build();
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 
-
-    // 내가 좋아요한 댓글 목록
+    @Operation(summary = "내가 좋아요한 댓글 목록", description = "내가 좋아요한 댓글을 최신순으로 페이징 조회합니다.")
     @GetMapping("/likes/comments")
-    public ResponseEntity<?> likedComments(@AuthenticationPrincipal String userId,
-                                           @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<CommentResponseDTO>>> likedComments(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @ParameterObject
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
         try {
             Page<CommentResponseDTO> pageResult = commentService.getLikeCommentByUserId(userId, pageable);
-
             ApiResponse<Page<CommentResponseDTO>> body = ApiResponse.<Page<CommentResponseDTO>>builder()
                     .message("내가 좋아요한 댓글 조회 성공")
                     .data(pageResult)
                     .build();
-
             return ResponseEntity.ok(body);
-
         } catch (Exception e) {
             log.error("내가 좋아요한 댓글 조회 실패 userId:{}", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
+            ApiResponse<Page<CommentResponseDTO>> error = ApiResponse.<Page<CommentResponseDTO>>builder()
                     .message("내가 좋아요한 댓글 조회 실패")
                     .build();
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 
-
-    // 내가 참여한 채팅방 목록
+    @Operation(summary = "내가 참여한 채팅방 목록", description = "내가 참여한 DM/그룹 채팅방 목록을 페이징 조회합니다.")
     @GetMapping("/chat/rooms")
-    public ResponseEntity<?> myRooms(@AuthenticationPrincipal String userId,
-                                     @PageableDefault(size = 10) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<ChatRoomListItemDTO>>> myRooms(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @ParameterObject
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
         try {
             Page<ChatRoomListItemDTO> pageResult = chatRoomMemberService.listMyRooms(userId, pageable);
-
             ApiResponse<Page<ChatRoomListItemDTO>> body = ApiResponse.<Page<ChatRoomListItemDTO>>builder()
                     .message("내가 참여한 채팅방 목록 조회 성공")
                     .data(pageResult)
                     .build();
-
             return ResponseEntity.ok(body);
-
         } catch (Exception e) {
             log.error("내가 참여한 채팅방 목록 조회 실패 userId:{}", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
+            ApiResponse<Page<ChatRoomListItemDTO>> error = ApiResponse.<Page<ChatRoomListItemDTO>>builder()
                     .message("내가 참여한 채팅방 목록 조회 실패")
                     .build();
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
 
-
-    // 내가 작성한 리뷰 목록
+    @Operation(summary = "내가 작성한 리뷰 목록", description = "내가 작성한 카페 리뷰를 최신순으로 페이징 조회합니다.")
     @GetMapping("/reviews")
-    public ResponseEntity<?> myReviews(@AuthenticationPrincipal String userId,
-                                       @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<ReviewResponseDTO>>> myReviews(
+            @Parameter(hidden = true) @AuthenticationPrincipal String userId,
+            @ParameterObject
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
         try {
             Page<ReviewResponseDTO> pageResult = reviewService.getReviewById(userId, pageable);
-
             ApiResponse<Page<ReviewResponseDTO>> body = ApiResponse.<Page<ReviewResponseDTO>>builder()
                     .message("내가 작성한 리뷰 목록 조회 성공")
                     .data(pageResult)
                     .build();
-
             return ResponseEntity.ok(body);
-
         } catch (Exception e) {
             log.error("내가 작성한 리뷰 목록 조회 실패 userId:{}", userId, e);
-
-            ApiResponse<?> error = ApiResponse.builder()
+            ApiResponse<Page<ReviewResponseDTO>> error = ApiResponse.<Page<ReviewResponseDTO>>builder()
                     .message("내가 작성한 리뷰 목록 조회 실패")
                     .build();
-
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
     }
-
 }
