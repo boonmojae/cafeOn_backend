@@ -38,10 +38,16 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     /**
      * todo : 1-2. 검색어로 조회 (이거 빼는게맞지않나?)
      */
-    @Query("""
-            SELECT c FROM CafeEntity c
-            WHERE c.name LIKE %:query% OR c.address LIKE %:query%
-            """)
+    @Query(value = """
+            SELECT DISTINCT c.*
+            FROM cafes c
+            LEFT JOIN cafe_tags ct ON c.cafe_id = ct.cafe_id
+            LEFT JOIN tags t ON ct.tag_id = t.tag_id
+            WHERE c.name LIKE %:query%
+            OR c.reviews_summary LIKE %:query%
+            OR t.name LIKE %:query%
+            LIMIT 50
+            """, nativeQuery = true)
     List<CafeEntity> searchByQuery(@Param("query") String query);
 
     /**
@@ -194,8 +200,21 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     List<CafeEntity> findTopWishlistedCafesFull(@Param("limit") int limit);
 
 
+    /**
+     * 8. 찜 수 계산
+     */
+//    8-1. 다건 집계: 목록 응답에서 N+1 방지
+    @Query(value = """
+            SELECT w.cafe_id AS cafeId, COUNT(*) AS cnt
+            FROM wishlists w
+            WHERE w.cafe_id IN (:ids)
+            GROUP BY w.cafe_id
+            """, nativeQuery = true)
+    List<Object[]> countWishByCafeIds(@Param("ids") List<Long> ids);
 
-
+//    8-2. 단건 집계: 상세 응답
+    @Query(value = "SELECT COUNT(*) FROM wishlists w WHERE w.cafe_id = :cafeId", nativeQuery = true)
+    int countWishByCafeId(@Param("cafeId") Long cafeId);
 
     //    평점순 정렬
     @Query("""

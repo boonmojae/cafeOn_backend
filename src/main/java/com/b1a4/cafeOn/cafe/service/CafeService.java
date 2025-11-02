@@ -77,20 +77,38 @@ public class CafeService {
             cafes = cafeRepository.findAll();
         }
 
-//        Entity -> DTO 변환 (CafeDTO의 fromEntity static-method 활용)
+//        1-3. 각 카페별 찜 수 집계 (wishlists 테이블 기준)
+//              -> cafes테이블에 wishlist_count 컬럼이 없다면 이 맵으로 채움
+        List<Long> cafeIds = cafes.stream()
+                .map(CafeEntity::getCafeId)
+                .toList();
+        Map<Long, Integer> wishlistMap = buildWishCountMap(cafeIds);
+
+//        1-4. Entity -> DTO 변환 (CafeDTO의 fromEntity static-method 활용) + wishlistCount 주입
         return cafes.stream()
-                .map(CafeDTO::fromEntity)
+                .map(entity -> {
+                    CafeDTO dto = CafeDTO.fromEntity(entity);
+//                    DB 컬럼이 없으므로 여기서 찜 개수 세팅
+                    dto.setWishlistCount(wishlistMap.getOrDefault(entity.getCafeId(), 0));
+                    return dto;
+                })
                 .collect(Collectors.toList());
+//
     }
 
     /**
      *  2. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
      */
     private  List<CafeDTO> searchAndMerge(String keyword) {
-//        2-1. 카카오 API 호출
         List<Map<String, Object>> documents = fetchFromKakao(keyword);
+
+//        2-1. 카카오 API 에서 결과 없는 경우 -> DB fallback
         if (documents.isEmpty()) {
-            return List.of();
+            log.info("⚠️ Kakao API returned no results. Falling back to DB search...");
+            List<CafeEntity> dbFallback = cafeRepository.searchByQuery(keyword);
+            return dbFallback.stream()
+                    .map(CafeDTO::fromEntity)
+                    .collect(Collectors.toList());
         }
 
 //        2-2. 카카오 결과에서 '카페 이름' 목록 추출
@@ -99,34 +117,37 @@ public class CafeService {
                 .distinct()
                 .collect(Collectors.toList());
 
-//        2-3. '이름' 목록으로 DB 일괄 조회 (IN 쿼리 + name 인덱스 활용)
+//        2-3. DB 검색: 이름 일치 or 태그 일치 or 요약 포함
         List<CafeEntity> dbCafes = cafeRepository.findByNameIn(kakaoCafeNames);
+        List<CafeEntity> tagMatch = cafeRepository.searchByQuery(keyword);
 
-//        2-4. 병합 성능 최적화를 위해 DB결과를 Map으로 변환 (Key: 카페이름, Value: CafeEntity)
-//        O(N) -> O(1) 조회 속도 향상
+//        2-4. 중복 제거
+        Set<Long> existingIds = dbCafes.stream()
+                .map(CafeEntity::getCafeId)
+                .collect(Collectors.toSet());
+
+        tagMatch.stream()
+                .filter(c -> !existingIds.contains(c.getCafeId()))
+                .forEach(dbCafes::add);
+
         Map<String, CafeEntity> dbCafesMap = dbCafes.stream()
-                .collect(Collectors.toMap(CafeEntity::getName, Function.identity(), (db1, db2) -> db1));    // 이름 중복 시 첫 번째 데이터 사용
+                .collect(Collectors.toMap(CafeEntity::getName, Function.identity(), (a, b) -> a));
 
         List<CafeDTO> mergedResults = new ArrayList<>();
 
-//        2-5. 카카오 API결과(documents)를 순회하며 DB데이터와 병합 (카카오 정렬 순서 유지)
         for (Map<String, Object> doc : documents) {
             String kakaoName = (String) doc.get("place_name");
             String kakaoId = (String) doc.get("id");
 
             CafeEntity dbCafe = dbCafesMap.get(kakaoName);
-
             if (dbCafe != null) {
-//                2-5-1. DB에 데이터가 있는 경우: DB데이터(avg_rating 등)로 DTO 생성
                 mergedResults.add(CafeDTO.fromEntity(dbCafe));
             } else {
-//                2-5-2. DB에 데이터가 없는 경우: 카카오 데이터로 DTO 생성 (즉시 응답용)
                 mergedResults.add(parseKakaoDocToDTO(doc));
-
-//                2-5-3. @Async: DB에 없는 카페 정보 비동기 저장
                 synchronizeCafe(doc, kakaoId);
             }
         }
+
         return mergedResults;
     }
 
@@ -562,5 +583,21 @@ public class CafeService {
                 .build();
     }
 
+    /**
+     * cafe_id 리스트를 받아 각 카페별 찜 개수를 Map으로 반환
+     * ex) {1=52, 2=31, 3=0, ...}
+     */
+    private Map<Long, Integer> buildWishCountMap(List<Long> cafeIds) {
+        if (cafeIds == null || cafeIds.isEmpty()) return Collections.emptyMap();
+
+        List<Object[]> rows = cafeRepository.countWishByCafeIds(cafeIds);
+        Map<Long, Integer> result = new HashMap<>();
+        for (Object[] row : rows) {
+            Long id = ((Number) row[0]).longValue();
+            Integer count = ((Number) row[1]).intValue();
+            result.put(id, count);
+        }
+        return result;
+    }
 
 }

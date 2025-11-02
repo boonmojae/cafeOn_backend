@@ -49,8 +49,8 @@ public class CafeDTO {
     @Schema(description = "대표 사진 URL", example = "https://img1.kakaocdn.net/...jpg")
     private String photoUrl;
 
-//    @Schema(description = "찜 수", example = "52")
-//    private Integer wishlistCount;
+    @Schema(description = "찜 수", example = "52")
+    private Integer wishlistCount;
 //    private String relatedCafes;    // todo
 
 //    Cafe API는 읽기(Read) 중심 : DB데이터를 프론트에 맞게 내려줘야 해서 Entity -> DTO 변환이 필요
@@ -78,6 +78,7 @@ public class CafeDTO {
                 .openHours(entity.getOpenHours())
                 .reviewsSummary(summary)
                 .photoUrl(entity.getPhotoUrl())
+                .wishlistCount(0)   // Entity에 없으므로 0으로 초기화. Service에서 다시 set됨
                 .build();
     }
 }

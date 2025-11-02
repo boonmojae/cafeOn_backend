@@ -57,6 +57,9 @@ public class CafeDetailResponse {
     @Schema(description = "대표 사진 URL", example = "https://img1.kakaocdn.net/...jpg")
     private String photoUrl;
 
+    @Schema(description = "찜 수", example = "52")
+    private Integer wishlistCount;
+
     @Getter
     @AllArgsConstructor
     @Schema(description = "후기 정보 DTO")
