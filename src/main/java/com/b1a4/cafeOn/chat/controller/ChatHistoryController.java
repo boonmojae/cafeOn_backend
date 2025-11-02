@@ -4,18 +4,19 @@ import com.b1a4.cafeOn.chat.dto.chat.ChatResponseDTO;
 import com.b1a4.cafeOn.chat.dto.chat.CursorPage;
 import com.b1a4.cafeOn.chat.service.ChatService;
 import com.b1a4.cafeOn.common.api.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 
+@Tag(name = "ChatHistory", description = "채팅 메시지 히스토리 API")
+@SecurityRequirement(name = "Bearer Authentication")
 @RestController
 @RequestMapping("/api/chat/rooms")
 @RequiredArgsConstructor
@@ -24,12 +25,15 @@ public class ChatHistoryController {
 
     private final ChatService chatService;
 
+    @Operation(summary = "채팅방 메시지 목록 조회 (커서 기반)")
     @GetMapping("/{roomId}/messages")
-    public ResponseEntity<?> history(@PathVariable Long roomId,
-                                     @RequestParam(required = false) Long beforeId,
-                                     @RequestParam(defaultValue = "50") int size,
-                                     @RequestParam(defaultValue = "false") boolean includeSystem,
-                                     Principal principal) {
+    public ResponseEntity<ApiResponse<CursorPage<ChatResponseDTO>>> history(
+            @PathVariable Long roomId,
+            @RequestParam(required = false) Long beforeId,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "false") boolean includeSystem,
+            @Parameter(hidden = true) Principal principal
+    ) {
         try {
             String viewerId = principal.getName();
             log.info("[REST][HISTORY-IN ] roomId={}, viewerId={}, beforeId={}, includeSystem={}, size={}",
@@ -47,7 +51,9 @@ public class ChatHistoryController {
         } catch (Exception e) {
             log.error("채팅방 메시지 목록 조회 실패 roomId:{}", roomId, e);
             return ResponseEntity.badRequest().body(
-                    ApiResponse.builder().message("채팅방 메시지 목록 조회 실패").build()
+                    ApiResponse.<CursorPage<ChatResponseDTO>>builder()
+                            .message("채팅방 메시지 목록 조회 실패")
+                            .build()
             );
         }
     }
