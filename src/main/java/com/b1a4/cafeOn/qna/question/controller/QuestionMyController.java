@@ -6,6 +6,8 @@ import com.b1a4.cafeOn.qna.question.dto.QuestionListResponseDTO;
 import com.b1a4.cafeOn.qna.question.dto.QuestionRequestDTO;
 import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
 import com.b1a4.cafeOn.qna.question.service.QuestionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,12 +26,17 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/my/questions")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Question", description = "내 문의 관리 API")
 public class QuestionMyController {
 
     private final QuestionService questionService;
 
     // 내가 작성한 문의 목록
     @GetMapping
+    @Operation(
+            summary = "내 문의 목록 조회",
+            description = "로그인한 사용자가 작성한 문의 목록을 페이징하여 조회합니다. 키워드 검색도 가능합니다."
+    )
     public ResponseEntity<ApiResponse<Page<QuestionListResponseDTO>>> getMyQuestions(
             @AuthenticationPrincipal String userId,
             @ParameterObject
@@ -56,6 +63,10 @@ public class QuestionMyController {
 
     // 내가 작성한 문의 상세
     @GetMapping("/{id}")
+    @Operation(
+            summary = "내 문의 상세 조회",
+            description = "로그인한 사용자가 작성한 특정 문의의 상세 정보를 조회합니다."
+    )
     public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> getMyQuestion(
             @AuthenticationPrincipal String userId,
             @PathVariable("id") Long id
@@ -84,6 +95,10 @@ public class QuestionMyController {
 
     // 문의 수정 (답변 전만 가능)
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            summary = "내 문의 수정",
+            description = "답변이 등록되지 않은 문의만 수정할 수 있습니다."
+    )
     public ResponseEntity<ApiResponse<Void>> updateMyQuestion(
             @AuthenticationPrincipal String userId,
             @PathVariable("id") Long id,
@@ -113,6 +128,10 @@ public class QuestionMyController {
 
     // 문의 삭제 (답변 전만 가능)
     @DeleteMapping("/{id}")
+    @Operation(
+            summary = "내 문의 삭제",
+            description = "답변이 등록되지 않은 문의만 삭제할 수 있습니다."
+    )
     public ResponseEntity<ApiResponse<Void>> deleteMyQuestion(
             @AuthenticationPrincipal String userId,
             @PathVariable("id") Long id

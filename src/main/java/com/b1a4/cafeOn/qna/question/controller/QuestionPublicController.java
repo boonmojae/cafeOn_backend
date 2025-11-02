@@ -7,6 +7,8 @@ import com.b1a4.cafeOn.qna.question.dto.QuestionRequestDTO;
 import com.b1a4.cafeOn.qna.question.entity.QuestionEntity;
 import com.b1a4.cafeOn.qna.question.enums.QuestionVisibility;
 import com.b1a4.cafeOn.qna.question.service.QuestionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +27,17 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/qna/questions")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Question", description = "문의 공개 API")
 public class QuestionPublicController {
 
     private final QuestionService questionService;
 
     // 전체 문의 목록 조회 (비공개 제목은 "비공개 문의"로 표시)
     @GetMapping
+    @Operation(
+            summary = "문의 목록 조회",
+            description = "전체 문의를 조회합니다. 비공개 문의의 제목은 '비공개 문의'로 표시됩니다."
+    )
     public ResponseEntity<ApiResponse<Page<QuestionListResponseDTO>>> getAllQuestions(
             @AuthenticationPrincipal String userId,
             @ParameterObject
@@ -57,6 +64,10 @@ public class QuestionPublicController {
 
     // 문의 상세 조회 (비공개는 작성자/관리자만 확인 가능)
     @GetMapping("/{id}")
+    @Operation(
+            summary = "문의 상세 조회",
+            description = "특정 문의의 상세 정보를 조회합니다. 비공개 문의는 작성자 또는 관리자만 본문을 볼 수 있습니다."
+    )
     public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> getQuestionDetail(
             @PathVariable("id") Long id,
             @AuthenticationPrincipal String userId
@@ -104,6 +115,10 @@ public class QuestionPublicController {
 
     // 새 문의 작성
     @PostMapping
+    @Operation(
+            summary = "문의 등록",
+            description = "새로운 문의를 등록합니다. 공개/비공개 여부(visibility)를 선택할 수 있습니다."
+    )
     public ResponseEntity<ApiResponse<QuestionDetailResponseDTO>> createQuestion(
             @AuthenticationPrincipal String userId,
             @Valid @RequestBody QuestionRequestDTO dto
