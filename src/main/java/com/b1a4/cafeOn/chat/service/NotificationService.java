@@ -68,7 +68,6 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<NotificationPushDTO> listUnreadForHeader(String userId) {
-        // N+1 방지: 필요시 fetch join 쿼리로 교체
         return notificationRepository.findUnreadByUserExcludingMuted(userId).stream()
                 .map(n -> {
                     Long roomId = n.getChatRoom() != null ? n.getChatRoom().getChatRoomId() : null;

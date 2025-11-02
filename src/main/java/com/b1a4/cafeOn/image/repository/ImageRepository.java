@@ -33,9 +33,6 @@ public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
     """)
     List<String> findAllS3KeysByRoomId(@Param("roomId") Long roomId);
 
-    // 채팅방 이미지 일괄 삭제 => DB 이미지가 남아서 채팅방 나가기X 아래 메서드 사용
-    // long deleteByChat_ChatRoom_ChatRoomId(Long roomId);
-
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
         delete from ImageEntity i

@@ -121,7 +121,6 @@ public class CommentService {
 
 
     // 내가 작성한 댓글 목록
-    // fixme: mypage 브랜치
     @Transactional(readOnly = true)
     public Page<CommentResponseDTO> getCommentByUserId(String userId, Pageable pageable) {
         findByUserId(userId);
@@ -141,7 +140,6 @@ public class CommentService {
     }
     
     // 내가 좋아요한 댓글 목록
-    // fixme: mypage 브랜치
     @Transactional(readOnly = true)
     public Page<CommentResponseDTO> getLikeCommentByUserId(String userId, Pageable pageable) {
         // 유저 검증

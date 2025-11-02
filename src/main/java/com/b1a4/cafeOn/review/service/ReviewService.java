@@ -148,7 +148,6 @@ public class ReviewService {
     }
 
 
-
     public UserEntity findByUserId(String userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() ->
@@ -180,12 +179,13 @@ public class ReviewService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<ReviewResponseDTO> getReviewsByCafeId(Long cafeId) {    // 단순조회+로그 메서드 추가
-        List<ReviewEntity> reviews = reviewRepository.findByCafe_CafeId(cafeId);
-        log.info("🔎 [ReviewService] cafeId={} -> reviews found: {}", cafeId, reviews.size());
 
-        // 리뷰 각각 id도 찍어보기
+
+    @Transactional(readOnly = true)
+    public List<ReviewResponseDTO> getReviewsByCafeId(Long cafeId) {
+        List<ReviewEntity> reviews = reviewRepository.findByCafe_CafeId(cafeId);
+        log.info("[ReviewService] cafeId={} -> reviews found: {}", cafeId, reviews.size());
+
         reviews.forEach(r -> log.info("   - reviewId={}, rating={}, userId={}, images={}",
                 r.getReviewId(), r.getRating(),
                 r.getUser() != null ? r.getUser().getUserId() : "null",
