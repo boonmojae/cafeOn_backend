@@ -6,6 +6,8 @@ import com.b1a4.cafeOn.user.enums.UserRole;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,6 +18,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "users")   // DB 테이블명
+
+@SQLDelete(sql = "UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, status = 'DELETED' WHERE user_id = ?")
+@Where(clause = "deleted_at IS NULL")
 public class UserEntity {
 //    ENUM 기본값으로 첫 값이 0으로 설정되어 들어감. 하지만 엔티티 생성할 때 생성자나 setter로 다른 상태로 가입 처리 가능
 
@@ -92,6 +97,20 @@ public class UserEntity {
     // 기존 엔티티가 수정될 때 호출됨, 주로 updatedAt 값 갱신 시 사용
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void softDelete() {
+        this.status = UserStatus.DELETED;
+        this.deletedAt = LocalDateTime.now();
+        this.refreshToken = null; // 재로그인 방지 (선택)
+        this.nickname = "탈퇴회원";
+        this.profileImage = null;
+        this.profileImageUrl = null;
+    }
+
+    // 탈퇴 여부 확인
+    public boolean isDeleted() {
+        return this.deletedAt != null || this.status == UserStatus.DELETED;
     }
 
 }

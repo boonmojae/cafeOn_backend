@@ -4,6 +4,7 @@ import com.b1a4.cafeOn.common.exception.ClientErrorException;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import com.b1a4.cafeOn.image.service.S3Service;
 import com.b1a4.cafeOn.user.entity.UserEntity;
+import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.user.profile.dto.*;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -82,5 +83,20 @@ public class UserProfileService {
         if (pw == null || pw.length() < 8) {
             throw new ClientErrorException(HttpStatus.BAD_REQUEST, "비밀번호는 8자 이상이어야 합니다.");
         }
+    }
+
+    // 회원 탈퇴
+    @Transactional
+    public void deleteMyAccount(String userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new ClientErrorException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+
+        if (user.getDeletedAt() != null || user.getStatus() == UserStatus.DELETED) {
+            throw new ClientErrorException(HttpStatus.CONFLICT, "이미 탈퇴한 사용자입니다.");
+        }
+
+        user.softDelete();
+
+        userRepository.save(user);
     }
 }
