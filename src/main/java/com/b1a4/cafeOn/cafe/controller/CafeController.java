@@ -40,11 +40,11 @@ public class CafeController {
     @Operation(
             summary = "🔍 카페 검색 및 목록 조회",
             description = """
-                    query(검색어) 또는 tag(태그)로 카페 목록을 조회합니다.
-                    - query가 있으면: Kakao REST API의 카페 검색 결과와 DB 데이터를 병합해서 반환합니다.
-                    - tag만 있으면: DB 내 해당 태그의 카페를 조회합니다.
-                    - query/tag 둘 다 없으면: 전체 카페 목록을 반환합니다.
-                    """,
+                query(검색어) 또는 tag(태그)로 카페 목록을 조회합니다.
+                - query가 있으면: Kakao REST API의 카페 검색 결과와 DB 데이터를 병합해서 반환합니다.
+                - tag만 있으면: DB 내 해당 태그의 카페를 조회합니다.
+                - query/tag 둘 다 없으면: 전체 카페 목록을 반환합니다.
+                """,
             parameters = {
                     @Parameter(
                             name = "query",
@@ -64,34 +64,42 @@ public class CafeController {
                             content = @Content(
                                     mediaType = "application/json",
                                     array = @ArraySchema(
-                                            schema = @Schema(implementation = CafeDTO.class)
+                                            schema = @Schema(implementation = CafeDetailResponse.class)
                                     ),
                                     examples = @ExampleObject(value = """
-                                            [
-                                              {
-                                                "cafeId": 101,
-                                                "name": "폴바셋 강남역점",
-                                                "address": "서울 강남구 테헤란로 123",
-                                                "latitude": 37.498,
-                                                "longitude": 127.028,
-                                                "phone": "02-123-4567",
-                                                "avgRating": 4.35,
-                                                "reviewsSummary": "커피가 진하고 분위기가 좋아요 ☕",
-                                                "wishlistCount": 52
-                                              },
-                                              {
-                                                "cafeId": null,
-                                                "name": "스타벅스 강남2호점",
-                                                "address": "서울 강남구 강남대로 420",
-                                                "latitude": 37.5002,
-                                                "longitude": 127.0274,
-                                                "phone": "02-777-9999",
-                                                "avgRating": 0.00,
-                                                "reviewsSummary": null,
-                                                "wishlistCount": 0
-                                              }
-                                            ]
-                                            """)
+                                        [
+                                          {
+                                            "id": 1144,
+                                            "name": "로찌커피 논현점",
+                                            "address": "서울 강남구 강남대로128길 4",
+                                            "phone": "02-543-1009",
+                                            "latitude": 37.5096807246915,
+                                            "longitude": 127.022634417315,
+                                            "rating": "3.8",
+                                            "hours": "월 10:30 ~ 23:00\\n화 10:30 ~ 23:00\\n수 10:30 ~ 23:00...",
+                                            "reviewsSummary": "분위기도 고급스럽고 예쁘며, 디저트도 맛있어요.",
+                                            "reviews": [],
+                                            "tags": ["분위기있는", "감성적인", "프라이빗한", "카페거리위치", "고급스러운"],
+                                            "photoUrl": "https://img1.kakaocdn.net/...jpg",
+                                            "wishlistCount": 0
+                                          },
+                                          {
+                                            "id": 18988,
+                                            "name": "까사넬로",
+                                            "address": "서울 강남구 봉은사로29길 10",
+                                            "phone": "0507-1333-2984",
+                                            "latitude": 37.5084596371926,
+                                            "longitude": 127.03470320344,
+                                            "rating": "3.8",
+                                            "hours": "월 12:00 ~ 20:00...",
+                                            "reviewsSummary": "맛있는 케이크와 커피까지 즐길 수 있는 곳입니다.",
+                                            "reviews": [],
+                                            "tags": ["감성적인", "분위기있는", "디저트맛집"],
+                                            "photoUrl": "https://img1.kakaocdn.net/...jpg",
+                                            "wishlistCount": 3
+                                          }
+                                        ]
+                                        """)
                             )
                     ),
                     @ApiResponse(
@@ -99,33 +107,33 @@ public class CafeController {
                             description = "❌ 잘못된 요청 (파라미터 누락 또는 형식 오류)",
                             content = @Content(mediaType = "application/json",
                                     examples = @ExampleObject(value = """
-                                            {
-                                              "error": "Invalid parameter",
-                                              "message": "query 또는 tag 중 하나는 필수입니다."
-                                            }
-                                            """))
+                                        {
+                                          "error": "Invalid parameter",
+                                          "message": "query 또는 tag 중 하나는 필수입니다."
+                                        }
+                                        """))
                     ),
                     @ApiResponse(
                             responseCode = "500",
                             description = "❗ 서버 내부 오류",
                             content = @Content(mediaType = "application/json",
                                     examples = @ExampleObject(value = """
-                                            {
-                                              "error": "Internal Server Error",
-                                              "message": "Kakao API 호출 중 오류가 발생했습니다."
-                                            }
-                                            """))
+                                        {
+                                          "error": "Internal Server Error",
+                                          "message": "Kakao API 호출 중 오류가 발생했습니다."
+                                        }
+                                        """))
                     )
             }
     )
-    public ResponseEntity<?> searchCafes(
+    public ResponseEntity<List<CafeDetailResponse>> searchCafes(
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) String tag
-    ) {
-        List<CafeDTO> cafes = cafeService.searchCafes(query, tag);    // required=false로 해당 파라미터가 아예 안 넘어와도 null로 처리해서 들어감
+            @RequestParam(required = false) String tag) {
+        // required=false로 해당 파라미터가 아예 안 넘어와도 null로 처리되어 들어감
+        List<CafeDetailResponse> cafes = cafeService.searchCafes(query, tag);
         return ResponseEntity.ok(cafes);
-        
     }
+
 
     /**
      * 2. 카페 상세 정보 조회

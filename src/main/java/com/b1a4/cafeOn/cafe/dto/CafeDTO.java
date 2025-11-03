@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 // API 요청/응답 맞춤용 => API(클라이언트) 중심의 역할
 @Data
@@ -51,6 +52,10 @@ public class CafeDTO {
 
     @Schema(description = "찜 수", example = "52")
     private Integer wishlistCount;
+
+    @Schema(description = "태그 목록 100개")
+    private List<String> tags;
+
 //    private String relatedCafes;    // todo
 
 //    Cafe API는 읽기(Read) 중심 : DB데이터를 프론트에 맞게 내려줘야 해서 Entity -> DTO 변환이 필요

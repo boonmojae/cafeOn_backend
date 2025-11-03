@@ -63,38 +63,68 @@ public class CafeService {
     /**
      * 1. 키워드나 태그로 검색
      */
-    public List<CafeDTO> searchCafes(String keyword, String tag) {
-//        1-1. keyword가 있으면 [카카오맵 REST API(키워드로 장소검색) + DB병합] 로직 실행
+    public List<CafeDetailResponse> searchCafes(String keyword, String tag) {
+
+        // 1-1. keyword가 있으면 [카카오맵 REST API(키워드로 장소검색) + DB병합] 로직 실행
         if (keyword != null && !keyword.isEmpty()) {
-            return searchAndMerge(keyword);
+            // ✅ 카카오 API 검색 + DB 병합 결과 (CafeDTO 대신 CafeDetailResponse 반환하도록 변경)
+            List<CafeDTO> kakaoMerged = searchAndMerge(keyword);
+
+            // 🔁 CafeDTO → CafeDetailResponse로 변환 (기존 toDetailResponse() 재활용)
+            return kakaoMerged.stream()
+                    .map(dto -> {
+                        // dto.getCafeId()가 null일 수도 있음 (신규 카페)
+                        if (dto.getCafeId() == null) {
+                            return CafeDetailResponse.builder()
+                                    .name(dto.getName())
+                                    .address(dto.getAddress())
+                                    .latitude(dto.getLatitude())
+                                    .longitude(dto.getLongitude())
+                                    .phone(dto.getPhone())
+                                    .rating(dto.getAvgRating() != null ? dto.getAvgRating().toString() : "0.00")
+                                    .reviewsSummary(dto.getReviewsSummary())
+                                    .photoUrl(dto.getPhotoUrl())
+                                    .reviews(List.of())
+                                    .tags(List.of())
+                                    .build();
+                        }
+                        // DB 존재 카페는 상세 변환
+                        CafeEntity entity = cafeRepository.findById(dto.getCafeId()).orElse(null);
+                        return (entity != null) ? toDetailResponse(entity) : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .toList();
         }
 
-//        1-2. keyword가 없고 tag나 전체 조회일 경우 (DB만 조회)
+        // 1-2. keyword가 없고 tag나 전체 조회일 경우 (DB만 조회)
         List<CafeEntity> cafes;
-        if (tag !=null && !tag.isEmpty()) {
+        if (tag != null && !tag.isEmpty()) {
             cafes = cafeRepository.findByTag(tag);
         } else {
             cafes = cafeRepository.findAll();
         }
 
-//        1-3. 각 카페별 찜 수 집계 (wishlists 테이블 기준)
-//              -> cafes테이블에 wishlist_count 컬럼이 없다면 이 맵으로 채움
+        // 1-3. 각 카페별 찜 수 집계 (wishlists 테이블 기준)
+        //       -> cafes테이블에 wishlist_count 컬럼이 없다면 이 맵으로 채움
         List<Long> cafeIds = cafes.stream()
                 .map(CafeEntity::getCafeId)
                 .toList();
         Map<Long, Integer> wishlistMap = buildWishCountMap(cafeIds);
 
-//        1-4. Entity -> DTO 변환 (CafeDTO의 fromEntity static-method 활용) + wishlistCount 주입
+        // 1-4. Entity -> CafeDetailResponse 변환 + wishlistCount 주입
+        //       기존 CafeDTO 대신 toDetailResponse() 사용하여 tags 자동 주입
         return cafes.stream()
                 .map(entity -> {
-                    CafeDTO dto = CafeDTO.fromEntity(entity);
-//                    DB 컬럼이 없으므로 여기서 찜 개수 세팅
-                    dto.setWishlistCount(wishlistMap.getOrDefault(entity.getCafeId(), 0));
-                    return dto;
+                    CafeDetailResponse response = toDetailResponse(entity);
+
+                    // 찜 개수 직접 세팅 (CafeDetailResponse에 setter 있으면 가능)
+                    response.setWishlistCount(wishlistMap.getOrDefault(entity.getCafeId(), 0));
+
+                    return response;
                 })
                 .collect(Collectors.toList());
-//
     }
+
 
     /**
      *  2. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
