@@ -19,24 +19,25 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     Optional<String> findNameById(@Param("cafeId") Long cafeId);
   
     /**
-     * 1. 전체 목록 조회
+     * 1. 전체 목록 조회 (이미지 있는 카페만)
      */
+    @Query(value = "SELECT * FROM cafes WHERE photo_url IS NOT NULL AND photo_url <> ''", nativeQuery = true)
     List<CafeEntity> findAll();
 
     /**
-     * 1-1. 태그로 조회 todo: cafe_tags 테이블 만들고 join문 검토 필요
-     * @param tag
+     * 1-1. 태그로 조회 (이미지 있는 카페만)
      */
     @Query(value = """
-            SELECT c.* FROM cafes c
-            JOIN cafe_tags ct ON c.cafe_id = ct.cafe_id
-            JOIN tags t ON ct.tag_id = t.tag_id
-            WHERE t.name = :tag
-            """, nativeQuery = true)
+        SELECT c.* FROM cafes c
+        JOIN cafe_tags ct ON c.cafe_id = ct.cafe_id
+        JOIN tags t ON ct.tag_id = t.tag_id
+        WHERE t.name = :tag
+        AND c.photo_url IS NOT NULL AND c.photo_url <> ''
+        """, nativeQuery = true)
     List<CafeEntity> findByTag(@Param("tag") String tag);
 
     /**
-     * todo : 1-2. 검색어로 조회 (이거 빼는게맞지않나?)
+     * todo : 1-2. 검색어로 조회 (이미지 있는 카페만)
      */
     @Query(value = """
             SELECT DISTINCT c.*
@@ -46,12 +47,12 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             WHERE c.name LIKE %:query%
             OR c.reviews_summary LIKE %:query%
             OR t.name LIKE %:query%
-            LIMIT 50
+            AND c.photo_url IS NOT NULL AND c.photo_url <> ''
             """, nativeQuery = true)
     List<CafeEntity> searchByQuery(@Param("query") String query);
 
     /**
-     * todo : 1-3. 검색어 + 태그 조회 (필요 시) (얘또한 빼야맞지않나?)
+     * todo : 1-3. 검색어 + 태그 조회 (필요 시)(현재 사용 안됨)
      */
     @Query(value = """
             SELECT c.* FROM cafes c
@@ -76,20 +77,21 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     Optional<CafeEntity> findByKakaoId(String kakaoId);
 
     /**
-     * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL)
+     * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL) (이미지 있는 카페만)
      * Haversine 공식을 이용해 거리(m) 계산
      * 반경 `radius` m 이내 카페만 필터링
      * 정렬은 거리 오름차순
      * 최대 100개만 응답
      */
     @Query(value = """
-        SELECT *, ST_Distance_Sphere(point(longitude, latitude), point(:longitude, :latitude)) AS distance
-        FROM cafes
-        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-        AND ST_Distance_Sphere(point(longitude, latitude), point(:longitude, :latitude)) <= :radius
-        ORDER BY distance ASC
-        LIMIT 100
-        """, nativeQuery = true)
+    SELECT *, ST_Distance_Sphere(point(longitude, latitude), point(:longitude, :latitude)) AS distance
+    FROM cafes
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+    AND photo_url IS NOT NULL AND photo_url <> ''
+    AND ST_Distance_Sphere(point(longitude, latitude), point(:longitude, :latitude)) <= :radius
+    ORDER BY distance ASC
+    LIMIT 100
+    """, nativeQuery = true)
     List<CafeEntity> findNearbyCafes(
             @Param("latitude") double latitude,
             @Param("longitude") double longitude,
@@ -97,9 +99,9 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     );
 
     /**
-     * 4. 랜덤 카페 10개 조회
+     * 4. 랜덤 카페 10개 조회 (이미지 있는 카페만)
      */
-    @Query(value = "SELECT * FROM cafes ORDER BY RAND() LIMIT 10", nativeQuery = true)
+    @Query(value = "SELECT * FROM cafes WHERE photo_url IS NOT NULL AND photo_url <> '' ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<CafeEntity> findRandom10();
 
     /**
@@ -116,7 +118,7 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
 
 
     /**
-     * 6. 종합 인기지수 기반 Top 10 카페 조회 (가중 평균 방식)
+     * 6. 종합 인기지수 기반 Top 10 카페 조회 (가중 평균 방식) (이미지 있는 카페만)
      *
      * <p>인기지수(Hot Score) 계산 공식:</p>
      * <pre>
@@ -144,27 +146,18 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
      * @param wRev 리뷰 수 가중치
      * @return 인기지수 기준 상위 10개 카페 엔티티 리스트
      */
-    @Query(
-            value = """
-            SELECT c.*
-            FROM cafes c
-            ORDER BY (
-                -- 최근 7일 조회수 비중
-                (c.views_last7d * :w7d)
-                +
-                -- 전체 누적 조회수 비중
-                (c.view_count * :wAll)
-                +
-                -- 평균 평점(0~5)을 50배 스케일링 후 가중치 적용
-                (IFNULL(c.avg_rating, 0) * 50 * :wRate)
-                +
-                -- 리뷰 개수(서브쿼리로 계산) × 5점 스케일링 후 가중치 적용
-                ((SELECT COUNT(*) FROM reviews r WHERE r.cafe_id = c.cafe_id) * 5 * :wRev)
-            ) DESC
-            LIMIT 10
-            """,
-            nativeQuery = true
-    )
+    @Query(value = """
+        SELECT c.*
+        FROM cafes c
+        WHERE c.photo_url IS NOT NULL AND c.photo_url <> ''
+        ORDER BY (
+            (c.views_last7d * :w7d)
+            + (c.view_count * :wAll)
+            + (IFNULL(c.avg_rating, 0) * 50 * :wRate)
+            + ((SELECT COUNT(*) FROM reviews r WHERE r.cafe_id = c.cafe_id) * 5 * :wRev)
+        ) DESC
+        LIMIT 10
+        """, nativeQuery = true)
     List<CafeEntity> findHotWeightedNative(
             @Param("w7d") double w7d,
             @Param("wAll") double wAll,
@@ -184,19 +177,17 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     void updateViewsLast7d();
 
     /**
-     * 7. 찜 많은 카페 top10 조회
+     * 7. 찜 많은 카페 top10 조회 (이미지 있는 카페만)
      */
-    @Query(
-            value = """
+    @Query(value = """
         SELECT c.*
         FROM cafes c
         JOIN wishlists w ON w.cafe_id = c.cafe_id
+        WHERE c.photo_url IS NOT NULL AND c.photo_url <> ''
         GROUP BY c.cafe_id
         ORDER BY COUNT(w.cafe_id) DESC
         LIMIT :limit
-        """,
-            nativeQuery = true
-    )
+        """, nativeQuery = true)
     List<CafeEntity> findTopWishlistedCafesFull(@Param("limit") int limit);
 
 
