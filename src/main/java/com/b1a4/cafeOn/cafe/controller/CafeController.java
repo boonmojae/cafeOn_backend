@@ -128,9 +128,12 @@ public class CafeController {
     )
     public ResponseEntity<List<CafeDetailResponse>> searchCafes(
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) String tag) {
+            @RequestParam(required = false) String tag,
+            @RequestParam(required = false) List<String> tags) {
         // required=false로 해당 파라미터가 아예 안 넘어와도 null로 처리되어 들어감
-        List<CafeDetailResponse> cafes = cafeService.searchCafes(query, tag);
+        // tags 배열이 있으면 첫 번째 태그 사용 (호환성 유지)
+        String tagParam = (tags != null && !tags.isEmpty()) ? tags.get(0) : tag;
+        List<CafeDetailResponse> cafes = cafeService.searchCafes(query, tagParam);
         return ResponseEntity.ok(cafes);
     }
 

@@ -23,8 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -191,5 +190,33 @@ public class ReviewService {
                 r.getUser() != null ? r.getUser().getUserId() : "null",
                 r.getImages() != null ? r.getImages().size() : -1));
         return ReviewResponseDTO.fromEntities(reviews);
+    }
+
+    /**
+     * 여러 카페의 리뷰를 일괄 조회 (N+1 문제 해결)
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<ReviewResponseDTO>> getReviewsByCafeIds(List<Long> cafeIds) {
+        if (cafeIds == null || cafeIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<ReviewEntity> reviews = reviewRepository.findByCafe_CafeIdIn(cafeIds);
+        log.info("[ReviewService] 배치 조회: {}개 카페 -> {}개 리뷰", cafeIds.size(), reviews.size());
+
+        // 카페별로 리뷰를 그룹화
+        Map<Long, List<ReviewResponseDTO>> result = new HashMap<>();
+        for (ReviewEntity review : reviews) {
+            Long cafeId = review.getCafe().getCafeId();
+            result.computeIfAbsent(cafeId, k -> new ArrayList<>())
+                    .add(ReviewResponseDTO.fromEntity(review));
+        }
+
+        // 리뷰가 없는 카페도 빈 리스트로 초기화
+        for (Long cafeId : cafeIds) {
+            result.putIfAbsent(cafeId, Collections.emptyList());
+        }
+
+        return result;
     }
 }

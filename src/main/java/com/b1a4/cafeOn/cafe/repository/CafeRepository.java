@@ -115,6 +115,18 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     """, nativeQuery = true)
     List<String> findTagNamesByCafeId(@Param("cafeId") Long cafeId);
 
+    /**
+     * 5-1. 여러 카페의 태그를 일괄 조회 (N+1 문제 해결)
+     */
+    @Query(value = """
+        SELECT ct.cafe_id, t.name
+        FROM cafe_tags ct
+        JOIN tags t ON ct.tag_id = t.tag_id
+        WHERE ct.cafe_id IN :cafeIds
+        ORDER BY ct.cafe_id, t.name
+    """, nativeQuery = true)
+    List<Object[]> findTagNamesByCafeIds(@Param("cafeIds") List<Long> cafeIds);
+
 
 
     /**

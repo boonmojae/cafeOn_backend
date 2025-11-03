@@ -70,7 +70,84 @@ public class CafeService {
             // ✅ 카카오 API 검색 + DB 병합 결과 (CafeDTO 대신 CafeDetailResponse 반환하도록 변경)
             List<CafeDTO> kakaoMerged = searchAndMerge(keyword);
 
-            // 🔁 CafeDTO → CafeDetailResponse로 변환 (기존 toDetailResponse() 재활용)
+            // 🔁 CafeDTO → CafeDetailResponse로 변환 (N+1 문제 해결: 배치 조회 사용)
+            // 카페 ID 리스트 추출 (null 제외)
+            List<Long> cafeIds = kakaoMerged.stream()
+                    .map(CafeDTO::getCafeId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            // 배치 조회: 카페, 태그, 리뷰 일괄 조회
+            final Map<Long, CafeEntity> cafeMap = !cafeIds.isEmpty()
+                    ? cafeRepository.findAllById(cafeIds).stream()
+                            .collect(Collectors.toMap(CafeEntity::getCafeId, Function.identity()))
+                    : new HashMap<>();
+
+            final Map<Long, List<String>> tagsMap = new HashMap<>();
+            if (!cafeIds.isEmpty()) {
+                // 태그 일괄 조회
+                try {
+                    List<Object[]> tagResults = cafeRepository.findTagNamesByCafeIds(cafeIds);
+                    log.info("🔍 [태그 조회] 요청 카페 수: {}, 조회된 태그 결과 수: {}", cafeIds.size(), tagResults != null ? tagResults.size() : 0);
+                    
+                    if (tagResults != null && !tagResults.isEmpty()) {
+                        for (Object[] row : tagResults) {
+                            if (row == null || row.length < 2) {
+                                continue;
+                            }
+                            
+                            Long cafeId = null;
+                            try {
+                                // cafe_id 파싱 (BigInteger, Long, Integer 등 처리)
+                                Object idObj = row[0];
+                                if (idObj == null) continue;
+                                
+                                if (idObj instanceof Number) {
+                                    cafeId = ((Number) idObj).longValue();
+                                } else if (idObj instanceof String) {
+                                    cafeId = Long.parseLong((String) idObj);
+                                } else {
+                                    log.warn("⚠️ cafe_id 예상치 못한 타입: {}", idObj.getClass().getName());
+                                    continue;
+                                }
+                            } catch (Exception e) {
+                                log.warn("⚠️ cafe_id 파싱 실패: row={}, error={}", Arrays.toString(row), e.getMessage());
+                                continue;
+                            }
+                            
+                            // 태그명 파싱
+                            String tagName = null;
+                            try {
+                                Object tagObj = row[1];
+                                if (tagObj != null) {
+                                    tagName = tagObj.toString();
+                                }
+                            } catch (Exception e) {
+                                log.warn("⚠️ 태그명 파싱 실패: row={}, error={}", Arrays.toString(row), e.getMessage());
+                                continue;
+                            }
+                            
+                            if (cafeId != null && tagName != null && !tagName.isEmpty()) {
+                                tagsMap.computeIfAbsent(cafeId, k -> new ArrayList<>()).add(tagName);
+                            }
+                        }
+                    }
+                    
+                    log.info("📊 [태그 조회 완료] 총 {}개 카페 중 태그가 있는 카페: {}개", cafeIds.size(), tagsMap.size());
+                } catch (Exception e) {
+                    log.error("❌ 태그 일괄 조회 중 오류 발생: {}", e.getMessage(), e);
+                }
+            }
+
+            // 검색 결과에서는 리뷰를 빈 배열로 반환 (목록 페이지에서 리뷰 불필요, 성능 최적화)
+            final Map<Long, List<ReviewResponseDTO>> reviewsMap = new HashMap<>();
+            for (Long cafeId : cafeIds) {
+                reviewsMap.put(cafeId, Collections.emptyList());
+                // 태그가 없는 카페는 빈 리스트로 초기화 (이미 조회한 결과가 있으면 유지)
+                tagsMap.putIfAbsent(cafeId, Collections.emptyList());
+            }
+
+            // CafeDTO → CafeDetailResponse 변환
             return kakaoMerged.stream()
                     .map(dto -> {
                         // dto.getCafeId()가 null일 수도 있음 (신규 카페)
@@ -88,11 +165,43 @@ public class CafeService {
                                     .tags(List.of())
                                     .build();
                         }
-                        // DB 존재 카페는 상세 변환
-                        CafeEntity entity = cafeRepository.findById(dto.getCafeId()).orElse(null);
-                        return (entity != null) ? toDetailResponse(entity) : null;
+
+                        // DB 존재 카페는 배치 조회한 데이터 사용
+                        CafeEntity entity = cafeMap.get(dto.getCafeId());
+                        if (entity == null) {
+                            return null;
+                        }
+
+                        List<String> tags = tagsMap.getOrDefault(entity.getCafeId(), Collections.emptyList());
+                        List<ReviewResponseDTO> reviews = reviewsMap.getOrDefault(entity.getCafeId(), Collections.emptyList());
+
+                        BigDecimal rating = entity.getAvgRating() != null
+                                ? entity.getAvgRating()
+                                : entity.getKakaoRating();
+
+                        return CafeDetailResponse.builder()
+                                .id(entity.getCafeId())
+                                .name(entity.getName())
+                                .address(entity.getAddress())
+                                .phone(entity.getPhone())
+                                .hours(entity.getOpenHours())
+                                .rating(rating != null ? String.format("%.2f", rating) : "0.00")
+                                .reviewsSummary(entity.getReviewsSummary())
+                                .reviews(reviews)
+                                .tags(tags)
+                                .photoUrl(entity.getPhotoUrl())
+                                .latitude(entity.getLatitude())
+                                .longitude(entity.getLongitude())
+                                .build();
                     })
                     .filter(Objects::nonNull)
+                    // tag 파라미터가 있으면 태그로 필터링
+                    .filter(response -> {
+                        if (tag != null && !tag.isEmpty()) {
+                            return response.getTags() != null && response.getTags().contains(tag);
+                        }
+                        return true;
+                    })
                     .toList();
         }
 
@@ -111,11 +220,49 @@ public class CafeService {
                 .toList();
         Map<Long, Integer> wishlistMap = buildWishCountMap(cafeIds);
 
-        // 1-4. Entity -> CafeDetailResponse 변환 + wishlistCount 주입
-        //       기존 CafeDTO 대신 toDetailResponse() 사용하여 tags 자동 주입
+        // 1-4. N+1 문제 해결: 태그와 리뷰 배치 조회
+        final Map<Long, List<String>> tagsMap = new HashMap<>();
+        if (!cafeIds.isEmpty()) {
+            // 태그 일괄 조회
+            List<Object[]> tagResults = cafeRepository.findTagNamesByCafeIds(cafeIds);
+            for (Object[] row : tagResults) {
+                Long cafeId = ((Number) row[0]).longValue();
+                String tagName = (String) row[1];
+                tagsMap.computeIfAbsent(cafeId, k -> new ArrayList<>()).add(tagName);
+            }
+        }
+
+        // 검색 결과에서는 리뷰를 빈 배열로 반환 (목록 페이지에서 리뷰 불필요, 성능 최적화)
+        final Map<Long, List<ReviewResponseDTO>> reviewsMap = new HashMap<>();
+        for (Long cafeId : cafeIds) {
+            reviewsMap.put(cafeId, Collections.emptyList());
+            tagsMap.putIfAbsent(cafeId, Collections.emptyList());
+        }
+
+        // 1-5. Entity -> CafeDetailResponse 변환 + wishlistCount 주입 (배치 조회 데이터 사용)
         return cafes.stream()
                 .map(entity -> {
-                    CafeDetailResponse response = toDetailResponse(entity);
+                    List<String> tags = tagsMap.getOrDefault(entity.getCafeId(), Collections.emptyList());
+                    List<ReviewResponseDTO> reviews = reviewsMap.getOrDefault(entity.getCafeId(), Collections.emptyList());
+
+                    BigDecimal rating = entity.getAvgRating() != null
+                            ? entity.getAvgRating()
+                            : entity.getKakaoRating();
+
+                    CafeDetailResponse response = CafeDetailResponse.builder()
+                            .id(entity.getCafeId())
+                            .name(entity.getName())
+                            .address(entity.getAddress())
+                            .phone(entity.getPhone())
+                            .hours(entity.getOpenHours())
+                            .rating(rating != null ? String.format("%.2f", rating) : "0.00")
+                            .reviewsSummary(entity.getReviewsSummary())
+                            .reviews(reviews)
+                            .tags(tags)
+                            .photoUrl(entity.getPhotoUrl())
+                            .latitude(entity.getLatitude())
+                            .longitude(entity.getLongitude())
+                            .build();
 
                     // 찜 개수 직접 세팅 (CafeDetailResponse에 setter 있으면 가능)
                     response.setWishlistCount(wishlistMap.getOrDefault(entity.getCafeId(), 0));
@@ -132,11 +279,13 @@ public class CafeService {
     private  List<CafeDTO> searchAndMerge(String keyword) {
         List<Map<String, Object>> documents = fetchFromKakao(keyword);
 
-//        2-1. 카카오 API 에서 결과 없는 경우 -> DB fallback
+//        2-1. 카카오 API 에서 결과 없는 경우 -> DB fallback (성능 최적화: LIMIT 추가)
         if (documents.isEmpty()) {
             log.info("⚠️ Kakao API returned no results. Falling back to DB search...");
             List<CafeEntity> dbFallback = cafeRepository.searchByQuery(keyword);
+            // 결과 수 제한 (최대 50개)
             return dbFallback.stream()
+                    .limit(50)
                     .map(CafeDTO::fromEntity)
                     .collect(Collectors.toList());
         }
@@ -147,25 +296,20 @@ public class CafeService {
                 .distinct()
                 .collect(Collectors.toList());
 
-//        2-3. DB 검색: 이름 일치 or 태그 일치 or 요약 포함
+//        2-3. DB 검색: 이름 일치만 조회 (성능 최적화 - tagMatch 제거)
         List<CafeEntity> dbCafes = cafeRepository.findByNameIn(kakaoCafeNames);
-        List<CafeEntity> tagMatch = cafeRepository.searchByQuery(keyword);
-
-//        2-4. 중복 제거
-        Set<Long> existingIds = dbCafes.stream()
-                .map(CafeEntity::getCafeId)
-                .collect(Collectors.toSet());
-
-        tagMatch.stream()
-                .filter(c -> !existingIds.contains(c.getCafeId()))
-                .forEach(dbCafes::add);
 
         Map<String, CafeEntity> dbCafesMap = dbCafes.stream()
                 .collect(Collectors.toMap(CafeEntity::getName, Function.identity(), (a, b) -> a));
 
         List<CafeDTO> mergedResults = new ArrayList<>();
+        final int MAX_RESULTS = 50; // 결과 수 제한
 
         for (Map<String, Object> doc : documents) {
+            if (mergedResults.size() >= MAX_RESULTS) {
+                break; // 최대 개수 제한
+            }
+
             String kakaoName = (String) doc.get("place_name");
             String kakaoId = (String) doc.get("id");
 
@@ -182,63 +326,43 @@ public class CafeService {
     }
 
     /**
-     * 키워드 기반 카카오 장소검색: 최대 45페이지(675건)까지 긁어오기
-     * - query만 사용 (category_group_code는 keyword.json에 함께 쓰면 케이스에 따라 필터 꼬일 수 있어 제외)
+     * 키워드 기반 카카오 장소검색: 성능 최적화 - 첫 페이지만 조회
+     * - 검색 결과 목록에서는 첫 페이지(15개)만으로 충분
      * - UTF-8 인코딩 보장
-     * - meta.is_end == true 시 조기 종료
      */
     private List<Map<String, Object>> fetchFromKakao(String keyword) {
         List<Map<String, Object>> allDocuments = new ArrayList<>();
 
         try {
-            for (int page = 1; page <= 45; page++) {
+            // 성능 최적화: 첫 페이지만 조회 (검색 목록에는 충분)
+            String url = UriComponentsBuilder
+                    .fromUriString("https://dapi.kakao.com/v2/local/search/keyword.json")
+                    .queryParam("query", keyword)               // 예: "강남 카페"
+                    .queryParam("size", 15)                    // 첫 페이지 15개만
+                    .queryParam("page", 1)                     // 첫 페이지만
+                    .encode(StandardCharsets.UTF_8)             // ✅ 한글 안전하게 인코딩
+                    .toUriString();
 
-                // ✅ UriComponentsBuilder에 맡기면 이중 인코딩 없음
-                String url = UriComponentsBuilder
-                        .fromUriString("https://dapi.kakao.com/v2/local/search/keyword.json")
-                        .queryParam("query", keyword)               // 예: "강남 카페"
-//                        .queryParam("category_group_code", "CE7")
-                        .queryParam("size", 15)
-                        .queryParam("page", page)
-                        .encode(StandardCharsets.UTF_8)             // ✅ 한글 안전하게 인코딩
-                        .toUriString();
+            log.info("🚀 Kakao API Request URL: {}", url);
 
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("Authorization", "KakaoAK " + kakaoApiKey);
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-                log.info("🚀 Kakao API Request URL: {}", url);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    new ParameterizedTypeReference<>() {}
+            );
 
-                HttpHeaders headers = new HttpHeaders();
-                headers.add("Authorization", "KakaoAK " + kakaoApiKey);
-                HttpEntity<Void> entity = new HttpEntity<>(headers);
-
-                ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.GET,
-                        entity,
-                        new ParameterizedTypeReference<>() {}
-                );
-
-                Map<String, Object> body = response.getBody();
-                if (body == null || !body.containsKey("documents")) break;
-
+            Map<String, Object> body = response.getBody();
+            if (body != null && body.containsKey("documents")) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> documents = (List<Map<String, Object>>) body.get("documents");
-
-                log.info("📡 Kakao API Response (page {}): {} results", page, documents.size());
-
-                if (documents.isEmpty()) break;
+                
+                log.info("📡 Kakao API Response: {} results", documents.size());
                 allDocuments.addAll(documents);
-
-                @SuppressWarnings("unchecked")
-                Map<String, Object> meta = (Map<String, Object>) body.get("meta");
-                if (meta != null && Boolean.TRUE.equals(meta.get("is_end"))) {
-                    log.info("✅ Kakao API last page reached at page {}", page);
-                    break;
-                }
-
-                if (page >= 5) { // 성능 제한
-                    log.info("ℹ️ Page limit reached {}, stop", page);
-                    break;
-                }
             }
 
         } catch (Exception e) {

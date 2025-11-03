@@ -23,4 +23,9 @@ public interface ReviewRepository extends JpaRepository<ReviewEntity, Long> {
 
     List<ReviewEntity> findByCafe_CafeId(Long cafeId);
 
+    /**
+     * 여러 카페의 리뷰를 일괄 조회 (N+1 문제 해결)
+     */
+    List<ReviewEntity> findByCafe_CafeIdIn(List<Long> cafeIds);
+
 }
