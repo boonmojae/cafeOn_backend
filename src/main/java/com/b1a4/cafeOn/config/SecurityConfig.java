@@ -24,30 +24,35 @@ import java.util.Arrays;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
-@Configuration  // 스프링컨테이너에게 해당 클래스가 Bean 정의를 포함한 설정클래스임을 알림
-@EnableWebSecurity  // Spring Security 활성화
+@Configuration
+@EnableWebSecurity
 @Slf4j
 public class SecurityConfig {
+
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Bean   // Bean으로 등록했기때문에, 스프링이 PasswordEncoder 객체를 관리해서,
-    // 다른곳에서 @Autowired PasswordEncoder passwordEncoder 선언 시, 스프링이 컨테이너 안의 이 Bean(BcryptPasswordEncoder)을 자동으로 찾아 주입함
+    @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(); // 직접 new BCryptPasswordEncoder()로 생성하지 않고도, 스프링이 관리하는 Bean을 가져다 쓸 수 있게 함
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
-//    Spring Security가 보안필터체인(Security Filter Chain)을 구성함
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.cors(withDefaults())   // cors 기본으로 설정
-                .csrf(CsrfConfigurer::disable)  // csrf(공격 종류 중 1. 크로스사이트 요청위조 공격)를 disable 설정
-                .sessionManagement(sessionManagement ->
-                        sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))   // session 기반이 아니므로 무상태(STATELESS) 설정
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/", "/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api-docs", "/api-docs-json", "/stomp/chats/**")  // 요청 경로가 일치하는 애들한테는
-                        .permitAll()    // /, /api/auth/** 경로는 인증 안해도 되게 모두 허용하겠다!!(이코드 안쓰면 우리코드랑 관련없는 무슨 security 기본 로그인화면뜸)
+        http.cors(withDefaults())
+                .csrf(CsrfConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/stomp/**", "/stomp/chats/**").permitAll()
+                        // 공개 엔드포인트
+                        .requestMatchers("/", "/api/auth/**",
+                                "/swagger-ui/**", "/v3/api-docs/**",
+                                "/api-docs", "/api-docs-json").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // 이하 기존 정책 유지
                         .requestMatchers("/api/chat/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/cafes/**").permitAll()
@@ -68,22 +73,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/reviews/*/reports").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/notifications/unread").hasRole("USER")
-                        // 관리자
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // 마이페이지 (USER)
                         .requestMatchers("/api/mypage/**").hasRole("USER")
-                        // QnA 작성 (USER)
                         .requestMatchers(HttpMethod.POST, "/api/qna/questions").hasRole("USER")
-                        // QnA 조회 (공개)
                         .requestMatchers(HttpMethod.GET, "/api/qna/questions", "/api/qna/questions/**").permitAll()
+                        .anyRequest().authenticated()
+                );
 
-                        .anyRequest().authenticated()); // 그 이외의 모든 경로는 인증 해야됨
-
-//        filter 등록: 매 요청마다 (1)CorsFilter를 실행한 후에 -> (2)JwtAuthenticationFilter{}를 실행되게 순서 세팅
+        // CORS 필터 이후에 JWT 필터 동작
         http.addFilterAfter(jwtAuthenticationFilter, CorsFilter.class);
 
-        return http.build();    // 앱 시작 시 한 번 호출되어 "필터 체인 구성"만 함
-//        @Bean메서드에서 완성된 SecurityFilterChain 빈을 반환해야 하기 때문에, 이 반환값을 스프링이 받아서 보안 필터링의 기준으로 사용
+        return http.build();
     }
 
     @Bean
@@ -91,20 +91,17 @@ public class SecurityConfig {
         return RoleHierarchyImpl.fromHierarchy("ROLE_ADMIN > ROLE_USER");
     }
 
-    //    cors 설정
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
-//        모든 출처, 메소드, 헤더에 대해 허용하는 cors 설정
         config.setAllowCredentials(true);
+        // 운영에서는 구체 도메인/IP로 제한 권장
         config.setAllowedOriginPatterns(Arrays.asList("*"));
         config.setAllowedMethods(Arrays.asList("HEAD", "POST", "GET", "DELETE", "PUT", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 }
