@@ -21,14 +21,14 @@
 - **개발 기간**: 2024.07 ~ 2024.11
 - **참여 인원**: 5명
 
-### 주요 기능
+### 🔍 주요 기능
 
-- 사용자 인증 (회원가입, 로그인, JWT 기반 인증/인가)
-- 카페 검색 및 상세 조회 (지도/태그/필터 기반)
-- 리뷰 & 게시글 & 댓글 기능
-- 실시간 채팅 (카페/모임 단위 채팅방)
-- 찜(즐겨찾기) 및 마이페이지
-- 관리자 페이지 (카페/태그/회원 관리)
+- 🔐 사용자 인증 (회원가입, 로그인, JWT 기반 인증/인가)
+- 📍 카페 검색 및 상세 조회 (지도/태그/필터 기반)
+- ✍️ 리뷰 & 게시글 & 댓글 기능
+- ⚡💬 실시간 채팅 (카페/모임 단위 채팅방)
+- ⭐ 찜(즐겨찾기) 및 마이페이지
+- 🛠️ 관리자 페이지 (카페/태그/회원 관리)
 
 ---
 
@@ -36,17 +36,15 @@
 
 ### Frontend
 
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white)
-![Zustand](https://img.shields.io/badge/Zustand-000000?style=for-the-badge)
 ![STOMP.js](https://img.shields.io/badge/@stomp/stompjs-231F20?style=for-the-badge)
 ![React Icons](https://img.shields.io/badge/React%20Icons-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Google Maps API](https://img.shields.io/badge/Google%20Maps%20API-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white)
 ![PostCSS](https://img.shields.io/badge/PostCSS-DD3A0A?style=for-the-badge&logo=postcss&logoColor=white)
 
@@ -91,14 +89,14 @@
 
 ## 🚀 주요 기능
 
-### 1. 사용자 인증 & 권한 관리
+### 1. 🔐 사용자 인증 & 권한 관리
 
 - 이메일 기반 회원가입 / 로그인
 - Spring Security + JWT를 활용한 **토큰 기반 인증**
 - Access / Refresh Token 구조 및 재발급
 - 일반 사용자 / 관리자에 따른 **권한 분리**
 
-### 2. 카페 검색 & 상세 조회
+### 2. 📍 카페 검색 & 상세 조회
 
 - 태그, 위치, 필터 기반 카페 목록 조회
 - 카페 상세 페이지에서
@@ -106,7 +104,7 @@
     - 사진, 리뷰, 게시글, 지도 위치
 - 인기 카페 / 랜덤 카페 등 추천성 조회 기능
 
-### 3. 콘텐츠(리뷰 & 게시글) 기능
+### 3. ✍️ 콘텐츠(리뷰 & 게시글) 기능
 
 - 카페에 대한 **리뷰 작성 / 수정 / 삭제**
 - 커뮤니티 **게시글 작성 / 수정 / 삭제**
@@ -116,14 +114,14 @@
     - 리뷰에만 필요한 `rating` 등은 선택 필드로 처리
 - 카페, 사용자와의 연관 관계 매핑 (카페 상세·마이페이지 연동)
 
-### 4. 댓글 기능 (게시글)
+### 4. 💬 댓글 기능 (게시글)
 
 - 게시글에 **댓글 작성 / 수정 / 삭제** 가능
 - 상위 댓글 ID를 활용해 **댓글 / 대댓글 구조** 지원
 - 댓글 개수 집계 및 정렬 (최신순/등록순) 기능
 - 단일 `Comment` 도메인으로 구현해 모든 콘텐츠에 공통 적용
 
-### 5. 찜(즐겨찾기) & 마이페이지
+### 5. ⭐ 찜(즐겨찾기) & 마이페이지
 
 - 관심 있는 카페 **찜 등록 / 해제**
 - 마이페이지에서
@@ -131,14 +129,14 @@
     - 내가 작성한 리뷰/게시글/댓글 목록 조회
 - 개인 프로필 정보(닉네임 등) 수정 기능
 
-### 6. 실시간 채팅 (WebSocket + STOMP)
+### 6. ⚡💬 실시간 채팅 (WebSocket + STOMP)
 
 - 카페별 / 1:1 채팅방 생성 및 참여
 - WebSocket + STOMP 기반 실시간 메시지 전송
 - 입장/퇴장 알림, 시스템 메시지 처리
 - 읽지 않은 메시지 수, 최근 메시지 기준 정렬 등 UX 고려
 
-### 7. 관리자 페이지
+### 7. 🛠️ 관리자 페이지
 
 - 관리자 전용 계정으로 로그인
 - 카페 정보 등록 / 수정 / 비활성화
