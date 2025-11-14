@@ -1,453 +1,147 @@
-# ☕ CafeOn Backend (Spring Boot)
-카페 탐색·리뷰·북마크·채팅·추천을 제공하는 백엔드 서비스입니다.
-Organization에는 `frontend`와 `backend`가 분리되어 있으며, 본 레포는 **백엔드(API & WebSocket & Admin)** 입니다.
-## 1) 핵심 기능 개요
-- 회원/계정
-  - 이메일 회원가입·로그인(Spring Security)
-  - JWT 세션/토큰
-  - 소셜 로그인(OAuth2: 카카오, 구글)
-  - 비밀번호 찾기(이메일 인증/임시 비번)
-  - soft delete
-- 마이페이지
-  - 프로필 수정(닉네임·선호 키워드)
-  - 비밀번호 재설정(로그인/비로그인)
-  - 내 리뷰·북마크·참여 채팅방
-- 카페
-  - 검색(이름·지역·태그)
-  - 지도 좌표 기반 조회
-  - 인기도(조회수·찜수)·신규 정렬
-- 카페 상세
-  - 기본 정보
-  - 리뷰 CRUD(+ 사진 S3)
-  - 북마크
-  - 소셜 공유
-  - 네이버 리뷰 요약(AI 연동)
-  - 유사 태그 추천·인기 카페
-- 채팅
-  - 카페별 그룹 채팅(WebSocket)
-  - 입장 제한·알림
-  - 실시간 Q&A
-- 추천
-  - 선호 키워드·히스토리 기반(룰 기반 -> 협업필터링 확장 가능)
-- 커뮤니티
-  - 게시글·댓글·대댓글·좋아요
-- 관리자
-  - 카페 CRUD
-  - 신고 리뷰 점검·삭제
-  - 페널티 누적에 따른 정지 처리
-## 2) 기술 스택
-- Runtime/Framework
-  - Java 17
-  - Spring Boot 3.x
-  - Spring Web
-  - Spring Security
-  - Spring Data JPA
-  - (Spring Validation)
-  - (Spring OAuth2 Client)
-  - Spring WebSocket/STOMP
-- DB/Infra
-  - MySQL
-  - Redis(세션/캐시/레이트리밋)
-  - Amazon S3(이미지)
-  - (Docker)
-  - (Docker Compose)
-- Auth
-  - JWT(Access/Refresh)
-  - OAuth2(kakao, google)
-- Build/Deploy
-  - Gradle
-  - GitHub Actions(CI)
-  - (AWS EC2/RDS/S3/ALB)
-- Test
-  - Spring REST Docs(or OpenAPI/Swagger)
-## 3) 빠른 시작
-### (1) 필수 환경 변수
-`.env`(로컬) 또는 배포 환경 변수로 세팅합니다.
-```bash
-# Server
-SERVER_PORT=8080
-SPRING_PROFILES_ACTIVE=local
+# ☕ CafeOn
+취향 기반 카페 탐색 & 실시간 커뮤니티 플랫폼
 
-# DB
-DB_URL=jdbc:mysql://localhost:8080/cafeOn
-DB_USERNAME=app
-DB_PASSWORD=secret
+> “지금 나에게 맞는 카페를 한 번에 찾고, 바로 소통까지 할 수 없을까?”
 
-# JPA
-JPA_HBM2DDL=update
-JPA_SHOW_SQL=false
+포털 검색, 블로그, 지도 앱, 리뷰 앱을 동시에 켜놓고 카페를 비교하는 건 생각보다 번거롭다.  
+정보는 여기저기 흩어져 있고, 광고성 글이나 편향된 리뷰 때문에 **직접 가보기 전까지는 확신하기 어려운 경우**도 많다.
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+**CafeOn**은 카페 정보 · 리뷰 · 실시간 소통을 한 곳에 모아,  
+“**지금 나에게 맞는 카페를 빠르게 찾고, 바로 소통까지 할 수 있는 공간**”을 목표로 만든 서비스이다.
 
-# JWT
-JWT_ISSUER=cafeOn
-JWT_SECRET=please_change_this_in_prod
-JWT_ACCESS_TTL_MIN=30
-JWT_REFRESH_TTL_DAY=14
-
-# OAuth2
-OAUTH2_GOOGLE_CLIENT_ID=xxxx
-OAUTH2_GOOGLE_CLIENT_SECRET=xxxx
-OAUTH2_GOOGLE_REDIRECT_URI=http://localhost:8080/login/oauth2/code/google
-
-OAUTH2_KAKAO_CLIENT_ID=xxxx
-OAUTH_KAKAO_CLIENT_SECRET=xxxx
-OAUTH2_KAKAO_REDIRECT_URI=http://localhost:8080/login/oauth2/code/kakao
-
-# Mail (비번 재설정/임시 비번)
-MAIL_HOST=smtp.example.com
-MAIL_PORT=587
-MAIL_USERNAME=no-reply@cafeon.com
-MAIL_PASSWORD=xxxx
-
-# S3 (이미지 업로드)
-AWS_REGION=ap-northeast-2
-S3_BUCKET=cafeon-images
-AWS_ACCESS_KEY_ID=xxxx
-AWS_SECRET_ACCESS_KEY=xxxx
-```
-### (2) 로컬 실행
-```bash
-# 1) DB/Redis/S3 Local Mock 띄우기 (선택)
-docker compose up -d
-
-# 2) 애플리케이션 실행
-./gradlew bootRun
-```
-
-### (3) 헬스 체크
-```bash
-curl -i http://localhost:8080/actuator/health
-```
-
-## 4) 프로젝트 구조
-```bash
-backend/
-├─ src/main/java/com/org/cafeOn/
-│   ├─ common/      # 공통(Exception, Response, Utils, Security)
-│   ├─ config/      # Security, OAuth2, WebSocket, Swagger(OpenAPI)
-│   ├─ domain/
-│   │   ├─ user/    # User, Auth, Profile, Penalty
-│   │   ├─ cafe/    # Cafe, Tag, CafeTag, Wishlist, View
-│   │   ├─ review/  # Review, ReviewImage
-│   │   ├─ chat/    # Chatroom, ChatMessage, Membership
-│   │   └─ community/# Post, Comment, Like
-│   ├─ recommendation/
-│   ├─ admin/
-│   └─ api/         # REST 컨트롤러
-├─ src/main/resources/
-│   ├─ application.yml
-│   └─ static/ (X)
-└─ build.gradle
-```
-
-## 5) 데이터 모델 가이드(핵심 컬럼)
-> 실제 DDL은 /docs/schema.sql
-### (1) User
-- `id (PK, CHAR(36))`, `email (UNIQUE)`, `password`, `nickname`, `status (ACTIVE/DELETED)`, `role (USER/ADMIN)`
-- `provider (LOCAL/GOOGLE/KAKAO)`, `provider_id`
-- `preference_keywords (JSON)`, `penalty_count (int, default 0)`
-- `created_at`, `updated_at`, `deleted_at (nullable)`
-### (2) Auth & Token
-- JWT Access/Refresh는 서버 저장 없이 stateless가 원칙
-- 선택) Refresh 블랙리스트/세션 추적은 Redis 사용: `refresh:{userId} -> token`
-### (3) Cafe / Tag / Wishlist
-- `cafe` : `id`, `name`, `address`, `latitude`, `longitude`, `open_hours`, `phone`, `menu(JSON)`, `photos(JSON)`, `view_count`, `created_at`
-- `tag` : `id`, `name`
-- `cafe_tag` : `(cafe_id, tag_id)` 복합 PK
-- `withlist` : `(user_id, cafe_id)` + `wishlist_type (BASIC/SPECIAL)`, `created_at`
-### (4) Review
--  `id`, `user_id`, `cafe_id`, `rating(int 1~5)`, `content`, `images(JSON)`, `created_at`, `updated_at`, `status(ACTIVE/DELETED)`
-### (5) Chat
-- `chatroom` : `id`, `cafe_id`, `name`, `max_capacity`, `created_at`
-- `chat_membership` : `(chatroom_id, user_id)` 복합 PK
-- `chat_message` : `id`, `chatroom_id`, `user_id`, `type(TEXT/IMAGE)`, `payload`, `created_at`
-### (6) Community
-- `post` : `id`, `user_id`, `title`, `content`, `created_at`, `updated_at`, `status`
-- `comment` : `id`, `post_id`, `user_id`, `parent_id(nullable)`, `content`, `created_at`
-- `post_like` : `(post_id, user_id)` 복합 PK
-
-## 6) 인증/인가 설계
-### (1) 로컬 로그인
-```sql
-POST /api/auth/login
--> { email, password }
-<- { accessToken, refreshToken, user }
-```
-### (2) 소셜 로그인(OAuth2)
-- 프론트에서 `/oauth2/authorization/{provider}`로 리다이렉트
-- 콜백: `/login/oauth2/code/{provider}`-> 서버에서 토큰 교환 -> User 매핑(존재하지 않으면 가입) -> JWT 발급
-### (3) 토큰 갱신
-```sql
-POST /api/auth/refresh
--> { refreshToken }
-<- { accessToken, refreshToken }
-```
-### (4) 로그아웃
-- 클라이언트 토큰 폐기
-- 서버는 선택적으로 `refresh:{userId}` 삭제(또는 해당 RT 블랙리스트 등록)
-### (5) 회원 탈퇴(Soft Delete)
-- `status=DELETED`, `deleted_at` 기록
-- 리뷰/게시글 등은 남기되 UI에서 "탈퇴 회원"으로 마스킹
-### (7) 주요 API 요약
-> 응답 래핑: `{ "success": true|false, "data": ..., "error": {...} }` 권장
-- Auth
-  - `POST /api/auth/signup` (이메일 인증/임시비번 플로우 포함)
-  - `POST /api/auth/login`
-  - `POST /api/auth/refresh`
-  - `POST /api/auth/logout`
-  - `POST /api/auth/password/reset` (비로그인 상태, 이메일 발송)
-  - `PUT /api/auth/password` (로그인 상태에서 변경)
-- User/Profile
-  - `GET /api/users/me`
-  - `PUT /api/users/me` (닉네임·선호 키워드)
-  - `DELETE /api/users/me` (Soft Delete)
-- Cafe
-  - `GET /api/cafes?query=&region=&tags=&sort=VIEW|WISHLIST|NEW`
-  - `GET /api/cafes/nearby?latitude=&longitude=&radius=`
-  - `GET /api/cafes/{id}`
-  - `GET /api/cafes/{id}/related` (태그 기반 추천)
-- Wishlist
-  - `GET /api/users/me/wishlist`
-  - `PUT /api/wishlist/{cafeId}` (추가/수정: `wishlist_type`)
-  - `DELETE /api/wishlist/{cafeId}`
-- Review
-  - `GET /api/cafes/{id}/reviews?sort=LATEST|RATING`
-  - `POST /api/cafes/{id}/reviews` (이미지 S3 pre-signed URL 발급 후 업로드 권장)
-  - `PUT /api/reviews/{reviewId}`
-  - `DELETE /api/reviews/{reviewId}`
-- Chat(WebSocket/STOMP)
-  - 연결 : `ws://host/ws`
-  - 구독 : `/topic/rooms/{roomId}`
-  - 발행 : `/app/rooms/{roomId}/send`
-  - REST :
-    - `GET /api/chats/rooms?cafeId=`
-    - `POST /api/chats/rooms` (관리자/자동 생성 정책)
-    - `POST /api/chats/rooms/{id}/join`
-    - `POST /api/chats/rooms/{id}/leave`
-- Community
-  - `GET /api/posts`
-  - `POST /api/posts`
-  - `GET /api/posts/{id}`
-  - `POST /api/posts/{id}/comments`
-  - `POST /api/posts/{id}/like`
-- Admin
-  - `POST /api/admin/cafes`
-  - `PUT /api/admin/cafes/{id}`
-  - `DELETE /api/admin/cafes/{id}`
-  - `GET /api/admin/reports` (신고)
-  - `POST /api/admin/reviews/{id}/moderate`
-  - `POST /api/admin/users/{id}/penalty`
-  - `POST /api/admin/users/{id}/suspend` (정지)
-#### 샘플 요청
-```bash
-# 로그인
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{ "email": "a@b.com", "password": "pass" }'
-
-# 카페 검색
-curl "http://localhost:8080/api/cafes?query=성수&tags=디저트,루프탑&sort=VIEW" \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-```
-
-### (8) 추천 로직(초기 버전)
-- 룰 기반:
-  - (1) 사용자 `preference_keywords`와 카페 `tag` 교집합 점수
-  - (2) 히스토리(방문·리뷰·북마크) 가중치
-  - (3) 기본 인기 가점(조회수·찜수)
-
-### (9) 파일 업로드(S3)
-- 서버에서 Pre-signed URL 발급 -> 클라이언트가 S3 직접 업로드 -> 업로드 결과 경로를 리뷰 생성 시 전달
-- 장점 : 서버 부하 ↓, 속도 ↑, 보안 token 만료 관리 쉬움
-
-### (10) 보안 정책
-- 비밀번호 BCrypt 해시
-- JWT 만료 짧게(Access 30분) + Refresh 14일
-- 관리자 API는 `ROLE_ADMIN` 필수
-- 속도 제한 : IP/계정별 로그인 시도(예: Redis + 단일 키 윈도우)
-- CORS : FE 도메인만 허용, 쿠키 기반이 아니므로 헤더 Bearer 사용
-- 입력 검증 : `@Valid`, 커스텀 Validator(별점 1~5 등)
-
-### (11) 에러·응답 규약
-```json
-{
-  "success": false,
-  "error": {
-    "code": "AUTH_INVALID_CREDENTIAL",
-    "message": "아이디 또는 비밀번호가 올바르지 않습니다.",
-    "traceId": "c5f7..."
-  }
-}
-```
-- 공통 코드 예시 : `AUTH_*`, `VALIDATION_*`, `NOT_FOUND`, `FORBIDDEN`, `CONFLICT`, `RATE_LIMITED`, `S3_UPLOAD_FAILED`, `OAUTH2_CALLBACK_ERROR`
-
-### (12) 문서화
-- Swagger UI: `/swagger-ui/index.html`
-- API 명세서 원칙
-  - 요청·응답 스키마, 예시, 에러 코드 포함
-  - 인증 필요 여부 및 권한 명시
-
-### (13) 운영
-- 로그 : JSON 포맷(요청ID/사용자ID/URI/응답시간)
-- Actuator : `/actuator/health`, `/metrics`, `loggers`
-- CI : PR 시 빌드·테스트·정적 분석, main 머지 시 Docker 이미지 빌드/푸시
-- CD : (선택) GitHub Actions -> EC2 배포, Blue/Green 또는 Rolling
-
-### (14) 개발 규칙
-- 브랜치 전략
-  - `main`(배포), `dev`(통합), `feat/*`, `fix/*`, `chore/*`
-- 커밋 컨벤션(Conventional Commits)
-  - `feat:`, `fix:`, `refactor:`, `test:`, `chore:` ...
-- 코드 스타일
-  - Controller-Service-Repository 분리
-  - DTO/Entity 분리
-  - 요청 검증은 Controller 레벨에서
-  - 서비스 트랜잭션 경계는 Service
-
-### (15) 프런트엔드 연동 포인트
-- CORS 도메인·헤더 합의
-- OAuth2 리다이렉트 URI 공유
-- 이미지 업로드: Pre-singed URL 워크플로
-- WebSocket 엔드포인트(`/ws`), STOMP topic 경로 합의
-- 검색·필터 파라미터 네이밍 스펙 고정
-
-### (15) 로드맵
-- ai 요약(네이버 리뷰 api or OpenAI) 실제 연동 샘플 엔드포인트 제공
-- 추천 엔진 고도화(협업 필터링), A/B 테스트
-- Geo-Index(포스트GIS/ES)로 주변 검색 최적화
-- 알림(푸시/이메일) 구독
+- 태그 · 필터 · 지도 기반 검색으로 목적에 맞는 카페를 쉽게 찾고,
+- 리뷰 · 게시글 · 댓글 · 실시간 채팅을 통해 같은 카페를 이용하는 사람들끼리 자연스럽게 연결되도록 설계했다.
+- AWS 기반 인프라와 JWT 인증, WebSocket 실시간 채팅으로 **안정적인 서비스와 빠른 피드백 경험**을 제공한다.
 
 ---
-### 부록: 최소 DDL 스케치(참고용)
-> 실제 운영은 Flyway 마이그레이션으로 관리하세요
-```sql
--- USER
-CREATE TABLE user (
-    user_id CHAR(36) primary key,   -- CHAR(36) 문자열을 그대로 저장(32자리+하이픈4개=총36자)
-    email VARCHAR(255) UNIQUE not null,
-    password VARCHAR(255),
-    nickname VARCHAR(50),
-    profile_image JSON,
-    status ENUM('ACTIVE', 'SUSPENDED', 'DELETED') not null DEFAULT 'ACTIVE',
-    role ENUM('USER', 'ADMIN') not null DEFAULT 'USER',
-    provider ENUM('LOCAL', 'KAKAO', 'GOOGLE', 'NAVER') not null DEFAULT 'LOCAL',
-    provider_id VARCHAR(255),
-    preference_keywords JSON,
-    refresh_token VARCHAR(512),
-    penalty_count INT not null DEFAULT 0,
-    created_at TIMESTAMP not null DEFAULT now(),
-    updated_at TIMESTAMP not null DEFAULT now(),
-    deleted_at TIMESTAMP
-);
 
--- CAFE
-CREATE TABLE cafe (
-    id INT primary key AUTO_INCREMENT,
-    name VARCHAR(200) not null,
-    address VARCHAR(300),
-    latitude double,
-    longitude double,
-    open_hours JSON,
-    phone VARCHAR(50),
-    menu JSON,
-    photos JSON,
-    view_count INT not null default 0,
-    created_at TIMESTAMP not null DEFAULT now()
-);
+## 🗓️ 프로젝트 개요
 
--- TAG
-CREATE TABLE tag (
-    id INT primary key AUTO_INCREMENT,
-    name VARCHAR(50) UNIQUE not null
-);
+- **프로젝트명**: CafeOn
+- **개발 기간**: 2024.07 ~ 2024.11
+- **참여 인원**: 5명
 
-CREATE TABLE cafe_tag (
-    cafe_id INT not null,
-    tag_id INT not null,
-    FOREIGN KEY (cafe_id) REFERENCES cafe(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE,
-    PRIMARY KEY (cafe_id, tag_id)
-);
+### 주요 기능
 
--- WISHLIST
-CREATE TABLE wishlist (
-    user_id CHAR(36) not null,
-    cafe_id INT not null,
-    withlist_type VARCHAR(16) not null DEFAULT 'BASIC',
-    created_at TIMESTAMP not null DEFAULT now(),
-    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
-    FOREIGN KEY (cafe_id) REFERENCES cafe(id) ON DELETE CASCADE,
-    PRIMARY KEY (user_id, cafe_id)
-);
+- 사용자 인증 (회원가입, 로그인, JWT 기반 인증/인가)
+- 카페 검색 및 상세 조회 (지도/태그/필터 기반)
+- 리뷰 & 게시글 & 댓글 기능
+- 실시간 채팅 (카페/모임 단위 채팅방)
+- 찜(즐겨찾기) 및 마이페이지
+- 관리자 페이지 (카페/태그/회원 관리)
 
--- REVIEW
-CREATE TABLE review (
-    id INT primary key AUTO_INCREMENT,
-    user_id CHAR(36) not null,
-    cafe_id INT not null,
-    rating INT not null check (rating BETWEETn 1 AND 5),
-    content TEXT,
-    images JSON,
-    status VARCHAR(16) not null DEFAULT 'ACTIVE',
-    created_at TIMESTAMP not null DEFAULT now(),
-    updated_at TIMESTAMP not null DEFAULT now(),
-    FOREIGN KEY user_id REFERENCES user(id) ON DELETE CASCADE,
-    FOREIGN KEY cafe_id REFERENCES cafe(id) ON DELETE CASCADE
-);
+---
 
--- CHAT
-CREATE TABLE chatroom (
-    id INT primary key AUTO_INCREMENT,
-    cafe_id INT,
-    name VARCHAR(100) not null,
-    max_capacity INT not null default 100,
-    created_at TIMESTAMP not null DEFAULT now(),
-    FOREIGN KEY cafe_id REFERENCES cafe(id) ON DELETE SET NULL
-);
+## 🛠 기술 스택
 
-CREATE TABLE chat_message (
-    id INT primary key AUTO_INCREMENT,
-    chatroom_id INT not null,
-    user_id CHAR(36) not null,
-    type VARCHAR(16) not null,
-    payload TEXT not null,
-    created_at TIMESTAMP not null DEFAULT now(),
-    FOREIGN KEY chatroom_id REFERENCES chatroom(id) ON DELETE CASCADE,
-    FOREIGN KEY user_id REFERENCES user(id) ON DELETE SET NULL
-);
+### Frontend
 
--- COMMUNITY
-CREATE TABLE post (
-    id INT primary key AUTO_INCREMENT,
-    user_id CHAR(36) not null,
-    title VARCHAR(200) not null,
-    content TEXT not null,
-    status VARCHAR(16) not null DEFAULT 'ACTIVE',
-    created_at TIMESTAMP not null DEFAULT now(),
-    updated_at TIMESTAMP not null DEFAULT now(),
-    FOREIGN KEY user_id REFERENCES user(id) ON DELETE SET NULL
-);
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Next.js](https://img.shields.io/badge/Next.js_15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![Axios](https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-000000?style=for-the-badge)
+![STOMP.js](https://img.shields.io/badge/@stomp/stompjs-231F20?style=for-the-badge)
+![React Icons](https://img.shields.io/badge/React%20Icons-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Google Maps API](https://img.shields.io/badge/Google%20Maps%20API-4285F4?style=for-the-badge&logo=googlemaps&logoColor=white)
+![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white)
+![PostCSS](https://img.shields.io/badge/PostCSS-DD3A0A?style=for-the-badge&logo=postcss&logoColor=white)
 
-CREATE TABLE comment (
-    id INT primary key AUTO_INCREMENT,
-    post_id INT not null,
-    user_id CHAR(36) not null,
-    parent_id INT,
-    content TEXT not null,
-    created_at TIMESTAMP not null DEFAULT now(),
-    FOREIGN KEY post_id REFERENCES post(id) ON DELETE CASCADE,
-    FOREIGN KEY user_id REFERENCES user(id) ON DELETE SET NULL,
-    FOREIGN KEY parent_id REFERENCES comment(id) ON DELETE CASCADE
-);
+### Backend
 
-CREATE TABLE post_like (
-    post_id INT not null,
-    user_id CHAR(36) not null,
-    primary key (post_id, user_id),
-    FOREIGN KEY post_id REFERENCES post(id) ON DELETE CASCADE,
-    FOREIGN KEY user_id REFERENCES user(id) ON DELETE CASCADE
-);
-```
+![Java](https://img.shields.io/badge/Java-007396?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot_3-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![Spring Security](https://img.shields.io/badge/Spring%20Security-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![JPA](https://img.shields.io/badge/JPA%20(Hibernate)-59666C?style=for-the-badge&logo=hibernate&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![WebSocket](https://img.shields.io/badge/WebSocket-FF6F00?style=for-the-badge&logo=socketdotio&logoColor=white)
+![STOMP](https://img.shields.io/badge/STOMP-CC0000?style=for-the-badge&logo=activemq&logoColor=white)
+![Lombok](https://img.shields.io/badge/Lombok-000000?style=for-the-badge)
+
+### Infra & Tools
+
+![AWS EC2](https://img.shields.io/badge/AWS%20EC2-FF9900?style=for-the-badge&logo=amazon-ec2&logoColor=white)
+![AWS RDS](https://img.shields.io/badge/AWS%20RDS-527FFF?style=for-the-badge&logo=amazonrds&logoColor=white)
+![AWS S3](https://img.shields.io/badge/AWS%20S3-569A31?style=for-the-badge&logo=amazons3&logoColor=white)
+![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=nginx&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
+![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
+![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=figma&logoColor=white)
+![Slack](https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white)
+
+---
+
+## 👥 팀원 소개
+
+| 역할           | 이름   | 담당                                                                                                                                                                                                                                                                                                                                                                   |
+|----------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Backend(팀장)  | 박민재 | **Post** – 게시글 조회/검색, 게시글 생성(텍스트/이미지), 수정, 삭제, 좋아요/취소<br/>**Comment** – 댓글 조회/생성/수정/삭제, 댓글 좋아요/취소<br/>**Chat** – 1:1 채팅방 생성, 단체 채팅방 생성, 텍스트/이미지 채팅, 채팅방 나가기<br/>**Review** – 리뷰 작성/수정/삭제/조회(텍스트/이미지)<br/>**Report** – 게시글/댓글/리뷰 신고<br/>**Infra & DB** – DB 모델링, AWS(EC2/RDS/S3) 기반 배포 및 운영 |
+| Backend        | 김도이 | **User** – 회원가입, 로그인(JWT Access/Refresh), 로그아웃(Refresh Token 무효화), 로그인 상태 비밀번호 변경, 비로그인 상태 임시 비밀번호 발급 메일링<br/>**Cafe** – 카카오맵 REST API + 파이썬으로 카페 데이터 수집, Selenium으로 영업시간 크롤링 및 패턴 정규화, 카페 후기 데이터 수집, 카페 검색/전체 조회, AI API로 후기 요약/태그 추출<br/>**Tag** – 카페/태그 매핑                       |
+| Backend        | 김가연 | **User** – 유저 프로필 조회/수정, 유저 탈퇴<br/>**Question** – 문의 목록 조회/검색, 문의 작성(공개/비공개), 수정, 삭제<br/>**Answer** – 문의 답변 작성<br/>**Wishlist** – 찜 생성/삭제, 내가 찜한 카페들 조회<br/>**Admin** – 전체 유저 조회, 신고 목록 조회, 유저 패널티 추가                                                                                           |
+| Frontend       | 최아름 | **공통(인증)** – 로그인/회원가입 등 인증 플로우 UI<br/>**홈페이지/검색결과/지도 페이지** – 메인 홈, 카페 검색 결과, 지도 연동 화면<br/>**카페 상세 페이지** – 카페 상세 정보, 리뷰/게시글/댓글 UI<br/>**관리자 페이지** – 관리자용 웹 화면 및 기능 UI                                                                                                                |
+| Frontend       | 이하민 | **채팅방** – 실시간 채팅방 UI, 메시지 리스트/입력 인터랙션<br/>**마이페이지** – 내 정보, 내가 쓴 글·리뷰·댓글·찜 목록 화면<br/>**커뮤니티** – 게시글 피드, 작성/수정 UI<br/>**알림/문의하기 페이지** – 알림 리스트, 문의 작성/조회 화면                                                                                                             |
+
+
+---
+
+## 🚀 주요 기능
+
+### 1. 사용자 인증 & 권한 관리
+
+- 이메일 기반 회원가입 / 로그인
+- Spring Security + JWT를 활용한 **토큰 기반 인증**
+- Access / Refresh Token 구조 및 재발급
+- 일반 사용자 / 관리자에 따른 **권한 분리**
+
+### 2. 카페 검색 & 상세 조회
+
+- 태그, 위치, 필터 기반 카페 목록 조회
+- 카페 상세 페이지에서
+    - 기본 정보 (주소, 전화번호, 영업시간 등)
+    - 사진, 리뷰, 게시글, 지도 위치
+- 인기 카페 / 랜덤 카페 등 추천성 조회 기능
+
+### 3. 콘텐츠(리뷰 & 게시글) 기능
+
+- 카페에 대한 **리뷰 작성 / 수정 / 삭제**
+- 커뮤니티 **게시글 작성 / 수정 / 삭제**
+- 사진 업로드 (S3 연동)
+- 공통 로직을 고려한 **단일 콘텐츠 도메인 설계**
+    - 리뷰와 게시글을 하나의 엔티티로 관리하고 `type`(REVIEW/POST)으로 구분
+    - 리뷰에만 필요한 `rating` 등은 선택 필드로 처리
+- 카페, 사용자와의 연관 관계 매핑 (카페 상세·마이페이지 연동)
+
+### 4. 댓글 기능 (게시글)
+
+- 게시글에 **댓글 작성 / 수정 / 삭제** 가능
+- 상위 댓글 ID를 활용해 **댓글 / 대댓글 구조** 지원
+- 댓글 개수 집계 및 정렬 (최신순/등록순) 기능
+- 단일 `Comment` 도메인으로 구현해 모든 콘텐츠에 공통 적용
+
+### 5. 찜(즐겨찾기) & 마이페이지
+
+- 관심 있는 카페 **찜 등록 / 해제**
+- 마이페이지에서
+    - 내가 찜한 카페
+    - 내가 작성한 리뷰/게시글/댓글 목록 조회
+- 개인 프로필 정보(닉네임 등) 수정 기능
+
+### 6. 실시간 채팅 (WebSocket + STOMP)
+
+- 카페별 / 1:1 채팅방 생성 및 참여
+- WebSocket + STOMP 기반 실시간 메시지 전송
+- 입장/퇴장 알림, 시스템 메시지 처리
+- 읽지 않은 메시지 수, 최근 메시지 기준 정렬 등 UX 고려
+
+### 7. 관리자 페이지
+
+- 관리자 전용 계정으로 로그인
+- 카페 정보 등록 / 수정 / 비활성화
+- 태그 관리 (카페-태그 매핑)
+- 신고된 게시글/리뷰 및 사용자 관리
+- 서비스 품질 및 커뮤니티 분위기 유지를 위한 최소한의 운영 도구 제공
