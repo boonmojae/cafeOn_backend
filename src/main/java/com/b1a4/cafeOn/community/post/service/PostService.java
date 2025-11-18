@@ -13,6 +13,7 @@ import com.b1a4.cafeOn.community.post.repository.PostRepository;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.image.service.ImageService;
 import com.b1a4.cafeOn.image.service.S3Service;
+import com.b1a4.cafeOn.image.service.UploadedImageInfo;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.user.repository.UserRepository;
@@ -177,7 +178,7 @@ public class PostService {
 
     // 게시글 생성(글, 글+이미지)
     @Transactional
-    public PostDetailResponseDTO createPost(String userId, PostRequestDTO postRequestDTO, List<S3Service.UploadedImageInfo> uploadedImages) {
+    public PostDetailResponseDTO createPost(String userId, PostRequestDTO postRequestDTO, List<UploadedImageInfo> uploadedImages) {
         UserEntity author = userStatus(userId);
 
         if (postRequestDTO == null) {
@@ -197,7 +198,7 @@ public class PostService {
         PostEntity savedPost = postRepository.save(post);
 
         if (uploadedImages != null && !uploadedImages.isEmpty()) {
-            for (S3Service.UploadedImageInfo imgInfo : uploadedImages) {
+            for (UploadedImageInfo imgInfo : uploadedImages) {
                 ImageEntity imageEntity = imageService.attachNewImageToPost(savedPost, imgInfo);
                 savedPost.addImage(imageEntity);
             }
@@ -211,7 +212,7 @@ public class PostService {
     // 게시글 수정
     @Transactional
     public PostDetailResponseDTO updatePost(String userId, Long postId, PostRequestDTO postRequestDTO,
-                                            List<S3Service.UploadedImageInfo> newlyUploadedImages) {
+                                            List<UploadedImageInfo> newlyUploadedImages) {
         userStatus(userId);
 
         PostEntity post = postRepository.findById(postId)

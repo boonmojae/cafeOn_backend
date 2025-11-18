@@ -3,6 +3,7 @@ package com.b1a4.cafeOn.review.controller;
 import com.b1a4.cafeOn.common.api.ApiResponse;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import com.b1a4.cafeOn.image.service.S3Service;
+import com.b1a4.cafeOn.image.service.UploadedImageInfo;
 import com.b1a4.cafeOn.review.dto.ReviewRequestDTO;
 import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import com.b1a4.cafeOn.review.dto.ReviewUpdateRequestDTO;
@@ -82,7 +83,7 @@ public class ReviewController {
             );
         }
 
-        List<S3Service.UploadedImageInfo> uploadedInfos = new ArrayList<>();
+        List<UploadedImageInfo> uploadedInfos = new ArrayList<>();
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
                 uploadedInfos.add(s3Service.uploadImage(file, ImageCategory.REVIEW));
@@ -150,7 +151,7 @@ public class ReviewController {
             );
         }
 
-        List<S3Service.UploadedImageInfo> newlyUploadedInfos = new ArrayList<>();
+        List<UploadedImageInfo> newlyUploadedInfos = new ArrayList<>();
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
                 newlyUploadedInfos.add(s3Service.uploadImage(file, ImageCategory.REVIEW));

@@ -23,7 +23,7 @@ public class ImageService {
 
     @Transactional
     public ImageEntity attachNewImageCommon(PostEntity post, ReviewEntity review, ChatEntity chat,
-                                            S3Service.UploadedImageInfo uploaded) {
+                                            UploadedImageInfo uploaded) {
         if (uploaded == null) {
             throw new IllegalArgumentException("업로드된 이미지 정보가 없습니다.");
         }
@@ -87,13 +87,13 @@ public class ImageService {
     // post
     // 추가
     @Transactional
-    public ImageEntity attachNewImageToPost(PostEntity post, S3Service.UploadedImageInfo uploaded) {
+    public ImageEntity attachNewImageToPost(PostEntity post, UploadedImageInfo uploaded) {
         return attachNewImageCommon(post, null, null, uploaded);
     }
 
     // 수정
     @Transactional
-    public void updatePostImages(PostEntity post, List<Long> keepImageIds, List<S3Service.UploadedImageInfo> newlyUploaded) {
+    public void updatePostImages(PostEntity post, List<Long> keepImageIds, List<UploadedImageInfo> newlyUploaded) {
         if (keepImageIds == null) keepImageIds = List.of();
         if (newlyUploaded == null) newlyUploaded = List.of();
 
@@ -105,7 +105,7 @@ public class ImageService {
             }
         }
 
-        for (S3Service.UploadedImageInfo info : newlyUploaded) {
+        for (UploadedImageInfo info : newlyUploaded) {
             attachNewImageToPost(post, info);
         }
 
@@ -126,12 +126,12 @@ public class ImageService {
 
     // review
     // 추가
-    public ImageEntity attachNewImageToReview(ReviewEntity review, S3Service.UploadedImageInfo uploaded) {
+    public ImageEntity attachNewImageToReview(ReviewEntity review, UploadedImageInfo uploaded) {
         return attachNewImageCommon(null, review, null, uploaded);
     }
 
     // 수정
-    public void updateReviewImages(ReviewEntity review, List<Long> keepImagedIds, List<S3Service.UploadedImageInfo> newlyUploaded) {
+    public void updateReviewImages(ReviewEntity review, List<Long> keepImagedIds, List<UploadedImageInfo> newlyUploaded) {
         if (keepImagedIds == null) keepImagedIds = List.of();
         if (newlyUploaded == null) newlyUploaded = List.of();
 
@@ -143,7 +143,7 @@ public class ImageService {
             }
         }
 
-        for (S3Service.UploadedImageInfo info : newlyUploaded) {
+        for (UploadedImageInfo info : newlyUploaded) {
             attachNewImageToReview(review, info);
         }
 

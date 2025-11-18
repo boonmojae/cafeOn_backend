@@ -3,6 +3,7 @@ package com.b1a4.cafeOn.user.profile.service;
 import com.b1a4.cafeOn.common.exception.ClientErrorException;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import com.b1a4.cafeOn.image.service.S3Service;
+import com.b1a4.cafeOn.image.service.UploadedImageInfo;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import com.b1a4.cafeOn.user.profile.dto.*;
@@ -50,7 +51,7 @@ public class UserProfileService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new ClientErrorException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."));
 
-        S3Service.UploadedImageInfo uploaded = s3Service.uploadImage(dto.getFile(), ImageCategory.PROFILE);
+        UploadedImageInfo uploaded = s3Service.uploadImage(dto.getFile(), ImageCategory.PROFILE);
 
         user.setProfileImageUrl(uploaded.getPublicUrl());
         userRepository.save(user);

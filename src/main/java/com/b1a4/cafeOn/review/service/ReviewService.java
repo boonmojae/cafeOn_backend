@@ -6,6 +6,7 @@ import com.b1a4.cafeOn.common.exception.ReviewRatingMinMaxException;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.image.service.ImageService;
 import com.b1a4.cafeOn.image.service.S3Service;
+import com.b1a4.cafeOn.image.service.UploadedImageInfo;
 import com.b1a4.cafeOn.review.dto.ReviewRequestDTO;
 import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import com.b1a4.cafeOn.review.dto.ReviewUpdateRequestDTO;
@@ -38,7 +39,7 @@ public class ReviewService {
     // 리뷰 생성(글, 글+이미지)
     @Transactional
     public ReviewResponseDTO createReview(String userId, Long cafeId,
-            ReviewRequestDTO reviewDTO, List<S3Service.UploadedImageInfo> uploadedImages) {
+            ReviewRequestDTO reviewDTO, List<UploadedImageInfo> uploadedImages) {
 
         UserEntity user = findByUserId(userId);
         CafeEntity cafe = findByCafeId(cafeId);
@@ -61,7 +62,7 @@ public class ReviewService {
         ReviewEntity savedReview = reviewRepository.save(review);
 
         if (uploadedImages != null && !uploadedImages.isEmpty()) {
-            for (S3Service.UploadedImageInfo imageInfo : uploadedImages) {
+            for (UploadedImageInfo imageInfo : uploadedImages) {
                 ImageEntity imageEntity = imageService.attachNewImageToReview(savedReview, imageInfo);
                 savedReview.addImage(imageEntity);
             }
@@ -74,7 +75,7 @@ public class ReviewService {
     // 리뷰 수정
     @Transactional
     public ReviewResponseDTO updateReview(String userId, Long reviewId,
-            ReviewUpdateRequestDTO reviewDTO, List<S3Service.UploadedImageInfo> newlyUploadedImages) {
+            ReviewUpdateRequestDTO reviewDTO, List<UploadedImageInfo> newlyUploadedImages) {
 
         UserEntity user = findByUserId(userId);
 

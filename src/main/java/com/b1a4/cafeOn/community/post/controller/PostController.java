@@ -9,6 +9,7 @@ import com.b1a4.cafeOn.community.post.service.PostService;
 import com.b1a4.cafeOn.community.post.service.ViewCountService;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import com.b1a4.cafeOn.image.service.S3Service;
+import com.b1a4.cafeOn.image.service.UploadedImageInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -159,10 +160,10 @@ public class PostController {
             );
         }
 
-        List<S3Service.UploadedImageInfo> uploadedInfos = new ArrayList<>();
+        List<UploadedImageInfo> uploadedInfos = new ArrayList<>();
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
-                S3Service.UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.POST);
+                UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.POST);
                 uploadedInfos.add(info);
             }
         }
@@ -199,10 +200,10 @@ public class PostController {
             );
         }
 
-        List<S3Service.UploadedImageInfo> newlyUploadedInfos = new ArrayList<>();
+        List<UploadedImageInfo> newlyUploadedInfos = new ArrayList<>();
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
-                S3Service.UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.POST);
+                UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.POST);
                 newlyUploadedInfos.add(info);
             }
         }

@@ -31,27 +31,6 @@ public class S3Service {
     @Value("${cafeon.cdn-base-url}")
     private String cdnBaseUrl;
 
-    public static class UploadedImageInfo {
-        private final String s3Key;
-        private final String originalFileName;
-        private final String contentType;
-        private final long sizeBytes;
-        private final String publicUrl;
-
-        public UploadedImageInfo(String s3Key, String originalFileName, String contentType, long sizeBytes, String publicUrl) {
-            this.s3Key = s3Key;
-            this.originalFileName = originalFileName;
-            this.contentType = contentType;
-            this.sizeBytes = sizeBytes;
-            this.publicUrl = publicUrl;
-        }
-        public String getS3Key() { return s3Key; }
-        public String getOriginalFileName() { return originalFileName; }
-        public String getContentType() { return contentType; }
-        public long getSizeBytes() { return sizeBytes; }
-        public String getPublicUrl() { return publicUrl; }
-    }
-
     // category: POST / REVIEW / CHAT / PROFILE
     public UploadedImageInfo uploadImage(MultipartFile file, ImageCategory category) {
         if (file == null || file.isEmpty()) {

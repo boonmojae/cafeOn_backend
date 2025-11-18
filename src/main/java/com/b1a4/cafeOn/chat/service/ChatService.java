@@ -16,6 +16,7 @@ import com.b1a4.cafeOn.image.dto.ImageResponseDTO;
 import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.image.enums.ImageCategory;
 import com.b1a4.cafeOn.image.service.S3Service;
+import com.b1a4.cafeOn.image.service.UploadedImageInfo;
 import com.b1a4.cafeOn.user.entity.UserEntity;
 import com.b1a4.cafeOn.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -167,7 +168,7 @@ public class ChatService {
         ChatEntity chat = ChatEntity.imageMessage(room, sender, caption);
 
         for (MultipartFile file : files) {
-            S3Service.UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.CHAT);
+            UploadedImageInfo info = s3Service.uploadImage(file, ImageCategory.CHAT);
 
             ImageEntity img = ImageEntity.builder()
                     .originalFileName(info.getOriginalFileName())
