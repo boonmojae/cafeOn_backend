@@ -44,7 +44,6 @@ public class ImageService {
         return saved;
     }
 
-    @Transactional
     private void removeImageCommon(ImageEntity image) {
         if (image == null) return;
 
@@ -52,7 +51,6 @@ public class ImageService {
         imageRepository.delete(image);
     }
 
-    @Transactional
     private void bulkRemoveImagesCommon(List<ImageEntity> images) {
         for (ImageEntity img : images) {
             s3Service.deleteImageByKey(img.getS3Key());
@@ -62,21 +60,18 @@ public class ImageService {
 
 
     // 부모 엔티티 쪽 컬렉션과 동기화
-    @Transactional
     private void syncImagesForPost(PostEntity post) {
         List<ImageEntity> refreshed = imageRepository.findByPost(post);
         post.getImages().clear();
         post.getImages().addAll(refreshed);
     }
 
-    @Transactional
     private void syncImagesForReview(ReviewEntity review) {
         List<ImageEntity> refreshed = imageRepository.findByReview(review);
         review.getImages().clear();
         review.getImages().addAll(refreshed);
     }
 
-    @Transactional
     private void syncImagesForChat(ChatEntity chat) {
         List<ImageEntity> refreshed = imageRepository.findByChat(chat);
         chat.getImages().clear();
