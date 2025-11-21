@@ -86,7 +86,7 @@ public class ChatEntity {
     }
 
     // 이미지 메시지를 생성
-    public static ChatEntity imageMessage(ChatRoomEntity room, UserEntity sender, String caption ) {
+    public static ChatEntity imageMessage(ChatRoomEntity room, UserEntity sender, String caption) {
         return ChatEntity.builder()
                 .chatRoom(room)
                 .sender(sender)

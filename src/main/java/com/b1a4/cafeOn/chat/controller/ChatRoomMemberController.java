@@ -38,7 +38,7 @@ public class ChatRoomMemberController {
                     .data(dto)
                     .message("1:1 채팅방 가입 성공")
                     .build();
-            return ResponseEntity.ok(body); // 200 OK
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
             log.error("DM 가입 실패: userId={}, counterpartId={}", userId, counterpartId, e);
             return ResponseEntity.badRequest().body(
@@ -60,7 +60,7 @@ public class ChatRoomMemberController {
                     .data(dto)
                     .message("단체 채팅방 가입 성공")
                     .build();
-            return ResponseEntity.ok(body); // 200 OK
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
             log.error("단체 채팅방 가입 실패: cafeId={}, userId={}", cafeId, userId, e);
             return ResponseEntity.badRequest().body(
