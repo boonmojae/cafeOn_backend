@@ -27,7 +27,7 @@ public interface ChatRepository extends JpaRepository<ChatEntity, Long> {
     Slice<ChatEntity> findByChatRoom_ChatRoomIdAndMessageTypeInOrderByChatIdDesc(Long chatRoomId, List<ChatMessageType> types, Pageable pageable);
 
     // 무한 스크롤 다음 페이지 로딩 + 타입 필터 (메시지 타입, beforeId)
-    Slice<ChatEntity> findByChatRoom_ChatRoomIdAndMessageTypeInAndChatIdLessThanOrderByChatIdDesc(Long chatRoomId, List<ChatMessageType> types, Long beforeId, Pageable pageable);
+    Slice<ChatEntity> findByChatRoom_ChatRoomIdAndMessageTypeInAndChatIdLessThanOrderByChatIdDesc(Long chatRoomId, List<ChatMessageType> types, Long beforeChatId, Pageable pageable);
 
     // SYSTEM_JOIN, LEAVE 메시지 중복 검사(30초 이내 재발행 차단)
     boolean existsByChatRoom_ChatRoomIdAndSender_UserIdAndMessageTypeAndCreatedAtAfter(Long roomId, String userId, ChatMessageType type, java.time.LocalDateTime after);
