@@ -2,20 +2,15 @@ package com.b1a4.cafeOn.cafe.service;
 
 import com.b1a4.cafeOn.cafe.dto.CafeDTO;
 import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
-import com.b1a4.cafeOn.cafe.dto.CafeNearbyResponse;
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
-import com.b1a4.cafeOn.image.entity.ImageEntity;
 import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
-import com.b1a4.cafeOn.review.entity.ReviewEntity;
 import com.b1a4.cafeOn.review.repository.ReviewRepository;
 import com.b1a4.cafeOn.review.service.ReviewService;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
@@ -24,7 +19,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -44,21 +38,20 @@ import java.util.stream.Collectors;
 // 카페 검색, 상세 조회, 리뷰 연결
 @Slf4j
 @Service
-@EnableAsync    // ✅ Async 동기화를 위한 활성화
-@RequiredArgsConstructor    // ✅ @Autowired 대신 생성자 주입 방식 사용
+@EnableAsync
+@RequiredArgsConstructor
 @org.springframework.transaction.annotation.Transactional(readOnly = true)
 public class CafeService {
-    private final CafeRepository cafeRepository;    // ✅ final + RequiredArgsConstructor
+    private final CafeRepository cafeRepository;
     private final ReviewService reviewService;
     private final ReviewRepository reviewRepository;
-//    RestTemplate은 Bean으로 등록하고 주입받는 것이 좋으나, 기존 코드를 유지합니다.
+    // feedback: RestTemplate Bean 등록 누락
     private final RestTemplate restTemplate = new RestTemplate();
     private static final int KAKAO_PAGE_SIZE = 15;
     private static final int KAKAO_MAX_PAGES = 45;
 
     @Value("${kakao.api.key}")
-    private String kakaoApiKey;  // ✅ application.properties 에 .env에서 불러온 "KAKAO_REST_API_KEY=..." 저장해둠
-//    private final KakaoMapService kakaoMapService;
+    private String kakaoApiKey;
 
     /**
      * 1. 키워드나 태그로 검색
@@ -367,7 +360,7 @@ public class CafeService {
 
         } catch (Exception e) {
             log.error("❌ Kakao API request failed: {}", e.getMessage(), e);
-        }
+        } // feedback 이 부분에서는 에러를 하나로 묶는것보다 여러개의 exception을 쪼개기
 
         log.info("✅ Kakao fetch done. total documents: {}", allDocuments.size());
         return allDocuments;
@@ -437,7 +430,6 @@ public class CafeService {
                 .kakaoUrl((String) doc.get("place_url"))
                 .source(CafeSource.KAKAO)   // EnumType import 필요
                 .createdAt(LocalDateTime.now())
-//                todo: open_hours, reviews_summary, kakao_rating 등은 크롤링해야 하는 작업임
                 .build();
     }
 
@@ -446,6 +438,8 @@ public class CafeService {
      * 2. 카페 상세 정보 조회
      */
     @Transactional
+    // feedback
+    // readOnly=true권장, 조회/읽기 메서드 분리
     public CafeDetailResponse getCafeDetail(Long id) {
         CafeEntity entity = cafeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
@@ -469,9 +463,9 @@ public class CafeService {
                 .address(entity.getAddress())
                 .phone(entity.getPhone())
                 .hours(entity.getOpenHours())
-                .rating(String.valueOf(entity.getKakaoRating()))    //  todo : 우선 리뷰데이터 업어서 전부 걍 카카오크롤링한 별점 때리기
+                .rating(String.valueOf(entity.getKakaoRating()))
                 .reviewsSummary(entity.getReviewsSummary())
-                .reviews(reviews)   // ✅ ← CafeDetailResponse.reviews 타입이 List<ReviewResponseDTO> 인지 확인!
+                .reviews(reviews)
                 .tags(tagNames)
                 .photoUrl(entity.getPhotoUrl())
                 .build();
@@ -581,7 +575,7 @@ public class CafeService {
                     BigDecimal lat = null;
                     BigDecimal lon = null;
 
-                    if (yStr != null && yStr.isBlank() && xStr != null && xStr.isBlank()) {
+                    if (yStr != null && !yStr.isBlank() && xStr != null && !xStr.isBlank()) {
                         lat = BigDecimal.valueOf(Double.parseDouble(yStr));
                         lon = BigDecimal.valueOf(Double.parseDouble(xStr));
                     } else {

@@ -365,13 +365,13 @@ public class CafeController {
                                                 "reviewsSummary": "조용하고 감성적인 분위기의 브런치 카페입니다.",
                                                 "reviews": [
                                                   {
-                                                    "author": "김도이",
+                                                    "author": "홍길동",
                                                     "rating": 5,
                                                     "content": "분위기 좋고 커피 맛있어요!",
                                                     "createdAt": "2025-10-25T14:32:00"
                                                   },
                                                   {
-                                                    "author": "박민재",
+                                                    "author": "홍길동",
                                                     "rating": 4,
                                                     "content": "좌석 간격이 넓고 조용해서 작업하기 좋았습니다.",
                                                     "createdAt": "2025-10-27T09:45:10"
@@ -490,19 +490,4 @@ public class CafeController {
     }
 
 
-//    2. 요즘 뜨고 있는 카페 순위별 조회 (hot10) todo: 찜+리뷰데이터 필요
-//    최근 찜 + 리뷰 수 통계 SQL집계 (30일 기준)
-
-//    3. 찜 많은 카페 순위별 조회 (wish10) todo: wishlists 테이블 필요
-
-
-
-//    5. 사용자 맞춤 카페 순위별 조회 (related10) todo: 임시로 랜덤/지역기반 -> ai
-
-
-
-
-//    8. 서울시 카페 전체 목록 조회
-//    @GetMapping("/")
-//    public ResponseEntity<?> getAllCafes() {}
 }

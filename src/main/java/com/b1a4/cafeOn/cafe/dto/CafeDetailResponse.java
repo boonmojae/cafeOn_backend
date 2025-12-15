@@ -35,21 +35,14 @@ public class CafeDetailResponse {
     @Schema(description = "평균 별점", example = "3.90")
     private String rating;
 
-//    @Schema(description = "카페 사진 URL 리스트")
-//    private List<String> photos;
-
     @Schema(description = "영업시간", example = "월 10:00~20:00")
     private String hours;
-
-//    이부분은 프론트에서 해야할 것 같음
-//    @Schema(description = "현재 영업 여부", example = "true")
-//    private boolean isOpen;
 
     @Schema(description = "후기 요약", example = "조용하고 감성적인 분위기의 브런치 카페입니다.")
     private String reviewsSummary;
 
     @Schema(description = "후기 목록")
-    private List<ReviewResponseDTO> reviews;    // todo: 민재가 구현할 reviewDTO던 내가 만들던? 해야함 민재코드 보자
+    private List<ReviewResponseDTO> reviews;
 
     @Schema(description = "태그 목록")
     private  List<String> tags;
@@ -64,7 +57,7 @@ public class CafeDetailResponse {
     @AllArgsConstructor
     @Schema(description = "후기 정보 DTO")
     public static class ReviewDTO {
-        @Schema(example = "김도이")
+        @Schema(example = "홍길동")
         private String author;
 
         @Schema(example = "4.8")
