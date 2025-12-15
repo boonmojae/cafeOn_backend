@@ -6,7 +6,6 @@ import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
 import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
-import com.b1a4.cafeOn.review.repository.ReviewRepository;
 import com.b1a4.cafeOn.review.service.ReviewService;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +26,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -44,9 +42,7 @@ import java.util.stream.Collectors;
 public class CafeService {
     private final CafeRepository cafeRepository;
     private final ReviewService reviewService;
-    private final ReviewRepository reviewRepository;
-    // feedback: RestTemplate Bean 등록 누락
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private static final int KAKAO_PAGE_SIZE = 15;
     private static final int KAKAO_MAX_PAGES = 45;
 
