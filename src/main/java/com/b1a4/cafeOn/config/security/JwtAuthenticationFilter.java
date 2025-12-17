@@ -37,22 +37,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest req,
                                     HttpServletResponse res,
                                     FilterChain filterChain) throws ServletException, IOException {
+
+        String path = req.getRequestURI();
+
+        // 로그 레벨 최적화: DEBUG 환경에서만 로그 출력
+        // logback/log4j 설정에 따라 DEBUG 레벨일 때만 출력됩니다.
+        if (log.isDebugEnabled()) {
+            log.debug("JwtAuthenticationFilter 실행 중... path={}", path);
+        }
+
         try {
-            String path = req.getRequestURI();
-            log.info("JwtAuthenticationFilter 실행 중... path={}", path);
-
-            if (path.startsWith("/actuator/")) {
+            // 불필요한 경로 필터링
+            if (path.startsWith("/actuator/") || path.equals("/api/auth/refresh")) {
                 filterChain.doFilter(req, res);
                 return;
             }
 
-            if (path.equals("/api/auth/refresh")) {
+            // 추가 필터링 (예: Swagger, 정적 파일) 선택
+            if (path.startsWith("/v3/api-docs") || path.startsWith("/swagger-ui")) {
                 filterChain.doFilter(req, res);
                 return;
             }
 
+            // 토큰 검증 및 인증 로직 시작
             String token = parseBearerToken(req);
             if (token != null && !token.equalsIgnoreCase("null")) {
+
                 Map<String, String> claims = tokenProvider.validateAndExtractClaims(token, "access");
                 if (claims != null) {
                     String userId = claims.get("userId");
@@ -68,6 +78,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     context.setAuthentication(authentication);
                     SecurityContextHolder.setContext(context);
 
+                    // 인증 성공 로그: INFO 레벨로 유지
                     log.info("인증 성공 - userId: {}, role: {}", userId, role);
                 }
             }

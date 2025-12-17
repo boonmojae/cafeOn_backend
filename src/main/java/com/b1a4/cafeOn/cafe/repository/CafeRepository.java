@@ -37,7 +37,7 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     List<CafeEntity> findByTag(@Param("tag") String tag);
 
     /**
-     * todo : 1-2. 검색어로 조회 (이미지 있는 카페만)
+     *  1-2. 검색어로 조회 (이미지 있는 카페만)
      */
     @Query(value = """
             SELECT DISTINCT c.*
@@ -52,7 +52,7 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     List<CafeEntity> searchByQuery(@Param("query") String query);
 
     /**
-     * todo : 1-3. 검색어 + 태그 조회 (필요 시)(현재 사용 안됨)
+     * 1-3. 검색어 + 태그 조회(현재 사용 안됨)
      */
     @Query(value = """
             SELECT c.* FROM cafes c
@@ -73,8 +73,6 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
      */
     boolean existsByKakaoId(String kakaoId);
 
-//    (선택) 업데이트 로직을 구현할 경우 사용
-    Optional<CafeEntity> findByKakaoId(String kakaoId);
 
     /**
      * 3. 사용자 위치기반 (위도/경도/반경) 근처 카페 조회(거리 계산 SQL) (이미지 있는 카페만)
@@ -132,14 +130,12 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
     /**
      * 6. 종합 인기지수 기반 Top 10 카페 조회 (가중 평균 방식) (이미지 있는 카페만)
      *
-     * <p>인기지수(Hot Score) 계산 공식:</p>
-     * <pre>
+     * 인기지수(Hot Score) 계산 공식:
      * HotScore =
      *     (최근 7일 조회수 * w7d)
      *   + (전체 누적 조회수 * wAll)
      *   + (평균 평점 * 50 * wRate)
      *   + (리뷰 개수 * 5 * wRev)
-     * </pre>
      *
      * 각 항목의 기본 가중치는 다음과 같습니다:
      * - w7d  : 최근 7일간 조회수 비중 (기본값 0.4)
@@ -147,10 +143,10 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
      * - wRate: 평균 평점 비중 (기본값 0.2)
      * - wRev : 리뷰 수 비중 (기본값 0.2)
      *
-     * <p>가중치는 Controller에서 요청 파라미터로 조정할 수 있습니다.<br>
-     * 예: /api/cafes/hot10/weighted?w7d=0.4&wAll=0.2&wRate=0.2&wRev=0.2</p>
+     * 가중치는 Controller에서 요청 파라미터로 조정할 수 있습니다.
+     * 예: /api/cafes/hot10/weighted?w7d=0.4&wAll=0.2&wRate=0.2&wRev=0.2
      *
-     * <p>쿼리 방식: JOIN 대신 서브쿼리로 리뷰 수를 계산하여 alias 충돌 방지</p>
+     * 쿼리 방식: JOIN 대신 서브쿼리로 리뷰 수를 계산하여 alias 충돌 방지
      *
      * @param w7d  최근 7일 조회수 가중치
      * @param wAll 누적 조회수 가중치
@@ -202,7 +198,6 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
         """, nativeQuery = true)
     List<CafeEntity> findTopWishlistedCafesFull(@Param("limit") int limit);
 
-
     /**
      * 8. 찜 수 계산
      */
@@ -226,4 +221,12 @@ public interface CafeRepository extends JpaRepository<CafeEntity, Long> {
             ORDER BY c.avgRating DESC
             """)
     List<CafeEntity> searchCafesByRating(@Param("query") String query);
+
+    // 조회수 및 최종 조회 시간 갱신
+    @Modifying
+    @Query("UPDATE CafeEntity c SET c.viewCount = c.viewCount + 1, c.lastViewedAt = :now WHERE c.cafeId = :id")
+    void incrementViewCountAndSetLastViewedAt(
+            @Param("id") Long id,
+            @Param("now") LocalDateTime now
+    );
 }

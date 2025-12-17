@@ -4,18 +4,19 @@ import com.b1a4.cafeOn.cafe.dto.CafeDTO;
 import com.b1a4.cafeOn.cafe.dto.CafeDetailResponse;
 import com.b1a4.cafeOn.cafe.entity.CafeEntity;
 import com.b1a4.cafeOn.cafe.enums.CafeSource;
+import com.b1a4.cafeOn.cafe.exception.KakaoApiConnectionException;
+import com.b1a4.cafeOn.cafe.exception.KakaoApiRequestException;
+import com.b1a4.cafeOn.cafe.exception.KakaoApiServiceUnavailableException;
 import com.b1a4.cafeOn.cafe.repository.CafeRepository;
+import com.b1a4.cafeOn.common.exception.ClientErrorException;
 import com.b1a4.cafeOn.review.dto.ReviewResponseDTO;
 import com.b1a4.cafeOn.review.service.ReviewService;
+import org.springframework.http.*;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
@@ -69,7 +70,7 @@ public class CafeService {
             // 배치 조회: 카페, 태그, 리뷰 일괄 조회
             final Map<Long, CafeEntity> cafeMap = !cafeIds.isEmpty()
                     ? cafeRepository.findAllById(cafeIds).stream()
-                            .collect(Collectors.toMap(CafeEntity::getCafeId, Function.identity()))
+                    .collect(Collectors.toMap(CafeEntity::getCafeId, Function.identity()))
                     : new HashMap<>();
 
             final Map<Long, List<String>> tagsMap = new HashMap<>();
@@ -78,19 +79,19 @@ public class CafeService {
                 try {
                     List<Object[]> tagResults = cafeRepository.findTagNamesByCafeIds(cafeIds);
                     log.info("🔍 [태그 조회] 요청 카페 수: {}, 조회된 태그 결과 수: {}", cafeIds.size(), tagResults != null ? tagResults.size() : 0);
-                    
+
                     if (tagResults != null && !tagResults.isEmpty()) {
                         for (Object[] row : tagResults) {
                             if (row == null || row.length < 2) {
                                 continue;
                             }
-                            
+
                             Long cafeId = null;
                             try {
                                 // cafe_id 파싱 (BigInteger, Long, Integer 등 처리)
                                 Object idObj = row[0];
                                 if (idObj == null) continue;
-                                
+
                                 if (idObj instanceof Number) {
                                     cafeId = ((Number) idObj).longValue();
                                 } else if (idObj instanceof String) {
@@ -103,7 +104,7 @@ public class CafeService {
                                 log.warn("⚠️ cafe_id 파싱 실패: row={}, error={}", Arrays.toString(row), e.getMessage());
                                 continue;
                             }
-                            
+
                             // 태그명 파싱
                             String tagName = null;
                             try {
@@ -115,13 +116,13 @@ public class CafeService {
                                 log.warn("⚠️ 태그명 파싱 실패: row={}, error={}", Arrays.toString(row), e.getMessage());
                                 continue;
                             }
-                            
+
                             if (cafeId != null && tagName != null && !tagName.isEmpty()) {
                                 tagsMap.computeIfAbsent(cafeId, k -> new ArrayList<>()).add(tagName);
                             }
                         }
                     }
-                    
+
                     log.info("📊 [태그 조회 완료] 총 {}개 카페 중 태그가 있는 카페: {}개", cafeIds.size(), tagsMap.size());
                 } catch (Exception e) {
                     log.error("❌ 태그 일괄 조회 중 오류 발생: {}", e.getMessage(), e);
@@ -263,9 +264,9 @@ public class CafeService {
 
 
     /**
-     *  2. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
+     * 2. 핵심 로직 : 카카오 API 결과와 DB 데이터를 병합
      */
-    private  List<CafeDTO> searchAndMerge(String keyword) {
+    private List<CafeDTO> searchAndMerge(String keyword) {
         List<Map<String, Object>> documents = fetchFromKakao(keyword);
 
 //        2-1. 카카오 API 에서 결과 없는 경우 -> DB fallback (성능 최적화: LIMIT 추가)
@@ -323,13 +324,12 @@ public class CafeService {
         List<Map<String, Object>> allDocuments = new ArrayList<>();
 
         try {
-            // 성능 최적화: 첫 페이지만 조회 (검색 목록에는 충분)
             String url = UriComponentsBuilder
                     .fromUriString("https://dapi.kakao.com/v2/local/search/keyword.json")
-                    .queryParam("query", keyword)               // 예: "강남 카페"
-                    .queryParam("size", 15)                    // 첫 페이지 15개만
-                    .queryParam("page", 1)                     // 첫 페이지만
-                    .encode(StandardCharsets.UTF_8)             // ✅ 한글 안전하게 인코딩
+                    .queryParam("query", keyword)
+                    .queryParam("size", 15)
+                    .queryParam("page", 1)
+                    .encode(StandardCharsets.UTF_8)
                     .toUriString();
 
             log.info("🚀 Kakao API Request URL: {}", url);
@@ -342,26 +342,39 @@ public class CafeService {
                     url,
                     HttpMethod.GET,
                     entity,
-                    new ParameterizedTypeReference<>() {}
+                    new ParameterizedTypeReference<>() {
+                    }
             );
 
             Map<String, Object> body = response.getBody();
             if (body != null && body.containsKey("documents")) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> documents = (List<Map<String, Object>>) body.get("documents");
-                
+
                 log.info("📡 Kakao API Response: {} results", documents.size());
                 allDocuments.addAll(documents);
             }
 
+        } catch (HttpClientErrorException e) {
+            log.error("❌ Kakao API 4xx error: status {}", e.getStatusCode());
+            throw new KakaoApiRequestException();
+
+        } catch (HttpServerErrorException e) {
+            log.error("❌ Kakao API 5xx error: status {}", e.getStatusCode());
+            throw new KakaoApiServiceUnavailableException();
+
+        } catch (ResourceAccessException e) {
+            log.error("❌ Kakao API connection error (Network/Timeout)", e);
+            throw new KakaoApiConnectionException();
+
         } catch (Exception e) {
-            log.error("❌ Kakao API request failed: {}", e.getMessage(), e);
-        } // feedback 이 부분에서는 에러를 하나로 묶는것보다 여러개의 exception을 쪼개기
+            log.error("❌ Kakao API unexpected error", e);
+            throw new ClientErrorException(HttpStatus.INTERNAL_SERVER_ERROR, "카카오 API 호출 중 예상치 못한 오류가 발생했습니다.");
+        }
 
         log.info("✅ Kakao fetch done. total documents: {}", allDocuments.size());
         return allDocuments;
     }
-
 
 
     /**
@@ -430,26 +443,26 @@ public class CafeService {
     }
 
 
-    /**
-     * 2. 카페 상세 정보 조회
-     */
+
+    // 조회수, 최종 시간 갱신
     @Transactional
-    // feedback
-    // readOnly=true권장, 조회/읽기 메서드 분리
+    public void incrementViewCount(Long id) {
+        LocalDateTime now = LocalDateTime.now();
+        cafeRepository.incrementViewCountAndSetLastViewedAt(id, now);
+    }
+
+    // 카페 상세 정보 조회
+    @Transactional(readOnly = true)
     public CafeDetailResponse getCafeDetail(Long id) {
+
         CafeEntity entity = cafeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 카페를 찾을 수 없습니다. id=" + id));
 
-        // 2-1. 조회수 증가
-        entity.setViewCount(entity.getViewCount() + 1);
-        entity.setLastViewedAt(LocalDateTime.now());
-        cafeRepository.save(entity);
+        incrementViewCount(id);
 
-        // 2-2. 리뷰 불러오기 (이미 이미지까지 포함된 DTO 반환됨)
         List<ReviewResponseDTO> reviews = reviewService.getReviewsByCafeId(id);
         log.info("✅ [CafeService] cafeId={} -> reviews.size={}", id, reviews.size());
 
-//        2-3. 태그명 리스트 가져오기
         List<String> tagNames = cafeRepository.findTagNamesByCafeId(id);
         log.info(tagNames.toString());
 
@@ -544,7 +557,8 @@ public class CafeService {
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {}
+                    url, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {
+                    }
             );
 
             Map<String, Object> body = response.getBody();
@@ -560,7 +574,7 @@ public class CafeService {
                 return cafes;
             }
 
-            for (Map<String, Object> doc: documents) {
+            for (Map<String, Object> doc : documents) {
                 try {
                     String name = (String) doc.getOrDefault("place_name", "");
                     String address = (String) doc.getOrDefault("road_address_name",
@@ -697,7 +711,6 @@ public class CafeService {
         log.info("💬 [CafeService] cafeId={} 리뷰 {}개 반환", cafeId, reviews.size());
         return result;
     }
-
 
 
     /**

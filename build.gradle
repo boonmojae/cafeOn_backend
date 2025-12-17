@@ -47,6 +47,8 @@ dependencies {
 
     implementation platform("software.amazon.awssdk:bom:2.37.3")
     implementation "software.amazon.awssdk:s3" // S3 SDK 추가
+
+    implementation 'org.apache.httpcomponents.client5:httpclient5' // RestTemplate
 }
 
 tasks.named('test') {
