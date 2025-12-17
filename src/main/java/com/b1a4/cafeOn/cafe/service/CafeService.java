@@ -377,11 +377,9 @@ public class CafeService {
     }
 
 
-    /**
-     * @Async: 카카오 검색 결과를 DB에 비동기 저장 (신규 카페만)
-     * 이 메서드는 public 이어야 프록시가 생성되어 비동기(@Async)로 동작합니다.
-     */
     @Async
+    // 호출한 스레드가 해당 메서드의 완료를 기다리지 않고 바로 다음 코드를 실행할 수 있도록
+    // 이 메서드를 별도의 스레드에서 실행하게 만드는 역할을 함
     @Transactional
     public void synchronizeCafe(Map<String, Object> doc, String kakaoId) {
 //        DB에 kakaoId가 이미 있는지 확인 (더 정확함)
@@ -396,8 +394,6 @@ public class CafeService {
             }
         } else {
             log.info("ℹ️ Async: Cafe already exists. Kakao ID [{}]", kakaoId);
-//            (선택) 기존 데이터 업데이트 로직 추가 가능
-//            예: cafeRepository.findByKakaoId(kakaoId).ifPresent(cafe -> { ... update ... });
         }
     }
 
@@ -410,7 +406,7 @@ public class CafeService {
         String jibun = (String) doc.getOrDefault("address_name", "");
 
         return CafeDTO.builder()
-                .cafeId(null)   // DTO는 전송용이니 프론트로 보내야하는 값이라 null처리 해서 보낸다
+                .cafeId(null)
                 .name((String) doc.get("place_name"))
                 .address(!road.isEmpty() ? road : jibun)
                 .latitude(new BigDecimal((String) doc.get("y")))
@@ -428,7 +424,6 @@ public class CafeService {
         String jibun = (String) doc.getOrDefault("address_name", "");
         String kakaoId = (String) doc.get("id");
 
-//        CafeEntity의 @Id가 Auto-increment라고 가정하고 cafeId는 설정하지 않음
         return CafeEntity.builder()
                 .kakaoId(kakaoId)
                 .name((String) doc.get("place_name"))
@@ -437,7 +432,7 @@ public class CafeService {
                 .longitude(new BigDecimal((String) doc.get("x")))
                 .phone((String) doc.get("phone"))
                 .kakaoUrl((String) doc.get("place_url"))
-                .source(CafeSource.KAKAO)   // EnumType import 필요
+                .source(CafeSource.KAKAO)
                 .createdAt(LocalDateTime.now())
                 .build();
     }

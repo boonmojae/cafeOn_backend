@@ -94,7 +94,7 @@ public class ChatRoomMemberService {
             throw new ChatRoomFullException(room.getChatRoomId(), room.getMaxCapacity());
         }
 
-        // 스템 메시지는 신규 가입 때만
+        // 시스템 메시지는 신규 가입 때만
         if (inserted == 1) {
             chatService.publishSystemJoin(room.getChatRoomId(), userId);
         }

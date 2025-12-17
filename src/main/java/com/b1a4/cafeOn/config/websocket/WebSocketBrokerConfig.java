@@ -18,7 +18,7 @@ public class WebSocketBrokerConfig implements WebSocketMessageBrokerConfigurer {
     @Bean(name = "customBrokerTaskScheduler")
     public ThreadPoolTaskScheduler customBrokerTaskScheduler() {
         ThreadPoolTaskScheduler ts = new ThreadPoolTaskScheduler();
-        ts.setPoolSize(4); // 컴퓨터를 방치해서 화면 꺼짐 절전으로 됐더니 하트비트 1을 추가해도 에러가 났었다 그래서 2~4로 권장한다는데 4로 설정
+        ts.setPoolSize(4); // 2~4를 권장
         ts.setThreadNamePrefix("ws-heartbeat-");
         ts.initialize();
         return ts;
@@ -46,7 +46,7 @@ public class WebSocketBrokerConfig implements WebSocketMessageBrokerConfigurer {
 
         registry.enableSimpleBroker("/sub", "/queue") // 방 브로드캐스트, 개인 큐
                 .setTaskScheduler(customBrokerTaskScheduler())
-                // .setHeartbeatValue(new long[]{10_000, 10_000}); 엄격한 설정
-                .setHeartbeatValue(new long[]{10_000, 0}); // 서버 -> 클라만 보내고, 크라 -> 서버 기대는 해제
+                // .setHeartbeatValue(new long[]{10_000, 10_000}); 엄격한 설정으로 주석처리
+                .setHeartbeatValue(new long[]{10_000, 0}); // 서버 -> 클라만 보내고, 클라 -> 서버 기대는 해제
     }
 }
