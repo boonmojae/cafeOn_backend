@@ -1,28 +1,23 @@
 package com.b1a4.cafeOn.user.entity;
 
-import com.b1a4.cafeOn.community.post.entity.PostEntity;
 import com.b1a4.cafeOn.user.enums.UserProvider;
 import com.b1a4.cafeOn.user.enums.UserRole;
 import com.b1a4.cafeOn.user.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
-@Entity // DB 구조와 같아야 함
+@Entity
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "users")   // DB 테이블명
+@Table(name = "users")
 
-@SQLDelete(sql = "UPDATE users SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, status = 'DELETED' WHERE user_id = ?")
-@Where(clause = "deleted_at IS NULL")
+@SQLRestriction("deleted_at IS NULL")
 public class UserEntity {
-//    ENUM 기본값으로 첫 값이 0으로 설정되어 들어감. 하지만 엔티티 생성할 때 생성자나 setter로 다른 상태로 가입 처리 가능
 
     @Id
     @Column(name = "user_id", columnDefinition = "CHAR(36)")
@@ -74,7 +69,7 @@ public class UserEntity {
     @Builder.Default
     private int penaltyCount = 0;
 
-    @Column(name = "created_at", nullable = false, updatable = false)   // updatable=false : 엔티티를 merge하거나 save할 때 이 필드는 SQL UPDATE 쿼리에 포함되지 않음 (즉, 한 번 저장된 생성일자는 이후 수정할 수 없음)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false)
@@ -86,15 +81,13 @@ public class UserEntity {
     @Column(name = "profile_image_url", length = 255)
     private String profileImageUrl;
 
-    @PrePersist // Persist(INSERT) 하기 전에 실행됨
-    // save() 할 때, 처음DB에 들어가기 직전 호출되어, 자동으로 createdAt/updatedAt이 들어감
+    @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();   // 처음 생성할 때는 created=updated 같게
+        this.updatedAt = LocalDateTime.now();
     }
 
-    @PreUpdate  // Update(UPDATE) 되기 전에 실행됨
-    // 기존 엔티티가 수정될 때 호출됨, 주로 updatedAt 값 갱신 시 사용
+    @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
